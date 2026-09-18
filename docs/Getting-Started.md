@@ -134,8 +134,36 @@ Use `[ValueObjectDefaults]` to set defaults for the whole assembly:
 
 Individual attributes override assembly defaults.
 
+## 7. Validate with ZodSharp
+
+[Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp) is a C# port of Zod that can validate
+value objects. Add `[ZodSchema]` (plus DataAnnotations on the underlying value) to generate a
+zero-allocation validator, or build a schema for the raw value with `Z.String()`, `Z.Number()`, `Z.Enum()`:
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using ZodSharp;
+
+[Scalar]
+[ZodSchema]
+public readonly partial record struct EmailAddress
+{
+    [EmailAddress]
+    [StringLength(254, MinimumLength = 3)]
+    public string Value { get; }
+
+    // ...
+}
+
+var email = EmailAddress.Create("demo@example.com");
+var result = EmailAddressSchema.Validate(email);   // ValidationResult<EmailAddress>
+```
+
+See `ZodSharp-Validation.md` and the `samples/ValueObjects.ZodSharpSample` project.
+
 ## Next steps
 
 - `Entity-Framework.md` – mapping value objects to EF JSON columns.
 - `Value-Object-Design.md` – where validation lives and the `Create`/`Hydrate` split.
+- `ZodSharp-Validation.md` – validating value objects with Purview.ZodSharp.
 - The `samples/` folder for runnable examples.

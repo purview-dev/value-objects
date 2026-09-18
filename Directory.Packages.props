@@ -1,13 +1,18 @@
 <Project>
 	<PropertyGroup>
+		<!-- Set explicitly rather than relying on auto-detection, so projects outside src/ (samples)
+		     also use central package management. -->
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.68.4</TUnitVersion>
 		<PurviewSGFVersion>1.0.0-prerelease.44</PurviewSGFVersion>
+		<PurviewZodSharpVersion>2.0.0-prerelease.9</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />
 		<PackageVersion Include="Purview.SourceGeneratorFramework.Testing.TUnit" Version="$(PurviewSGFVersion)" />
+		<PackageVersion Include="Purview.ZodSharp" Version="$(PurviewZodSharpVersion)" />
 		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="$(RoslynVersion)" />

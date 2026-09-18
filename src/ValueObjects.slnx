@@ -19,5 +19,6 @@
 	</Folder>
 	<Folder Name="/samples/">
 		<Project Path="../samples/ValueObjects.Sample/ValueObjects.Sample.csproj" />
+		<Project Path="../samples/ValueObjects.ZodSharpSample/ValueObjects.ZodSharpSample.csproj" />
 	</Folder>
 </Solution>

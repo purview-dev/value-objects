@@ -74,6 +74,32 @@ modelBuilder
 
 See the `samples/` folder for end-to-end examples and `docs/` for guidance.
 
+## Validation with ZodSharp
+
+Validate value objects with [Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp), a C# port of
+Zod. Two patterns are supported:
+
+- **Generated validators** – annotate a value object or DTO with `[ZodSchema]` + DataAnnotations; a source
+  generator emits a zero-allocation `{Type}Schema` validator (`EmailAddressSchema.Validate(email)`).
+- **Schema-first** – build a schema for the scalar's underlying value (`Z.String().Email()`, `Z.Number()`,
+  `Z.Enum<>()`) and construct the value object through its strict `Create` factory.
+
+```csharp
+using ZodSharp;
+
+[Scalar]
+[ZodSchema]
+public readonly partial record struct EmailAddress
+{
+    [EmailAddress]
+    public string Value { get; }
+}
+
+var result = EmailAddressSchema.Validate(EmailAddress.Create("demo@example.com"));
+```
+
+See [ZodSharp Validation](docs/ZodSharp-Validation.md) and the `samples/ValueObjects.ZodSharpSample` project.
+
 ## How it works
 
 - `Create(...)` is the strict creation path: normalize, validate, then construct.

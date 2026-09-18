@@ -33,6 +33,11 @@ domain-appropriate exceptions. Keep validation pure and deterministic; it must n
 | Primitive format and canonicalization | `OnNormalize` / `OnValidate` in the value object |
 | Cross-field invariants | `partial void OnValidate(...)` in a `[ValueObject]` |
 | Owner/state-machine transitions | contextual `Create(TValue, in ValueObjectContext<TOwner>)` |
+| External schema rules / DTO validation | Purview.ZodSharp schemas (see `ZodSharp-Validation.md`) |
+
+Use the value object hooks for invariants that must hold for every construction path. Use ZodSharp when you need
+schema-driven validation (DataAnnotations-based `[ZodSchema]` validators, hand-built `Z.*` schemas, or DTO
+validation before mapping to value objects).
 
 ## Deserialization modes
 
