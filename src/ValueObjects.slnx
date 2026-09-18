@@ -5,20 +5,21 @@
 		<File Path="../.editorconfig" />
 		<File Path="../Directory.Packages.props" />
 		<File Path="../package.json" />
+		<File Path="../purview-build.json" />
 		<File Path="Directory.Build.props" />
 		<File Path="Directory.Build.targets" />
 	</Folder>
 	<Folder Name="/src/">
-		<Project Path="src/ValueObjects/ValueObjects.csproj" />
-		<Project Path="src/SourceGenerator/SourceGenerator.csproj" />
 		<Project Path="src/SourceGenerator.Refactorings/SourceGenerator.Refactorings.csproj" />
+		<Project Path="src/SourceGenerator/SourceGenerator.csproj" />
+		<Project Path="src/ValueObjects/ValueObjects.csproj" />
 	</Folder>
 	<Folder Name="/src/samples/">
 		<Project Path="src/Sample/Sample.csproj" />
 		<Project Path="src/ZodSharpSample/ZodSharpSample.csproj" />
 	</Folder>
 	<Folder Name="/tests/">
-		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />
+		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 	</Folder>
 </Solution>
