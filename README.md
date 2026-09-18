@@ -1,5 +1,8 @@
 # Purview.ValueObjects
 
+[![NuGet](https://img.shields.io/nuget/v/Purview.ValueObjects.svg)](https://www.nuget.org/packages/Purview.ValueObjects)
+[![Release](https://github.com/purview-dev/value-objects/actions/workflows/release.yml/badge.svg)](https://github.com/purview-dev/value-objects/actions/workflows/release.yml)
+
 Source-generated scalar and complex value objects for .NET.
 
 Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[Scalar]` or `[ValueObject]` and the
