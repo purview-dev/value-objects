@@ -9,7 +9,7 @@ namespace Purview.ValueObjects.ZodSharpSample;
 /// <c>RegistrationDtoSchemaValidator</c>. Values are mapped to value objects after validation.
 /// </summary>
 [ZodSchema]
-public sealed class RegistrationDto
+sealed class RegistrationDto
 {
 	[Required]
 	[StringLength(100, MinimumLength = 2)]
@@ -28,7 +28,7 @@ public sealed class RegistrationDto
 	/// </summary>
 	public IEnumerable<ValidationError> Validate()
 	{
-		if (Name.StartsWith("x", StringComparison.OrdinalIgnoreCase))
+		if (Name.StartsWith('x'))
 			yield return new ValidationError("name", "Name cannot start with 'x'.", [nameof(Name)]);
 	}
 }

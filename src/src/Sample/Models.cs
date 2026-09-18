@@ -3,7 +3,7 @@ using Purview.ValueObjects.Serialization;
 namespace Purview.ValueObjects.Sample;
 
 [Scalar]
-public readonly partial record struct EmailAddress
+readonly partial record struct EmailAddress
 {
 	public string Value { get; }
 
@@ -23,7 +23,7 @@ public readonly partial record struct EmailAddress
 }
 
 [Scalar]
-public readonly partial record struct CurrencyCode
+readonly partial record struct CurrencyCode
 {
 	public string Value { get; }
 
@@ -37,7 +37,7 @@ public readonly partial record struct CurrencyCode
 }
 
 [Scalar]
-public readonly partial record struct OrderId
+readonly partial record struct OrderId
 {
 	public Guid Value { get; }
 
@@ -49,7 +49,7 @@ public readonly partial record struct OrderId
 }
 
 [ValueObject]
-public readonly partial record struct Money
+readonly partial record struct Money
 {
 	public decimal Amount { get; }
 
@@ -65,7 +65,7 @@ public readonly partial record struct Money
 	}
 }
 
-public enum OrderStatusKind
+enum OrderStatusKind
 {
 	Pending,
 	Shipped,
@@ -73,7 +73,7 @@ public enum OrderStatusKind
 }
 
 [Scalar]
-public readonly partial record struct OrderStatus
+readonly partial record struct OrderStatus
 {
 	public OrderStatusKind Value { get; }
 
@@ -82,4 +82,15 @@ public readonly partial record struct OrderStatus
 		if (!Enum.IsDefined(value))
 			throw new ArgumentException("Invalid order status.", nameof(value));
 	}
+}
+
+sealed class Order
+{
+	public OrderId Id { get; init; }
+
+	public EmailAddress CustomerEmail { get; init; }
+
+	public Money Total { get; init; }
+
+	public OrderStatus Status { get; init; }
 }

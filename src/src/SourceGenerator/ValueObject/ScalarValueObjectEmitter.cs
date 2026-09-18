@@ -123,8 +123,31 @@ static partial class ScalarValueObjectEmitter
 				body =>
 				{
 					body.MethodCall("OnNormalize", "ref value");
-					body.MethodCall("OnValidate", "value");
-					body.Return("new(value)");
+
+					if (model.HasZodSchemaValidation)
+					{
+						var schemaReference = GetZodSchemaReference(model);
+						body.Assignment(
+							"var",
+							"instance",
+							new ObjectCreationOptions(valueObjectType, [new MethodCallArgumentOptions("value")])
+						);
+						body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
+						body.IfBlock(
+							"!result.IsSuccess",
+							ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
+						);
+
+						if (model.Options.ZodSchemaMode != ValueObjectSymbolInspector.InsteadOfHooksModeName)
+							body.MethodCall("OnValidate", "value");
+
+						body.Return("instance");
+					}
+					else
+					{
+						body.MethodCall("OnValidate", "value");
+						body.Return("new(value)");
+					}
 				}
 			);
 		}
@@ -141,6 +164,11 @@ static partial class ScalarValueObjectEmitter
 			);
 		}
 	}
+
+	internal static string GetZodSchemaReference(ScalarValueObjectModel model) =>
+		model.TypeModel.Namespace is null
+			? model.ZodSchemaClassName!
+			: $"global::{model.TypeModel.Namespace}.{model.ZodSchemaClassName}";
 
 	static void EmitEmpty(CodeWriter writer, ScalarValueObjectModel model)
 	{

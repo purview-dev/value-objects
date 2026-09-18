@@ -6,13 +6,16 @@ a C# port of the Zod schema validation library.
 ## Run
 
 ```text
-dotnet run --project samples/ValueObjects.ZodSharpSample
+dotnet run --project src/src/ZodSharpSample
 ```
 
 ## What it shows
 
-- **Generated validators on value objects** — `[Scalar]` value objects annotated with `[ZodSchema]`
-  plus DataAnnotations on their underlying value. `EmailAddressSchema.Validate/Parse` and
+- **Generator-integrated validation** — a value object annotated with both `[Scalar]` and `[ZodSchema]`
+  has its generated `Create` wired to the ZodSharp-generated schema. `EmailAddress.Create("not-an-email")`
+  throws a `ZodException`, and `PhoneNumber` uses `ZodSchemaMode.InsteadOfHooks` so the schema is the
+  sole validation gate.
+- **Generated validators on value objects** — `EmailAddressSchema.Validate/Parse` and
   `CurrencyCodeSchema.Validate` validate the value object directly; `ApplyRefine` composes extra
   rules such as "only example.com addresses allowed".
 - **Schema-first validation** — hand-built schemas (`Z.String().Email()`, `Z.String().Regex(...)`,

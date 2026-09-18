@@ -31,7 +31,9 @@ sealed record class ComplexValueObjectModel(
 	bool ParameterlessCtorExists,
 	string? EfConstructorArguments,
 	string HydrateFactoryName,
-	EquatableArray<string> ExistingRelationalOperators
+	EquatableArray<string> ExistingRelationalOperators,
+	bool HasZodSchemaValidation,
+	string? ZodSchemaClassName
 );
 
 readonly record struct ComplexPropertyModel(string Name, string TypeName, TypeReference Type);

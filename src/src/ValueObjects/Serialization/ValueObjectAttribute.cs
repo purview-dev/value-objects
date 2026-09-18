@@ -48,4 +48,11 @@ public sealed class ValueObjectAttribute : Attribute
 	/// </summary>
 	/// <value>Defaults to <see cref="ValueObjectDeserializationMode.Hydrate"/>.</value>
 	public ValueObjectDeserializationMode DeserializationMode { get; init; } = ValueObjectDeserializationMode.Hydrate;
+
+	/// <summary>
+	/// Gets or sets how a source-generated ZodSharp schema validator (from the <c>[ZodSchema]</c>
+	/// attribute on this type) participates in the generated <c>Create</c> path.
+	/// </summary>
+	/// <value>Defaults to <see cref="ZodSchemaMode.InAdditionToHooks"/>.</value>
+	public ZodSchemaMode ZodSchemaMode { get; init; } = ZodSchemaMode.InAdditionToHooks;
 }

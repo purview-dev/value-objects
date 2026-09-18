@@ -1,27 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net10.0</TargetFramework>
-		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
 		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\src\ValueObjects\ValueObjects.csproj" />
+		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
+		<PackageReference Include="Purview.ZodSharp" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- In-repo consumers reference the analyzer directly; NuGet consumers get it from the
+		<!-- In-repo consumers reference the analyzers directly; NuGet consumers get them from the
 		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
 		<ProjectReference
-			Include="..\..\src\src\SourceGenerator\SourceGenerator.csproj"
+			Include="..\SourceGenerator\SourceGenerator.csproj"
 			PrivateAssets="all"
 			ReferenceOutputAssembly="false"
 			OutputItemType="Analyzer"
 		/>
 		<ProjectReference
-			Include="..\..\src\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			Include="..\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
 			PrivateAssets="all"
 			ReferenceOutputAssembly="false"
 			OutputItemType="Analyzer"

@@ -127,7 +127,7 @@ static partial class ComplexValueObjectEmitter
 				body.MethodCall("OnNormalize", normalizeArgs);
 				body.Assignment(
 					"var",
-					"result",
+					"instance",
 					new ObjectCreationOptions(
 						ValueObjectType(model),
 						[
@@ -137,18 +137,41 @@ static partial class ComplexValueObjectEmitter
 						]
 					)
 				);
-				body.MethodCall(
-					"result.OnValidate",
-					[
-						.. model.Properties.Select(static property =>
-							ValueObjectSymbolInspector.ToCamelCase(property.Name)
-						),
-					]
-				);
-				body.Return("result");
+
+				if (model.HasZodSchemaValidation)
+				{
+					var schemaReference = GetZodSchemaReference(model);
+					body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
+					body.IfBlock(
+						"!result.IsSuccess",
+						ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
+					);
+				}
+
+				if (
+					!model.HasZodSchemaValidation
+					|| model.Options.ZodSchemaMode != ValueObjectSymbolInspector.InsteadOfHooksModeName
+				)
+				{
+					body.MethodCall(
+						"instance.OnValidate",
+						[
+							.. model.Properties.Select(static property =>
+								ValueObjectSymbolInspector.ToCamelCase(property.Name)
+							),
+						]
+					);
+				}
+
+				body.Return("instance");
 			}
 		);
 	}
+
+	internal static string GetZodSchemaReference(ComplexValueObjectModel model) =>
+		model.TypeModel.Namespace is null
+			? model.ZodSchemaClassName!
+			: $"global::{model.TypeModel.Namespace}.{model.ZodSchemaClassName}";
 
 	static void EmitOnValidateDeclaration(CodeWriter writer, ComplexValueObjectModel model)
 	{

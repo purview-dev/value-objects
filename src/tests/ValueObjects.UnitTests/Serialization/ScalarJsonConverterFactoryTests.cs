@@ -67,7 +67,7 @@ public sealed class ScalarJsonConverterFactoryTests
 	GenerateImplicitToPrimitive = false,
 	GenerateEmpty = false
 )]
-partial record struct HydratingEmailAddress
+readonly partial record struct HydratingEmailAddress
 {
 	public string Value { get; }
 
@@ -94,7 +94,7 @@ partial record struct HydratingEmailAddress
 	GenerateImplicitToPrimitive = false,
 	GenerateEmpty = false
 )]
-partial record struct StrictEmailAddress
+readonly partial record struct StrictEmailAddress
 {
 	public string Value { get; }
 
@@ -120,7 +120,7 @@ partial record struct StrictEmailAddress
 	GenerateImplicitToPrimitive = false,
 	GenerateEmpty = false
 )]
-partial record struct CustomerId
+readonly partial record struct CustomerId
 {
 	public Guid Value { get; }
 

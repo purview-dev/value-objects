@@ -171,6 +171,9 @@ static class ScalarValueObjectModelBuilder
 
 		var hintName = ValueObjectSymbolInspector.BuildHintName(typeSymbol, "ScalarValueObject");
 
+		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
+		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
 			scalarOptions,
@@ -216,7 +219,9 @@ static class ScalarValueObjectModelBuilder
 			ValueObjectSymbolInspector.HasContextualCreateOverload(typeSymbol, scalarProperty.Type),
 			SymbolEqualityComparer.Default.Equals(scalarProperty.Type, typeSymbol),
 			BuildExistingRelationalOperators(typeSymbol, typeName, typeName),
-			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName)
+			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
+			hasZodSchemaValidation,
+			zodSchemaClassName
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

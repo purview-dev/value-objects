@@ -159,7 +159,12 @@ var email = EmailAddress.Create("demo@example.com");
 var result = EmailAddressSchema.Validate(email);   // ValidationResult<EmailAddress>
 ```
 
-See `ZodSharp-Validation.md` and the `samples/ValueObjects.ZodSharpSample` project.
+Because `EmailAddress` is both `[Scalar]` and `[ZodSchema]`, the generated `Create` **also** validates the
+constructed instance through `EmailAddressSchema` — `EmailAddress.Create("not-an-email")` throws a
+`ZodException`. Use `ZodSchemaMode.InsteadOfHooks` on the attribute to run the schema instead of the
+`OnValidate` hook.
+
+See `ZodSharp-Validation.md` and the `samples/` folder.
 
 ## Next steps
 

@@ -39,6 +39,11 @@ Use the value object hooks for invariants that must hold for every construction 
 schema-driven validation (DataAnnotations-based `[ZodSchema]` validators, hand-built `Z.*` schemas, or DTO
 validation before mapping to value objects).
 
+When a value object is annotated with both `[Scalar]`/`[ValueObject]` and `[ZodSchema]`, the generator runs the
+ZodSharp schema automatically inside `Create` (construct → `{Type}Schema.Validate(instance)` → throw
+`ZodException` on failure). `ZodSchemaMode` controls whether the `OnValidate` hook also runs (`InAdditionToHooks`,
+the default) or is replaced (`InsteadOfHooks`); `OnNormalize` always runs.
+
 ## Deserialization modes
 
 `[Scalar]` and `[ValueObject]` default to `ValueObjectDeserializationMode.Hydrate`, so JSON reads do not re-validate.

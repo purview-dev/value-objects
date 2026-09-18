@@ -45,5 +45,7 @@ sealed record class ScalarValueObjectModel(
 	bool HasContextualCreateOverload,
 	bool ScalarAndSelfAreSameType,
 	EquatableArray<string> ExistingSelfRelationalOperators,
-	EquatableArray<string> ExistingScalarRelationalOperators
+	EquatableArray<string> ExistingScalarRelationalOperators,
+	bool HasZodSchemaValidation,
+	string? ZodSchemaClassName
 );

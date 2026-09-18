@@ -3,6 +3,7 @@
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
 		<PackageReference Include="Purview.SourceGeneratorFramework.Testing.TUnit" />
+		<PackageReference Include="Purview.ZodSharp" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -146,6 +146,9 @@ static class ComplexValueObjectModelBuilder
 
 		var hintName = ValueObjectSymbolInspector.BuildHintName(typeSymbol, "ComplexValueObject");
 
+		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
+		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+
 		var emptyArguments = ImmutableArray.CreateBuilder<string>(properties.Length);
 		foreach (var property in properties)
 			emptyArguments.Add(ValueObjectSymbolInspector.GetEmptyValueExpression(property.Type));
@@ -185,7 +188,9 @@ static class ComplexValueObjectModelBuilder
 				typeSymbol,
 				typeModel.Value.FullyQualifiedName,
 				typeModel.Value.FullyQualifiedName
-			)
+			),
+			hasZodSchemaValidation,
+			zodSchemaClassName
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

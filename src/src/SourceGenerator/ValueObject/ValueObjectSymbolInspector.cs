@@ -531,4 +531,47 @@ static class ValueObjectSymbolInspector
 
 	public static bool HasMemberWithName(INamedTypeSymbol typeSymbol, string name) =>
 		typeSymbol.GetMembers(name).Any(member => !member.IsImplicitlyDeclared);
+
+	public const string InsteadOfHooksModeName =
+		"global::Purview.ValueObjects.Serialization.ZodSchemaMode.InsteadOfHooks";
+
+	/// <summary>
+	/// True when the value object is also annotated with ZodSharp's <c>[ZodSchema]</c> attribute.
+	/// The attribute type is generated into the <c>ZodSharp</c> namespace by the ZodSharp source
+	/// generator, so detection is by name rather than a compile-time reference.
+	/// </summary>
+	public static bool HasZodSchemaAttribute(INamedTypeSymbol typeSymbol) =>
+		typeSymbol
+			.GetAttributes()
+			.Any(attribute =>
+				attribute.AttributeClass?.Name == "ZodSchemaAttribute"
+				&& attribute.AttributeClass.ContainingNamespace.ToDisplayString() == "ZodSharp"
+			);
+
+	/// <summary>
+	/// Resolves the source-generated schema class name for a <c>[ZodSchema]</c>-annotated type,
+	/// honoring <c>[ZodSchema(SchemaName = "...")]</c>. Returns the default
+	/// <c>{TypeName}Schema</c> when no schema name is specified.
+	/// </summary>
+	public static string? GetZodSchemaClassName(INamedTypeSymbol typeSymbol) =>
+		HasZodSchemaAttribute(typeSymbol)
+			? GetZodSchemaClassName(
+				typeSymbol,
+				typeSymbol
+					.GetAttributes()
+					.First(attribute =>
+						attribute.AttributeClass?.Name == "ZodSchemaAttribute"
+						&& attribute.AttributeClass.ContainingNamespace.ToDisplayString() == "ZodSharp"
+					)
+			)
+			: null;
+
+	static string GetZodSchemaClassName(INamedTypeSymbol typeSymbol, AttributeData zodSchemaAttribute)
+	{
+		var schemaName = zodSchemaAttribute
+			.NamedArguments.Where(argument => string.Equals(argument.Key, "SchemaName", StringComparison.Ordinal))
+			.Select(static argument => argument.Value.Value as string)
+			.FirstOrDefault();
+		return string.IsNullOrWhiteSpace(schemaName) ? typeSymbol.Name + "Schema" : schemaName!;
+	}
 }

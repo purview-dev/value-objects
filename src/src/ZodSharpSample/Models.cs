@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Purview.ValueObjects.Serialization;
 using ZodSharp;
-using ZodSharp.Core;
 
 namespace Purview.ValueObjects.ZodSharpSample;
 
@@ -13,7 +12,7 @@ namespace Purview.ValueObjects.ZodSharpSample;
 /// </summary>
 [Scalar]
 [ZodSchema]
-public readonly partial record struct EmailAddress
+readonly partial record struct EmailAddress
 {
 	[EmailAddress]
 	[StringLength(254, MinimumLength = 3)]
@@ -40,7 +39,7 @@ public readonly partial record struct EmailAddress
 /// </summary>
 [Scalar]
 [ZodSchema]
-public readonly partial record struct CurrencyCode
+readonly partial record struct CurrencyCode
 {
 	[RegularExpression("^[A-Z]{3}$")]
 	public string Value { get; }
@@ -54,10 +53,25 @@ public readonly partial record struct CurrencyCode
 	}
 }
 
-public enum OrderStatusKind
+/// <summary>
+/// A scalar value object whose validation is delegated entirely to the ZodSharp-generated schema:
+/// <c>ZodSchemaMode.InsteadOfHooks</c> skips the <c>OnValidate</c> hook in the generated
+/// <c>Create</c>, so the schema is the single gate on input.
+/// </summary>
+[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
+[ZodSchema]
+readonly partial record struct PhoneNumber
+{
+	[RegularExpression(@"^\+?\d{7,15}$")]
+	public string Value { get; }
+}
+
+enum OrderStatusKind
 {
 	Pending,
+
 	Shipped,
+
 	Delivered,
 }
 
@@ -66,7 +80,7 @@ public enum OrderStatusKind
 /// (<c>Z.Enum&lt;OrderStatusKind&gt;()</c>) rather than a generated one.
 /// </summary>
 [Scalar]
-public readonly partial record struct OrderStatus
+readonly partial record struct OrderStatus
 {
 	public OrderStatusKind Value { get; }
 
@@ -82,7 +96,7 @@ public readonly partial record struct OrderStatus
 /// <see cref="ScalarSchemas"/> (the <c>[ZodSchema]</c> generator is used for the scalar types above).
 /// </summary>
 [ValueObject]
-public readonly partial record struct Money
+readonly partial record struct Money
 {
 	public decimal Amount { get; }
 

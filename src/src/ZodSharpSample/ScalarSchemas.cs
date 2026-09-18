@@ -8,7 +8,7 @@ namespace Purview.ValueObjects.ZodSharpSample;
 /// then construct the value object through its strict <c>Create</c> factory. This is the
 /// schema-first pattern: ZodSharp owns the rule definitions, the value object owns the invariants.
 /// </summary>
-public static class ScalarSchemas
+static class ScalarSchemas
 {
 	public static readonly IZodSchema<string, string> EmailSchema = Z.String().Email().Min(3).Max(254);
 
@@ -39,6 +39,7 @@ public static class ScalarSchemas
 		if (!amountResult.IsSuccess || !currencyResult.IsSuccess)
 			return ValidationResult<Money>.Failure(amountResult.Errors.AddRange(currencyResult.Errors));
 
+		// Both validations succeeded, so we can construct the Money value object.
 		return ValidationResult<Money>.Success(Money.Create(amount, CurrencyCode.Create(currencyResult.Value)));
 	}
 
@@ -47,6 +48,6 @@ public static class ScalarSchemas
 		Func<TSource, TTarget> construct
 	) =>
 		result.IsSuccess
-			? ValidationResult<TTarget>.Success(construct(result.Value!))
+			? ValidationResult<TTarget>.Success(construct(result.Value))
 			: ValidationResult<TTarget>.Failure(result.Errors);
 }

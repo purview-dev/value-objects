@@ -4,11 +4,13 @@
 [Zod](https://github.com/colinhacks/zod) schema validation library. It complements `Purview.ValueObjects`:
 the value object owns the invariants, ZodSharp owns the rule definitions and validation results.
 
-Two patterns are covered here, both demonstrated in `samples/ValueObjects.ZodSharpSample`:
+Three patterns are covered here, demonstrated in the `samples/` folder:
 
-1. **Generated validators** — annotate a value object or DTO with `[ZodSchema]` and DataAnnotations; a
+1. **Generator-integrated validation** — a value object annotated with both `[Scalar]`/`[ValueObject]`
+   and `[ZodSchema]` has its generated `Create` wired to the ZodSharp-generated schema.
+2. **Generated validators** — annotate a value object or DTO with `[ZodSchema]` and DataAnnotations; a
    source generator emits a zero-allocation `{Type}Schema` validator.
-2. **Schema-first validation** — build a schema for the scalar's underlying value with `Z.String()`,
+3. **Schema-first validation** — build a schema for the scalar's underlying value with `Z.String()`,
    `Z.Number()`, `Z.Enum()`, then construct the value object through its strict `Create` factory.
 
 ## Install
@@ -67,7 +69,50 @@ var allowed = EmailAddressSchema.ApplyRefine(
 `[StringLength]`, `[Range]`, `[RegularExpression]`, `[EmailAddress]`, `[AllowedValues]`, and
 `[DeniedValues]`.
 
-## 2. Schema-first validation
+## 2. Generator-integrated validation
+
+When a value object is annotated with **both** `[Scalar]`/`[ValueObject]` **and** `[ZodSchema]`, the
+value-object generator detects it and routes the generated `Create(...)` through the ZodSharp-generated
+schema — no manual schema wiring needed:
+
+```csharp
+[Scalar]
+[ZodSchema]
+public readonly partial record struct EmailAddress
+{
+    [EmailAddress]
+    public string Value { get; }
+    // ...
+}
+
+EmailAddress.Create("not-an-email");   // throws ZodException via EmailAddressSchema.Validate
+```
+
+The generated `Create` constructs the instance, calls `EmailAddressSchema.Validate(instance)`, and
+throws a `ZodException` when validation fails. `Hydrate(...)` remains replay-safe (no re-validation),
+and `ValueObjectDeserializationMode.Strict` (which deserializes through `Create`) picks up the schema
+validation automatically.
+
+`ZodSchemaMode` on `[Scalar]`/`[ValueObject]` controls how the schema and the hand-written hooks
+combine:
+
+- `ZodSchemaMode.InAdditionToHooks` (default) — the schema runs **and** the `OnValidate` hook runs.
+- `ZodSchemaMode.InsteadOfHooks` — the schema runs **instead of** the `OnValidate` hook. `OnNormalize`
+  still runs so input is canonicalized first.
+
+```csharp
+[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
+[ZodSchema]
+public readonly partial record struct PhoneNumber
+{
+    [RegularExpression(@"^\+?\d{7,15}$")]
+    public string Value { get; }
+}
+```
+
+A custom schema class name (from ZodSharp's `[ZodSchema(SchemaName = "...")]`) is honored.
+
+## 3. Schema-first validation
 
 When you do not want the generator involved, build a schema for the scalar's underlying value and
 map a successful result onto the value object:
@@ -105,7 +150,7 @@ Note that ZodSharp validates the raw value exactly as supplied — normalization
 the value object's job in `OnNormalize`. Validate the raw input, then construct with `Create` so the
 value object normalizes and wraps it.
 
-## 3. Validating DTOs before mapping to value objects
+## 4. Validating DTOs before mapping to value objects
 
 Annotate a request/DTO class with `[ZodSchema]`, validate it, then map the validated values onto
 value objects:
@@ -141,7 +186,7 @@ if (result.IsSuccess)
 }
 ```
 
-## 4. Dependency injection and the schema factory
+## 5. Dependency injection and the schema factory
 
 `ZodSchemaFactory` resolves validators by validated type. Register the generated adapter or wrap a
 hand-built schema with `ZodSchemaValidator<T>`:

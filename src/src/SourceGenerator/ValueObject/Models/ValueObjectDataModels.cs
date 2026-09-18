@@ -11,7 +11,9 @@ readonly partial record struct ScalarAttributeData(
 	[Property(DefaultValue = true)] bool GenerateImplicitToPrimitive,
 	[Property(DefaultValue = true)] bool GenerateEmpty,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
-		string DeserializationMode
+		string DeserializationMode,
+	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
+		string ZodSchemaMode
 );
 
 [Generate(TypeLibrary.ValueObjectAttributeFullTypeName)]
@@ -22,7 +24,9 @@ readonly partial record struct ValueObjectAttributeData(
 	[Property(DefaultValue = true)] bool GenerateEmpty,
 	[Property(DefaultValue = true)] bool GenerateConstructor,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
-		string DeserializationMode
+		string DeserializationMode,
+	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
+		string ZodSchemaMode
 );
 
 [Generate(TypeLibrary.ValueObjectDefaultsAttributeFullTypeName)]

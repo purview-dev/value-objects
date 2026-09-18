@@ -24,10 +24,11 @@ public record ValueObjectsGeneratorTestOptions : SourceGeneratorTestOptions
 		ValidateCodeWriterScopes = true;
 		AdditionalNamespaces =
 		[
-			typeof(ValueObjects.Serialization.ScalarJsonConverterFactory).Namespace!,
-			typeof(ValueObjects.IValueObject).Namespace!,
+			typeof(ScalarJsonConverterFactory).Namespace!,
+			typeof(IValueObject).Namespace!,
+			typeof(ZodSharp.Core.ValidationResult<>).Namespace!,
 		];
-		AdditionalAssemblyTypes = [typeof(ValueObjects.IValueObject)];
+		AdditionalAssemblyTypes = [typeof(IValueObject), typeof(ZodSharp.Core.ValidationResult<>)];
 		AdditionalReferences = [.. TestMetadataReferences.GetAdditionalReferences()];
 		ExcludeGeneratedSourceHintNames = [.. ValueObjectGeneratedAttributes, PreCompilationMarkerHintName];
 		AnalyzerTypes = [typeof(Analyzers.ValueObjectDiagnosticAnalyzer)];

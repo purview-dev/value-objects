@@ -13,12 +13,12 @@
 		<Project Path="src/SourceGenerator/SourceGenerator.csproj" />
 		<Project Path="src/SourceGenerator.Refactorings/SourceGenerator.Refactorings.csproj" />
 	</Folder>
+	<Folder Name="/src/samples/">
+		<Project Path="src/Sample/Sample.csproj" />
+		<Project Path="src/ZodSharpSample/ZodSharpSample.csproj" />
+	</Folder>
 	<Folder Name="/tests/">
 		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />
-	</Folder>
-	<Folder Name="/samples/">
-		<Project Path="../samples/ValueObjects.Sample/ValueObjects.Sample.csproj" />
-		<Project Path="../samples/ValueObjects.ZodSharpSample/ValueObjects.ZodSharpSample.csproj" />
 	</Folder>
 </Solution>

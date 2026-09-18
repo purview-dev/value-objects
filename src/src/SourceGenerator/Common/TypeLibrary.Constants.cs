@@ -15,4 +15,6 @@ public static partial class TypeLibrary
 
 	public const string ValueObjectDeserializationModeFullTypeName =
 		SerializationNamespace + ".ValueObjectDeserializationMode";
+
+	public const string ZodSchemaModeFullTypeName = SerializationNamespace + ".ZodSchemaMode";
 }

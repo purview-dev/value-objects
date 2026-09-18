@@ -77,8 +77,11 @@ See the `samples/` folder for end-to-end examples and `docs/` for guidance.
 ## Validation with ZodSharp
 
 Validate value objects with [Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp), a C# port of
-Zod. Two patterns are supported:
+Zod. Three patterns are supported:
 
+- **Generator-integrated** – a value object annotated with both `[Scalar]`/`[ValueObject]` and `[ZodSchema]` has
+  its generated `Create` wired to the ZodSharp-generated schema (`Create` throws `ZodException` on invalid input).
+  `ZodSchemaMode.InsteadOfHooks` opts out of the `OnValidate` hook.
 - **Generated validators** – annotate a value object or DTO with `[ZodSchema]` + DataAnnotations; a source
   generator emits a zero-allocation `{Type}Schema` validator (`EmailAddressSchema.Validate(email)`).
 - **Schema-first** – build a schema for the scalar's underlying value (`Z.String().Email()`, `Z.Number()`,
