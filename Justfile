@@ -91,8 +91,9 @@ clean *args:
 # Packs the package into a NuGet package and outputs it to the specified folder
 [group('Build and Test')]
 pack *args:
+    just build
     echo "Packing {{ BLUE }}{{ solution_file }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
-    dotnet pack "{{ solution_file }}" --configuration "{{ build_configuration }}" --output "{{ artifact_folder }}" {{ args }}
+    dotnet pack "{{ solution_file }}" --configuration "{{ build_configuration }}" --no-restore --output "{{ artifact_folder }}" {{ args }}
 
 # -----------------------------------------------------------------------------
 # Formatting

@@ -15,7 +15,7 @@ public sealed class EntityFrameworkDtoSmokeTests
 	[Test]
 	public async Task GeneratedScalar_SerializesAsUnderlyingPrimitive()
 	{
-		var customer = new Customer
+		Customer customer = new()
 		{
 			Id = CustomerId.Hydrate(Guid.NewGuid()),
 			Email = EmailAddress.Create("Demo@Example.COM"),
@@ -29,7 +29,7 @@ public sealed class EntityFrameworkDtoSmokeTests
 	[Test]
 	public async Task GeneratedScalar_DeserializesBackWithValidationApplied()
 	{
-		var customer = new Customer
+		Customer customer = new()
 		{
 			Id = CustomerId.Hydrate(Guid.NewGuid()),
 			Email = EmailAddress.Create("demo@example.com"),
@@ -38,13 +38,13 @@ public sealed class EntityFrameworkDtoSmokeTests
 
 		var roundTripped = JsonSerializer.Deserialize<Customer>(json, EntityJsonOptions);
 
-		await Assert.That(roundTripped.Email).IsEqualTo(EmailAddress.Create("demo@example.com"));
+		await Assert.That(roundTripped!.Email).IsEqualTo(EmailAddress.Create("demo@example.com"));
 	}
 
 	[Test]
 	public async Task GeneratedComplexValueObject_SerializesAsObjectGraph()
 	{
-		var order = new Order
+		Order order = new()
 		{
 			Total = Money.Create(19.99m, CurrencyCode.Create("USD")),
 			Status = OrderStatus.Hydrate(OrderStatusKind.Shipped),

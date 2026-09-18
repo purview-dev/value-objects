@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup Label="NuGet Package Values">
 		<IsPackable>true</IsPackable>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 		<Title>Purview Value Objects</Title>
 		<Description>Source-generated scalar and complex value objects for .NET. Brings F#-style single-case types to C# with Create/Hydrate factories, normalization, validation, equality, comparison, implicit conversions, and JSON serialization for DTOs, Entity Framework, and domain models.</Description>
 		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;</PackageTags>

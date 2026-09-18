@@ -25,4 +25,11 @@
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 	</PropertyGroup>
+
+	<ItemGroup Label="NuGet package assets" Condition="'$(IsPackable)' == 'true'">
+		<None
+			Include="$(MSBuildThisFileDirectory)../assets/images/purview-logo-light.png"
+			Link="Sdk\purview-logo-light.png"
+		/>
+	</ItemGroup>
 </Project>
