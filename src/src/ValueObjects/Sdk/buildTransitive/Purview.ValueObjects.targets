@@ -1,0 +1,7 @@
+<Project>
+	<ItemGroup Label="Compiler Visible SDK Properties">
+		<CompilerVisibleProperty Include="DisableValueObjectsSourceGenerator">
+			<Description>When true, the Purview.ValueObjects source generator is disabled.</Description>
+		</CompilerVisibleProperty>
+	</ItemGroup>
+</Project>

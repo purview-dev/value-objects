@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+		<PackageReference Include="Purview.SourceGeneratorFramework.Testing.TUnit" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
+		<ProjectReference Include="..\..\src\SourceGenerator\SourceGenerator.csproj" />
+		<ProjectReference Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Purview.ValueObjects" />
+		<Using Include="Purview.ValueObjects.Serialization" />
+		<Using Include="Purview.ValueObjects.SourceGenerator" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.Common" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject.Models" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,102 @@
+# Purview.ValueObjects
+
+Source-generated scalar and complex value objects for .NET.
+
+Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[Scalar]` or `[ValueObject]` and the
+incremental source generator produces:
+
+- `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
+- `Empty` instances, equality, comparison, `CompareTo`, `ToString`, and implicit conversions
+- JSON converters (scalar value objects serialize as their underlying value)
+- Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
+
+**Use cases**
+
+- **DTOs** – strong, self-validating types with serialization/deserialization and business rules.
+- **Entity Framework** – value objects map cleanly onto JSON columns via `ScalarJsonConverterFactory`.
+- **Domain models** – the F#-style single-case union pattern in C#.
+
+## Install
+
+```text
+dotnet add package Purview.ValueObjects
+```
+
+The package ships the runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, ...), the source generator,
+and the diagnostic analyzer. There is no dependency on any event-sourcing library.
+
+## Quick start
+
+```csharp
+using Purview.ValueObjects.Serialization;
+
+[Scalar]
+public readonly partial record struct EmailAddress
+{
+    public string Value { get; }
+
+    static partial void OnNormalize(ref string value) => value = value?.Trim().ToLowerInvariant()!;
+
+    static partial void OnValidate(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Email is required.", nameof(value));
+    }
+}
+
+var email = EmailAddress.Create("Demo@Example.com");
+// email.Value == "demo@example.com"
+```
+
+`[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members.
+
+## JSON serialization
+
+Scalar value objects serialize as their underlying value. Register the converter factory on your
+`JsonSerializerOptions`:
+
+```csharp
+var options = new JsonSerializerOptions();
+options.Converters.Add(new ScalarJsonConverterFactory());
+```
+
+The generator also emits a `[JsonConverter]` per value object, so scalar/complex value objects serialize correctly
+even when the factory is not registered.
+
+Use the same options for Entity Framework JSON columns:
+
+```csharp
+modelBuilder
+    .Entity<Customer>()
+    .Property(c => c.Email)
+    .HasColumnType("jsonb");
+```
+
+See the `samples/` folder for end-to-end examples and `docs/` for guidance.
+
+## How it works
+
+- `Create(...)` is the strict creation path: normalize, validate, then construct.
+- `Hydrate(...)` reconstructs from persisted data without re-validating.
+- `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
+  `Strict` re-runs validation).
+- Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance
+  through `ValueObjectContext<TOwner>`.
+
+## Disabling the generator
+
+Set `DisableValueObjectsSourceGenerator` to `true` in your project:
+
+```xml
+<PropertyGroup>
+    <DisableValueObjectsSourceGenerator>true</DisableValueObjectsSourceGenerator>
+</PropertyGroup>
+```
+
+## Repository
+
+- `src/src/ValueObjects` – runtime contracts and the `ScalarJsonConverterFactory`.
+- `src/src/SourceGenerator` – incremental source generator + analyzer.
+- `src/src/SourceGenerator.Refactorings` – code fix for the "must be partial" diagnostic.
+- `src/tests` – unit and source-generator tests.
+- `docs` – design and usage guidance.

@@ -1,0 +1,17 @@
+{
+	"name": "purview-value-objects",
+	"version": "1.0.0-prerelease.1",
+	"license": "MIT",
+	"author": {
+		"name": "Kieron Lanning",
+		"url": "https://kieronlanning.dev/"
+	},
+	"homepage": "https://purview.dev/projects/value-objects/",
+	"bugs": {
+		"url": "https://github.com/purview-dev/value-objects/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/purview-dev/value-objects.git"
+	}
+}

@@ -1,0 +1,26 @@
+{
+	"Build": {
+		"Solution": "src/ValueObjects.slnx",
+		"TestRoot": "src/tests",
+		"TestPatterns": "*Tests.csproj",
+		"TestProjects": "*UnitTests.csproj",
+		"TestFilter": "/*/*/*/*[Category=Unit]"
+	},
+	"PackValidation": {
+		"RequireSymbolPackage": true,
+		"RequireSymbolFiles": true,
+		"RequiredContent": {
+			"purview.valueobjects": [
+				"README.md",
+				"purview-logo-light.png",
+				"buildTransitive/Purview.ValueObjects.targets",
+				"analyzers/dotnet/cs/Purview.ValueObjects.SourceGenerator.dll",
+				"analyzers/dotnet/cs/Purview.ValueObjects.SourceGenerator.Refactorings.dll"
+			]
+		},
+		"ForbiddenContent": {}
+	},
+	"Release": {
+		"Mode": "None"
+	}
+}

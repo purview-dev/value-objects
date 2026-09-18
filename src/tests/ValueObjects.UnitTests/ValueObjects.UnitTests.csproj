@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The source generator and its code fix run on the test project so the [Scalar]/[ValueObject]
+		     DTO fixtures exercise the standalone generator + runtime + serialization experience. -->
+		<ProjectReference
+			Include="..\..\src\SourceGenerator\SourceGenerator.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference
+			Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+	</ItemGroup>
+</Project>

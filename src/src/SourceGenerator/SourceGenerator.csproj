@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<IsRoslynComponent>true</IsRoslynComponent>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+		<PackageReference Include="Purview.SourceGeneratorFramework" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+		<AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject.Models" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.Common" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The code-fix assembly shares the diagnostic descriptors and type library without
+		     acquiring any Workspaces dependency in this assembly. -->
+		<InternalsVisibleTo Include="Purview.ValueObjects.SourceGenerator.Refactorings" />
+	</ItemGroup>
+</Project>

@@ -1,0 +1,28 @@
+<Project>
+	<PropertyGroup>
+		<NamespacePrefix>Purview.ValueObjects</NamespacePrefix>
+		<ExcludePurviewTelemetry>true</ExcludePurviewTelemetry>
+	</PropertyGroup>
+
+	<Import Sdk="Purview.BuildSdk" Project="Sdk.props" />
+
+	<PropertyGroup Label="Purview site URL metadata">
+		<PurviewHomepage>https://purview.dev/</PurviewHomepage>
+		<PurviewProjectUrl>$(PurviewHomepage)projects/value-objects/</PurviewProjectUrl>
+		<PurviewDocsUrl>$(PurviewHomepage)docs/value-objects/</PurviewDocsUrl>
+	</PropertyGroup>
+
+	<PropertyGroup Label="NuGet package metadata">
+		<Authors>Kieron Lanning</Authors>
+		<Company>Purview-Dev</Company>
+		<Copyright>Copyright � $(CurrentYear) Purview-Dev</Copyright>
+		<RepositoryUrl>https://github.com/purview-dev/value-objects.git</RepositoryUrl>
+		<PackageProjectUrl>$(PurviewProjectUrl)</PackageProjectUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageIcon>purview-logo-light.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	</PropertyGroup>
+</Project>
