@@ -40,7 +40,14 @@ static class ScalarValueObjectModelBuilder
 			return GeneratorResult<ScalarValueObjectModel>.Create([.. diagnosticsList]);
 		}
 
-		var scalarOptions = ScalarAttributeData.FromAttributeData(attributes);
+		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+			typeSymbol.ContainingAssembly.GetAttributes()
+		);
+		var scalarOptions = ValueObjectDefaultsHelper.Apply(
+			ScalarAttributeData.FromAttributeData(attributes),
+			assemblyDefaults,
+			attributes
+		);
 		var scalarProperty = typeSymbol
 			.GetMembers(scalarOptions.PropertyName)
 			.OfType<IPropertySymbol>()

@@ -20,6 +20,9 @@ static partial class TypeLibrarySpec
 	[TypeRef("Purview.ValueObjects.Serialization")]
 	static readonly TypeIdentity ValueObjectDeserializationMode = default;
 
+	[TypeRef("Purview.ValueObjects.Serialization")]
+	static readonly TypeIdentity ZodSchemaMode = default;
+
 	[TypeRef("System")]
 	static readonly TypeIdentity Guid = default;
 

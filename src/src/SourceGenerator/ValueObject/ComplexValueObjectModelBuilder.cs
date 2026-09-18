@@ -42,17 +42,11 @@ static class ComplexValueObjectModelBuilder
 		}
 
 		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(compilation.Assembly.GetAttributes());
-		var valueObjectOptions = ValueObjectAttributeData.FromAttributeData(attributes);
-		var effectiveGenerateConstructor =
-			IsPropertyExplicitlySet(
-				attributes,
-				ValueObjectSymbolInspector.ValueObjectAttributeName,
-				"GenerateConstructor"
-			)
-				? valueObjectOptions.GenerateConstructor
-			: assemblyDefaults.Exists ? assemblyDefaults.GenerateConstructor
-			: true;
-		valueObjectOptions = valueObjectOptions with { GenerateConstructor = effectiveGenerateConstructor };
+		var valueObjectOptions = ValueObjectDefaultsHelper.Apply(
+			ValueObjectAttributeData.FromAttributeData(attributes),
+			assemblyDefaults,
+			attributes
+		);
 
 		var typeModel = ValueObjectSymbolInspector.BuildTypeModel(typeSymbol);
 		if (typeModel is null)
@@ -210,15 +204,5 @@ static class ComplexValueObjectModelBuilder
 		}
 
 		return builder.ToImmutable();
-	}
-
-	static bool IsPropertyExplicitlySet(
-		ImmutableArray<AttributeData> attributes,
-		string attributeName,
-		string propertyName
-	)
-	{
-		var attribute = attributes.FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == attributeName);
-		return attribute?.NamedArguments.Any(kvp => kvp.Key == propertyName) ?? false;
 	}
 }

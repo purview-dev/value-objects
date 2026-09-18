@@ -126,13 +126,22 @@ public readonly partial record struct EmailAddress
 
 ## 6. Assembly-level defaults
 
-Use `[ValueObjectDefaults]` to set defaults for the whole assembly:
+Use `[ValueObjectDefaults]` to set generic defaults for the whole assembly. Every option that can be set on
+`[Scalar]`/`[ValueObject]` can be defaulted here (`GenerateJsonConverter`, `GenerateComparable`,
+`GenerateComparisonOperators`, `GenerateEnumProperties`, `GenerateImplicitFromPrimitive`,
+`GenerateImplicitToPrimitive`, `GenerateEmpty`, `GenerateConstructor`, `DeserializationMode`, and
+`ZodSchemaMode`):
 
 ```csharp
-[assembly: ValueObjectDefaults(GenerateConstructor = false)]
+[assembly: ValueObjectDefaults(
+    GenerateConstructor = false,
+    GenerateJsonConverter = false,
+    ZodSchemaMode = ZodSchemaMode.InsteadOfHooks
+)]
 ```
 
-Individual attributes override assembly defaults.
+Assembly defaults apply to every value object in the assembly; an option explicitly set on an individual
+`[Scalar]`/`[ValueObject]` attribute always overrides it.
 
 ## 7. Validate with ZodSharp
 
