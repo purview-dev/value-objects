@@ -16,6 +16,7 @@ static class ValueObjectDefaultsHelper
 		if (!assemblyDefaults.Exists)
 			return typeOptions;
 
+		// Merge assembly defaults into the type options, but only for properties that are not explicitly set on the type.
 		return typeOptions with
 		{
 			GenerateJsonConverter = MergeBool(
@@ -77,6 +78,7 @@ static class ValueObjectDefaultsHelper
 		if (!assemblyDefaults.Exists)
 			return typeOptions;
 
+		// Merge assembly defaults into the type options, but only for properties that are not explicitly set on the type.
 		return typeOptions with
 		{
 			GenerateJsonConverter = MergeBool(

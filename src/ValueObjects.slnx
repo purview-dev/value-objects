@@ -17,6 +17,7 @@
 	<Folder Name="/src/samples/">
 		<Project Path="src/Sample/Sample.csproj" />
 		<Project Path="src/ZodSharpSample/ZodSharpSample.csproj" />
+		<Project Path="src/ZodSharp.AspNetCoreSample/ZodSharp.AspNetCoreSample.csproj" />
 	</Folder>
 	<Folder Name="/tests/">
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />

@@ -104,7 +104,8 @@ public readonly partial record struct EmailAddress
 var result = EmailAddressSchema.Validate(EmailAddress.Create("demo@example.com"));
 ```
 
-See [ZodSharp Validation](docs/ZodSharp-Validation.md) and the `samples/ValueObjects.ZodSharpSample` project.
+See [ZodSharp Validation](docs/ZodSharp-Validation.md), the `samples/ValueObjects.ZodSharpSample` project, and
+the `src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for strict deserialization failures).
 
 ## How it works
 

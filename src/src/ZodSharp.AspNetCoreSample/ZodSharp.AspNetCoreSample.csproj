@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+		<!-- Minimal API samples are inherently coupled to many framework types. -->
+		<NoWarn>$(NoWarn);CA1506</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
+		<PackageReference Include="Purview.ZodSharp" />
+		<PackageReference Include="Purview.ZodSharp.AspNetCore" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- In-repo consumers reference the analyzers directly; NuGet consumers get them from the
+		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
+		<ProjectReference
+			Include="..\SourceGenerator\SourceGenerator.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference
+			Include="..\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+	</ItemGroup>
+</Project>

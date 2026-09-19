@@ -216,6 +216,84 @@ foreach (var error in result.Errors)
 Use `Parse` / `GetValueOrThrow()` to throw a `ZodException` on failure instead of inspecting the
 result.
 
+### ASP.NET Core Problem Details
+
+In ASP.NET Core, `Purview.ZodSharp.AspNetCore` maps thrown `ZodException`s to standard
+`HttpValidationProblemDetails` responses. This covers strict deserialization of value objects
+(`ValueObjectDeserializationMode.Strict`) and any `Create`/`Parse` failure that bubbles up as a
+`ZodException`.
+
+Wire the handler into the pipeline:
+
+```csharp
+builder.Services.AddZodSharpProblemDetails();
+builder.Services.AddProblemDetails();
+
+var app = builder.Build();
+app.UseExceptionHandler();
+```
+
+Mark the value object for strict deserialization and ZodSharp validation so invalid request bodies throw
+during model binding:
+
+```csharp
+[Scalar(
+    ZodSchemaMode = ZodSchemaMode.InsteadOfHooks,
+    DeserializationMode = ValueObjectDeserializationMode.Strict)]
+[ZodSchema]
+public readonly partial record struct EmailAddress
+{
+    [Required, EmailAddress]
+    public string Value { get; }
+}
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new ScalarJsonConverterFactory()));
+```
+
+A `POST` body with an invalid email now returns `400 application/problem+json` with the structured issues
+in the `issues` extension.
+
+Map error codes to HTTP statuses and formatted messages with `ErrorType` + `ErrorTypeRegistry`:
+
+```csharp
+public static class ConcurrentErrorType
+{
+    public static readonly ErrorType SaveFailed = new(
+        Code: "aggregate_save_failed",
+        Description: "The order could not be saved because it was modified concurrently.",
+        HttpStatus: StatusCodes.Status409Conflict,
+        MessageFormat: "Order '{OrderId}' (of type {AggregateType}) failed to save")
+    {
+        Parameters = ["OrderId", "AggregateType"]
+    };
+}
+
+ErrorTypeRegistry.Default.Register(ConcurrentErrorType.SaveFailed);
+```
+
+Throwing a `ZodException` with that code and parameters yields a `409 Conflict` whose message is
+formatted from the error's parameters:
+
+```csharp
+throw new ZodException([
+    ValidationError.Create(
+        "aggregate_save_failed",
+        "The order could not be saved.",
+        path: [],
+        parameters: new Dictionary<string, object?>
+        {
+            ["OrderId"] = orderId,
+            ["AggregateType"] = "Order",
+        }),
+]);
+```
+
+The bundled `ZODSASP001` analyzer flags `MessageFormat` placeholders missing from `Parameters` at
+compile time. See the
+[ASP.NET Core integration](https://purview.dev/docs/zodsharp/aspnetcore-integration/) guide and the
+`src/ZodSharp.AspNetCoreSample` project.
+
 ## JSON Schema export
 
 Export a schema to JSON Schema (Draft 2020-12) for cross-platform sharing with TypeScript Zod:
