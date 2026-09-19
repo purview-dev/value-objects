@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Purview.ValueObjects.SourceGenerator.Generators;
 
 /// <summary>

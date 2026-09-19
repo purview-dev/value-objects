@@ -173,6 +173,11 @@ constructed instance through `EmailAddressSchema` — `EmailAddress.Create("not-
 `ZodException`. Use `ZodSchemaMode.InsteadOfHooks` on the attribute to run the schema instead of the
 `OnValidate` hook.
 
+In ASP.NET Core, `Purview.ZodSharp.AspNetCore` converts those `ZodException`s into standard Problem
+Details responses — combine `ValueObjectDeserializationMode.Strict` with
+`AddZodSharpProblemDetails()` + `UseExceptionHandler()` so invalid request bodies return
+`HttpValidationProblemDetails` automatically. See the `src/ZodSharp.AspNetCoreSample` project.
+
 See `ZodSharp-Validation.md` and the `samples/` folder.
 
 ## Next steps
