@@ -1,5 +1,5 @@
-using Purview.ValueObjects.Serialization;
 using System.ComponentModel.DataAnnotations;
+using Purview.ValueObjects.Serialization;
 using ZodSharp;
 
 namespace Purview.ValueObjects.ZodSharp.AspNetCoreSample;
