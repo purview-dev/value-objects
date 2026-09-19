@@ -6,7 +6,7 @@ Entity Framework JSON-column shape.
 ## Run
 
 ```text
-dotnet run --project samples/ValueObjects.Sample
+dotnet run --project src/src/Sample
 ```
 
 ## What it shows

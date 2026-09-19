@@ -50,4 +50,4 @@ modelBuilder
     .HasColumnType("jsonb");
 ```
 
-See the `samples/` folder for end-to-end examples.
+See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples.

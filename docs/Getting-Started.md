@@ -176,13 +176,13 @@ constructed instance through `EmailAddressSchema` — `EmailAddress.Create("not-
 In ASP.NET Core, `Purview.ZodSharp.AspNetCore` converts those `ZodException`s into standard Problem
 Details responses — combine `ValueObjectDeserializationMode.Strict` with
 `AddZodSharpProblemDetails()` + `UseExceptionHandler()` so invalid request bodies return
-`HttpValidationProblemDetails` automatically. See the `src/ZodSharp.AspNetCoreSample` project.
+`HttpValidationProblemDetails` automatically. See the `src/src/ZodSharp.AspNetCoreSample` project.
 
-See `ZodSharp-Validation.md` and the `samples/` folder.
+See `ZodSharp-Validation.md` and the `src/src/ZodSharpSample` project.
 
 ## Next steps
 
 - `Entity-Framework.md` – mapping value objects to EF JSON columns.
 - `Value-Object-Design.md` – where validation lives and the `Create`/`Hydrate` split.
 - `ZodSharp-Validation.md` – validating value objects with Purview.ZodSharp.
-- The `samples/` folder for runnable examples.
+- The `src/src/Sample` and `src/src/ZodSharpSample` projects for runnable examples.

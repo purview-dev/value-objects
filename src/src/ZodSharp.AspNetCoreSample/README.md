@@ -18,9 +18,10 @@ dotnet run --project src/src/ZodSharp.AspNetCoreSample
 - **Automatic exception handling** — `AddZodSharpProblemDetails()` registers `ZodExceptionHandler` and
   `app.UseExceptionHandler()` catches the thrown `ZodException`, converting it to a
   `HttpValidationProblemDetails` response with the structured issues in the `issues` extension.
-- **Mapping error types to status codes** — `ConcurrentErrorType.SaveFailed` is registered in
-  `ErrorTypeRegistry.Default`; a `ZodException` carrying the `aggregate_save_failed` code is returned as
-  a `409 Conflict` with a message formatted from the error's parameters.
+- **Mapping error types to status codes** — `ErrorTypes.SaveFailed` (a `[ErrorType]`-generated partial)
+  is registered in `ErrorTypeRegistry.Default`; `ErrorTypes.ThrowSaveFailed(...)` throws a `ZodException`
+  carrying the `aggregate_save_failed` code, which is returned as a `409 Conflict` with a message
+  formatted from the error's parameters.
 - **On-demand mapping** — `ZodException.ToHttpValidationProblemDetails(...)` converts an exception
   explicitly, without the exception-handling middleware.
 - **Compile-time placeholder checking** — the `ZODSASP001` analyzer (bundled with the package) verifies

@@ -4,7 +4,7 @@
 [Zod](https://github.com/colinhacks/zod) schema validation library. It complements `Purview.ValueObjects`:
 the value object owns the invariants, ZodSharp owns the rule definitions and validation results.
 
-Three patterns are covered here, demonstrated in the `samples/` folder:
+Three patterns are covered here, demonstrated in the `src/src/ZodSharpSample` project:
 
 1. **Generator-integrated validation** — a value object annotated with both `[Scalar]`/`[ValueObject]`
    and `[ZodSchema]` has its generated `Create` wired to the ZodSharp-generated schema.
@@ -110,7 +110,18 @@ public readonly partial record struct PhoneNumber
 }
 ```
 
-A custom schema class name (from ZodSharp's `[ZodSchema(SchemaName = "...")]`) is honored.
+The `[ZodSchema]` attribute also exposes generator options that tune the emitted schema:
+
+- `RefinementMethodName` — names a synchronous instance refinement method (default `Validate`) that the
+  generator runs after the DataAnnotations rules.
+- `CustomValidationMethodName` — names a static async method that the generated validator's
+  `ValidateAsync` awaits after the synchronous rules pass (default `CustomValidationAsync`).
+- `GenerateParseMethod` / `GenerateValidateMethod` / `EnableComposition` — toggle the emitted `Parse`,
+  `Validate`, and composition (`ApplyAnd`/`ApplyOr`/`ApplyRefine`) members.
+
+> Note: `SchemaName` on `[ZodSchema]` is reserved by the attribute today but is not yet applied by the
+> ZodSharp generator — the generated schema class is always named `{TypeName}Schema`. Use the default
+> name when combining `[Scalar]`/`[ValueObject]` with `[ZodSchema]`.
 
 ## 3. Schema-first validation
 
@@ -156,7 +167,7 @@ Annotate a request/DTO class with `[ZodSchema]`, validate it, then map the valid
 value objects:
 
 ```csharp
-[ZodSchema]
+[ZodSchema(RefinementMethodName = nameof(ValidateRegistration))]
 public sealed class RegistrationDto
 {
     [Required, StringLength(100, MinimumLength = 2)]
@@ -168,8 +179,9 @@ public sealed class RegistrationDto
     [Required, EmailAddress]
     public string Email { get; init; } = string.Empty;
 
-    // Custom sync refinement: the generator runs these errors after the DataAnnotations rules.
-    public IEnumerable<ValidationError> Validate()
+    // Custom sync refinement, discovered via the RefinementMethodName option. The generator runs
+    // these errors after the DataAnnotations rules.
+    public IEnumerable<ValidationError> ValidateRegistration()
     {
         if (Name.StartsWith("x", StringComparison.OrdinalIgnoreCase))
             yield return new ValidationError("name", "Name cannot start with 'x'.", [nameof(Name)]);
@@ -184,6 +196,34 @@ if (result.IsSuccess)
     var currency = CurrencyCode.Create("USD");
     var money = Money.Create(19.99m, currency);
 }
+```
+
+### Async custom validation
+
+`CustomValidationMethodName` names a static async method with the signature
+`static ValueTask<ValidationResult<T>> Method(T value, CancellationToken cancellationToken)`. The
+generated `{Type}SchemaValidator` (which implements `IZodSchemaValidator<T>`) awaits it in its
+`ValidateAsync` after the synchronous rules pass:
+
+```csharp
+[ZodSchema(CustomValidationMethodName = nameof(ValidatePromoCodeAsync))]
+public sealed class PromoCode
+{
+    [Required, RegularExpression(@"^[A-Z0-9]{4,10}$")]
+    public string Code { get; init; } = string.Empty;
+
+    internal static ValueTask<ValidationResult<PromoCode>> ValidatePromoCodeAsync(
+        PromoCode value, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(
+            value.Code is "SAVE10" or "WELCOME20"
+                ? ValidationResult<PromoCode>.Success(value)
+                : ValidationResult<PromoCode>.Failure(
+                    new ValidationError("code", "Unknown promotional code.", [nameof(Code)]))
+        );
+}
+
+PromoCodeSchemaValidator validator = new();
+var result = await validator.ValidateAsync(new PromoCode { Code = "HOMERUN42" });
 ```
 
 ## 5. Dependency injection and the schema factory
@@ -254,45 +294,44 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 A `POST` body with an invalid email now returns `400 application/problem+json` with the structured issues
 in the `issues` extension.
 
-Map error codes to HTTP statuses and formatted messages with `ErrorType` + `ErrorTypeRegistry`:
+Map error codes to HTTP statuses and formatted messages with `ErrorType` + `ErrorTypeRegistry`. Mark a
+static partial class with `[ErrorType]` on a `static readonly ErrorType` field and the bundled
+`ErrorTypeGenerator` emits `Create{Field}(...)` (builds a `ValidationError`) and `Throw{Field}(...)`
+(a `void` + `[DoesNotReturn]` method that throws the `ZodException`):
 
 ```csharp
-public static class ConcurrentErrorType
+[ErrorType]
+public static readonly ErrorType SaveFailed = new(
+    Code: "aggregate_save_failed",
+    Description: "The order could not be saved because it was modified concurrently.",
+    HttpStatus: StatusCodes.Status409Conflict,
+    MessageFormat: "Order '{OrderId}' (of type {AggregateType}) failed to save")
 {
-    public static readonly ErrorType SaveFailed = new(
-        Code: "aggregate_save_failed",
-        Description: "The order could not be saved because it was modified concurrently.",
-        HttpStatus: StatusCodes.Status409Conflict,
-        MessageFormat: "Order '{OrderId}' (of type {AggregateType}) failed to save")
-    {
-        Parameters = ["OrderId", "AggregateType"]
-    };
-}
+    Parameters = ["OrderId", "AggregateType"]
+};
 
-ErrorTypeRegistry.Default.Register(ConcurrentErrorType.SaveFailed);
+ErrorTypeRegistry.Default.Register(ErrorTypes.SaveFailed);
 ```
 
-Throwing a `ZodException` with that code and parameters yields a `409 Conflict` whose message is
-formatted from the error's parameters:
+The generated `ThrowSaveFailed(orderId, aggregateType)` throws a `ZodException` carrying the
+`aggregate_save_failed` code, yielding a `409 Conflict` whose message is formatted from the error's
+parameters. Because it is `void` + `[DoesNotReturn]`, use it as a terminal call — for example a `void`
+minimal-API handler that always throws (the endpoint returns the mapped `409` via the exception
+handler):
 
 ```csharp
-throw new ZodException([
-    ValidationError.Create(
-        "aggregate_save_failed",
-        "The order could not be saved.",
-        path: [],
-        parameters: new Dictionary<string, object?>
-        {
-            ["OrderId"] = orderId,
-            ["AggregateType"] = "Order",
-        }),
-]);
+app.MapPost("/orders/{orderId}/confirm", ConfirmOrder);
+
+static void ConfirmOrder(string orderId) => ErrorTypes.ThrowSaveFailed(orderId, "Order");
 ```
+
+(If you prefer not to use the generator, construct the `ZodException` manually with
+`ValidationError.Create(code, message, path: [], parameters: ...)` — it maps the same way.)
 
 The bundled `ZODSASP001` analyzer flags `MessageFormat` placeholders missing from `Parameters` at
 compile time. See the
 [ASP.NET Core integration](https://purview.dev/docs/zodsharp/aspnetcore-integration/) guide and the
-`src/ZodSharp.AspNetCoreSample` project.
+`src/src/ZodSharp.AspNetCoreSample` project.
 
 ## JSON Schema export
 
@@ -310,6 +349,6 @@ that references the package, so `[ZodSchema]` is available there.
 
 ## See also
 
-- The runnable `samples/ValueObjects.ZodSharpSample` project.
+- The runnable `src/src/ZodSharpSample` project.
 - [Getting Started](Getting-Started.md)
 - [Value Object Design](Value-Object-Design.md)

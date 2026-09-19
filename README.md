@@ -75,7 +75,7 @@ modelBuilder
     .HasColumnType("jsonb");
 ```
 
-See the `samples/` folder for end-to-end examples and `docs/` for guidance.
+See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples and `docs/` for guidance.
 
 ## Validation with ZodSharp
 
@@ -104,8 +104,8 @@ public readonly partial record struct EmailAddress
 var result = EmailAddressSchema.Validate(EmailAddress.Create("demo@example.com"));
 ```
 
-See [ZodSharp Validation](docs/ZodSharp-Validation.md), the `samples/ValueObjects.ZodSharpSample` project, and
-the `src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for strict deserialization failures).
+See [ZodSharp Validation](docs/ZodSharp-Validation.md), the `src/src/ZodSharpSample` project, and
+the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for strict deserialization failures).
 
 ## How it works
 

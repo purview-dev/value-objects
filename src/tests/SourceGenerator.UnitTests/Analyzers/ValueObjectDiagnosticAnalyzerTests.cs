@@ -181,7 +181,9 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 	{
 		return base.OnBeforeRun(
 			sources,
-			options.WithAdditionalNamespaces(TypeLibrary.SerializationNamespace),
+			// Fully-qualified because the referenced ZodSharp generator assembly exposes a
+			// global-namespace TypeLibrary that would otherwise shadow the source generator's.
+			options.WithAdditionalNamespaces(Common.TypeLibrary.SerializationNamespace),
 			cancellationToken
 		);
 	}
