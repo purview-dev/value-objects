@@ -7,6 +7,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Reference the ZodSharp generator assembly normally (it ships as an analyzer in the
+		     Purview.ZodSharp package) so tests can register ZodSchemaGenerator via
+		     AdditionalGeneratorTypes and run it alongside the value-object generator. -->
+		<Reference Include="Purview.ZodSharp.SourceGenerators">
+			<HintPath>$(NuGetPackageRoot)purview.zodsharp\$(PurviewZodSharpVersion)\analyzers\dotnet\cs\Purview.ZodSharp.SourceGenerators.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
 		<ProjectReference Include="..\..\src\SourceGenerator\SourceGenerator.csproj" />
 		<ProjectReference Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj" />

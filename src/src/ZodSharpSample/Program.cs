@@ -17,6 +17,10 @@ Console.WriteLine("== Generated DTO validation ==");
 DtoValidation();
 
 Console.WriteLine();
+Console.WriteLine("== Async custom validation ==");
+await AsyncCustomValidation();
+
+Console.WriteLine();
 Console.WriteLine("== DI / factory ==");
 FactoryValidation();
 
@@ -139,6 +143,23 @@ static void DtoValidation()
 	var email = EmailAddress.Create(result.Value!.Email);
 	var money = Money.Create(19.99m, CurrencyCode.Create("USD"));
 	Console.WriteLine($"Mapped -> {email.Value}, {money.Amount} {money.Currency.Value}");
+}
+
+static async Task AsyncCustomValidation()
+{
+	// [ZodSchema(CustomValidationMethodName = ...)] names a static async validation method that the
+	// generated validator adapter awaits in its ValidateAsync after the synchronous rules pass.
+	PromoCodeSchemaValidator validator = new();
+
+	PromoCode known = new() { Code = "SAVE10" };
+	var knownResult = await validator.ValidateAsync(known, CancellationToken.None);
+	Console.WriteLine($"PromoCodeSchemaValidator.ValidateAsync('SAVE10') -> {knownResult.IsSuccess}");
+
+	PromoCode unknown = new() { Code = "HOMERUN42" };
+	var unknownResult = await validator.ValidateAsync(unknown, CancellationToken.None);
+	Console.WriteLine(
+		$"PromoCodeSchemaValidator.ValidateAsync('HOMERUN42') -> {unknownResult.IsSuccess}, {FormatErrors(unknownResult.Errors)}"
+	);
 }
 
 static void FactoryValidation()

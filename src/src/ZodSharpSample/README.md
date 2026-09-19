@@ -22,7 +22,10 @@ dotnet run --project src/src/ZodSharpSample
   `Z.Enum<OrderStatusKind>()`, `Z.Number().Positive()`) validate the raw underlying value, then the
   result is mapped onto the value object via its strict `Create` factory.
 - **DTO validation** — a `[ZodSchema]` `RegistrationDto` validated by the generated schema, including
-  a custom `Validate()` refinement method, then mapped to value objects.
+  a custom refinement method wired via the `RefinementMethodName` option, then mapped to value objects.
+- **Async custom validation** — a `[ZodSchema(CustomValidationMethodName = ...)]` `PromoCode` whose
+  generated `PromoCodeSchemaValidator.ValidateAsync` awaits a hand-written async rule after the
+  synchronous DataAnnotations rules pass.
 - **DI / factory** — `ZodSchemaFactory` resolving both the generated `EmailAddressSchemaValidator`
   and a hand-built `ZodSchemaValidator<string>`.
 

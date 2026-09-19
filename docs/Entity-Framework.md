@@ -71,4 +71,4 @@ using the generated `[JsonConverter]` (present by default) or the shared options
   to support EF Core materialization.
 - Value objects are immutable; EF tracks them by value like any struct/record.
 
-See `samples/` for a runnable DTO + JSON-column example.
+See `src/src/Sample` for a runnable DTO + JSON-column example.

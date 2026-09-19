@@ -8,7 +8,7 @@ namespace Purview.ValueObjects.ZodSharpSample;
 /// A plain DTO validated by the source-generated <c>RegistrationDtoSchema</c> /
 /// <c>RegistrationDtoSchemaValidator</c>. Values are mapped to value objects after validation.
 /// </summary>
-[ZodSchema]
+[ZodSchema(RefinementMethodName = nameof(ValidateRegistration))]
 sealed class RegistrationDto
 {
 	[Required]
@@ -23,10 +23,10 @@ sealed class RegistrationDto
 	public string Email { get; init; } = string.Empty;
 
 	/// <summary>
-	/// A custom sync refinement method. The generator discovers this <c>Validate</c> method and runs
-	/// the returned errors after the DataAnnotations rules.
+	/// A custom sync refinement method, wired up via <c>RefinementMethodName</c>. The generator
+	/// discovers this instance method and runs the returned errors after the DataAnnotations rules.
 	/// </summary>
-	public IEnumerable<ValidationError> Validate()
+	public IEnumerable<ValidationError> ValidateRegistration()
 	{
 		if (Name.StartsWith('x'))
 			yield return new ValidationError("name", "Name cannot start with 'x'.", [nameof(Name)]);

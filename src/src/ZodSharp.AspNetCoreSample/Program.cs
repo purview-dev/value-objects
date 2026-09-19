@@ -19,7 +19,7 @@ builder.Services.AddZodSharpProblemDetails();
 builder.Services.AddProblemDetails();
 
 // Map error codes to HTTP statuses and formatted messages.
-ErrorTypeRegistry.Default.Register(ConcurrentErrorType.SaveFailed);
+ErrorTypeRegistry.Default.Register(ErrorTypes.SaveFailed);
 
 var app = builder.Build();
 
@@ -36,18 +36,11 @@ app.MapPost(
 
 // Throws a ZodException carrying a registered error code. The handler resolves the ErrorType from
 // the registry and returns a 409 Conflict response whose message is formatted from the error's
-// parameters.
+// parameters. ThrowSaveFailed is generated as void + [DoesNotReturn], so the endpoint is a void
+// handler that always throws.
 app.MapPost("/orders/{orderId}/confirm", ConfirmOrder);
 
-static IResult ConfirmOrder(string orderId) =>
-	throw new ZodException([
-		ValidationError.Create(
-			"aggregate_save_failed",
-			"The order could not be saved.",
-			path: [],
-			parameters: new Dictionary<string, object?> { ["OrderId"] = orderId, ["AggregateType"] = "Order" }
-		),
-	]);
+static void ConfirmOrder(string orderId) => ErrorTypes.ThrowSaveFailed(orderId, "Order");
 
 // Demonstrates on-demand mapping: a ZodException caught in the handler is converted explicitly
 // with ErrorType resolution, without relying on the exception-handling middleware.
