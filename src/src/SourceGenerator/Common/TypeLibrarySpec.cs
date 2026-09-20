@@ -8,6 +8,12 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 [GenerateTypeLibrary(ClassName = "TypeLibrary", Namespace = "Purview.ValueObjects.SourceGenerator.Common")]
 static partial class TypeLibrarySpec
 {
+	[TypeRef("Purview.ValueObjects")]
+	static readonly TypeIdentity IValueObject = default;
+
+	[TypeRef("Purview.ValueObjects")]
+	static readonly TypeIdentity IScalarValueObject = default;
+
 	[TypeRef("Purview.ValueObjects.Serialization")]
 	static readonly TypeIdentity ScalarAttribute = default;
 
@@ -25,6 +31,12 @@ static partial class TypeLibrarySpec
 
 	[TypeRef("System")]
 	static readonly TypeIdentity Guid = default;
+
+	[TypeRef("System")]
+	static readonly TypeIdentity IEquatable = default;
+
+	[TypeRef("System")]
+	static readonly TypeIdentity IComparable = default;
 
 	[TypeRef("System.Text.Json")]
 	static readonly TypeIdentity JsonSerializer = default;

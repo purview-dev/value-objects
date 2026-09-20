@@ -104,6 +104,7 @@ static class ValueObjectsAttributeEmitter
 			.Property(
 				new(name, PurviewTypeLibrary.System.Boolean, TypeDeclarationAccessibility.Public)
 				{
+					IsInitOnly = true,
 					Initializer = "true",
 				}
 			);
@@ -119,7 +120,13 @@ static class ValueObjectsAttributeEmitter
 	{
 		bodyWriter
 			.XmlSummary([.. summary, $"Default: {defaultValue.Split('.').Last()}"])
-			.Property(new(name, enumType, TypeDeclarationAccessibility.Public) { Initializer = defaultValue });
+			.Property(
+				new(name, enumType, TypeDeclarationAccessibility.Public)
+				{
+					IsInitOnly = true,
+					Initializer = defaultValue,
+				}
+			);
 	}
 
 	static CodeWriter GetCodeWriter()
