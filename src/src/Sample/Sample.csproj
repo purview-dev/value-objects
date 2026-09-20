@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
@@ -6,9 +6,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<!-- In-repo consumers reference the analyzer directly; NuGet consumers get it from the
 		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
 		<ProjectReference

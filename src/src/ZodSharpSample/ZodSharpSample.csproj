@@ -1,15 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
 		<PackageReference Include="Purview.ZodSharp" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
 		<!-- In-repo consumers reference the analyzers directly; NuGet consumers get them from the
 		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
 		<ProjectReference

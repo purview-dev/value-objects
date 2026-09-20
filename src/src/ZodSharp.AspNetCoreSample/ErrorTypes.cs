@@ -1,4 +1,5 @@
 using ZodSharp.AspNetCore;
+using ZodSharp.Core;
 
 namespace Purview.ValueObjects.ZodSharp.AspNetCoreSample;
 
@@ -17,9 +18,11 @@ static partial class ErrorTypes
 		Code: "aggregate_save_failed",
 		Description: "The order could not be saved because it was modified concurrently.",
 		HttpStatus: StatusCodes.Status409Conflict,
-		MessageFormat: "Order '{OrderId}' (of type {AggregateType}) failed to save"
-	)
-	{
-		Parameters = ["OrderId", "AggregateType"],
-	};
+		MessageFormat: "Order '{OrderId}' (of type {AggregateType}) failed to save",
+		Parameters: new List<ErrorTypeParameter>
+		{
+			ErrorType.Param<string>("OrderId"),
+			ErrorType.Param<string>("AggregateType"),
+		}
+	);
 }
