@@ -1,6 +1,4 @@
 using Purview.ValueObjects.Serialization;
-using ZodSharp.AspNetCore;
-using ZodSharp.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
