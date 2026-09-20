@@ -26,8 +26,8 @@ static class TypeRefs
 	public static TypeReference Named(string name, string @namespace) => new(new TypeIdentity(name, @namespace));
 
 	public static TypeReference EnumerableOf(TypeReference element) =>
-		new(new TypeIdentity("IEnumerable", "System.Collections.Generic").MakeGeneric(element));
+		new(TypeLibrary.System.Collections.Generic.IEnumerable.MakeGeneric(element));
 
 	public static TypeReference ICollectionOf(TypeReference element) =>
-		new(new TypeIdentity("ICollection", "System.Collections.Generic").MakeGeneric(element));
+		new(TypeLibrary.System.Collections.Generic.ICollection.MakeGeneric(element));
 }

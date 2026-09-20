@@ -69,13 +69,13 @@ static partial class ComplexValueObjectEmitter
 		var valueObjectType = ValueObjectType(model);
 
 		var builder = ImmutableArray.CreateBuilder<TypeReference>();
-		builder.Add(new TypeIdentity("IValueObject", "Purview.ValueObjects").MakeGeneric(valueObjectType));
+		builder.Add(TypeLibrary.Purview.ValueObjects.IValueObject.MakeGeneric(valueObjectType));
 
 		if (!model.IsReferenceType && !model.ImplementsSelfEquatable)
-			builder.Add(new TypeIdentity("IEquatable", "System").MakeGeneric(valueObjectType));
+			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(valueObjectType));
 
-		builder.Add(new TypeIdentity("IComparable", "System").MakeGeneric(valueObjectType));
-		builder.Add(new TypeIdentity("IComparable", "System"));
+		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(valueObjectType));
+		builder.Add(TypeLibrary.System.IComparable);
 
 		return builder.ToImmutable();
 	}

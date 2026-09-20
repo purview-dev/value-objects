@@ -71,18 +71,15 @@ static partial class ScalarValueObjectEmitter
 
 		var builder = ImmutableArray.CreateBuilder<TypeReference>();
 		builder.Add(
-			new TypeIdentity("IScalarValueObject", "Purview.ValueObjects").MakeGeneric(
-				valueObjectType,
-				model.ScalarTypeReference
-			)
+			TypeLibrary.Purview.ValueObjects.IScalarValueObject.MakeGeneric(valueObjectType, model.ScalarTypeReference)
 		);
 
 		if (!model.IsReferenceType && !model.ImplementsSelfEquatable)
-			builder.Add(new TypeIdentity("IEquatable", "System").MakeGeneric(valueObjectType));
+			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(valueObjectType));
 
-		builder.Add(new TypeIdentity("IComparable", "System").MakeGeneric(valueObjectType));
-		builder.Add(new TypeIdentity("IComparable", "System").MakeGeneric(model.ScalarTypeReference));
-		builder.Add(new TypeIdentity("IComparable", "System"));
+		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(valueObjectType));
+		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
+		builder.Add(TypeLibrary.System.IComparable);
 
 		return builder.ToImmutable();
 	}
