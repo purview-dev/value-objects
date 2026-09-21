@@ -15,6 +15,8 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.ScalarPropertyMissing,
 			DiagnosticLibrary.ScalarShouldBeRecordStruct,
 			DiagnosticLibrary.StrictDeserializationRequiresCreate,
+			DiagnosticLibrary.EfMappingRequiresEntityFramework,
+			DiagnosticLibrary.EfAutoConversionSkipped,
 		];
 
 	public override void Initialize(AnalysisContext context)
@@ -48,7 +50,12 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 
 		if (hasScalarAttribute)
 		{
-			var result = ScalarValueObjectModelBuilder.Build(typeSymbol, syntax, context.CancellationToken);
+			var result = ScalarValueObjectModelBuilder.Build(
+				typeSymbol,
+				syntax,
+				context.Compilation,
+				context.CancellationToken
+			);
 
 			foreach (var diagnostic in result.Diagnostics)
 				context.ReportDiagnostic(diagnostic.ToDiagnostic());

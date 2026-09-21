@@ -83,4 +83,24 @@ static class DiagnosticLibrary
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true
 	);
+
+	/// <summary> VO1009: Entity Framework requested but not referenced </summary>
+	public static readonly DiagnosticDescriptor EfMappingRequiresEntityFramework = new(
+		id: "VO1009",
+		title: "Entity Framework mapping requires Microsoft.EntityFrameworkCore",
+		messageFormat: "Value object '{0}' requests Entity Framework mapping but the project does not reference Microsoft.EntityFrameworkCore; no Entity Framework members will be generated",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary> VO1010: Entity Framework auto-conversion skipped </summary>
+	public static readonly DiagnosticDescriptor EfAutoConversionSkipped = new(
+		id: "VO1010",
+		title: "Entity Framework auto-conversion is not available for this value object",
+		messageFormat: "Scalar value object '{0}' wraps underlying type '{1}', which Entity Framework Core cannot map natively; automatic conversion is skipped, so the property must be mapped manually",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
 }

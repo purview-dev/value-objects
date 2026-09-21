@@ -143,6 +143,33 @@ static class ComplexValueObjectModelBuilder
 		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
 		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
 
+		var isEfReferenced = ValueObjectSymbolInspector.IsEfReferenced(compilation);
+		if (
+			!isEfReferenced
+			&& (
+				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					ValueObjectSymbolInspector.ValueObjectAttributeName,
+					"EfMapping"
+				)
+				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					ValueObjectSymbolInspector.ValueObjectAttributeName,
+					"GenerateEfComparer"
+				)
+			)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EfMappingRequiresEntityFramework,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
+
 		var emptyArguments = ImmutableArray.CreateBuilder<string>(properties.Length);
 		foreach (var property in properties)
 			emptyArguments.Add(ValueObjectSymbolInspector.GetEmptyValueExpression(property.Type));
@@ -184,7 +211,9 @@ static class ComplexValueObjectModelBuilder
 				typeModel.Value.FullyQualifiedName
 			),
 			hasZodSchemaValidation,
-			zodSchemaClassName
+			zodSchemaClassName,
+			isEfReferenced,
+			ValueObjectSymbolInspector.IsEf8Referenced(compilation)
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

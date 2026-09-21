@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- Test method names use snake_case to keep test purpose readable in the name. -->
+		<NoWarn>$(NoWarn);CA1707</NoWarn>
+		<RootNamespace>Purview.ValueObjects.SourceGenerator</RootNamespace>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+		<PackageReference Include="Purview.SourceGeneratorFramework.Testing.TUnit" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
+		<ProjectReference Include="..\..\src\SourceGenerator\SourceGenerator.csproj" />
+		<ProjectReference Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Purview.ValueObjects" />
+		<Using Include="Purview.ValueObjects.Serialization" />
+		<Using Include="Purview.ValueObjects.SourceGenerator" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.Common" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject" />
+		<Using Include="Purview.ValueObjects.SourceGenerator.ValueObject.Models" />
+	</ItemGroup>
+</Project>

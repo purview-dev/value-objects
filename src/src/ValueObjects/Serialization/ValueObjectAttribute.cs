@@ -44,6 +44,29 @@ public sealed class ValueObjectAttribute : Attribute
 	public bool GenerateConstructor { get; init; } = true;
 
 	/// <summary>
+	/// Gets or sets how the value object is mapped when the Entity Framework Core integration is active.
+	/// </summary>
+	/// <value>Defaults to <see cref="EfMapping.ComplexType"/>.</value>
+	/// <remarks>
+	/// Entity Framework members are emitted only when the consuming project references
+	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored. Set to
+	/// <see cref="EfMapping.None"/> to opt out per type (see <see cref="ValueObjectDefaultsAttribute"/>
+	/// for assembly-level opt-out).
+	/// </remarks>
+	public EfMapping EfMapping { get; init; } = EfMapping.ComplexType;
+
+	/// <summary>
+	/// Gets or sets whether an Entity Framework Core <c>ValueComparer</c> should be generated for the
+	/// value object.
+	/// </summary>
+	/// <value>Defaults to <see langword="true"/>.</value>
+	/// <remarks>
+	/// Entity Framework members are emitted only when the consuming project references
+	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored.
+	/// </remarks>
+	public bool GenerateEfComparer { get; init; } = true;
+
+	/// <summary>
 	/// Gets or sets the deserialization mode used by the generated JSON converter.
 	/// </summary>
 	/// <value>Defaults to <see cref="ValueObjectDeserializationMode.Hydrate"/>.</value>

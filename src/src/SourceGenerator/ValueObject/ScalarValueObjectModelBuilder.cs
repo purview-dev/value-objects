@@ -12,6 +12,7 @@ static class ScalarValueObjectModelBuilder
 	public static GeneratorResult<ScalarValueObjectModel> Build(
 		INamedTypeSymbol typeSymbol,
 		TypeDeclarationSyntax syntax,
+		Compilation compilation,
 		CancellationToken cancellationToken
 	)
 	{
@@ -181,6 +182,49 @@ static class ScalarValueObjectModelBuilder
 		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
 		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
 
+		var isEfReferenced = ValueObjectSymbolInspector.IsEfReferenced(compilation);
+		if (
+			isEfReferenced
+			&& scalarOptions.GenerateEfConverter
+			&& !ValueObjectSymbolInspector.IsEfMappableProviderType(scalarProperty.Type)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EfAutoConversionSkipped,
+					isBlocking: false,
+					typeSymbol.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					scalarTypeName
+				)
+			);
+		}
+		else if (
+			!isEfReferenced
+			&& (
+				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					ValueObjectSymbolInspector.ScalarAttributeName,
+					"GenerateEfConverter"
+				)
+				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					ValueObjectSymbolInspector.ScalarAttributeName,
+					"GenerateEfComparer"
+				)
+			)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EfMappingRequiresEntityFramework,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
+
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
 			scalarOptions,
@@ -228,7 +272,9 @@ static class ScalarValueObjectModelBuilder
 			BuildExistingRelationalOperators(typeSymbol, typeName, typeName),
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
 			hasZodSchemaValidation,
-			zodSchemaClassName
+			zodSchemaClassName,
+			isEfReferenced,
+			ValueObjectSymbolInspector.IsEfMappableProviderType(scalarProperty.Type)
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

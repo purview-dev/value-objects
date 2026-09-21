@@ -3,5 +3,8 @@
 		<CompilerVisibleProperty Include="DisableValueObjectsSourceGenerator">
 			<Description>When true, the Purview.ValueObjects source generator is disabled.</Description>
 		</CompilerVisibleProperty>
+		<CompilerVisibleProperty Include="DisableValueObjectsEfGeneration">
+			<Description>When true, the Purview.ValueObjects source generator does not emit Entity Framework Core mapping members or the value object EF registry.</Description>
+		</CompilerVisibleProperty>
 	</ItemGroup>
 </Project>

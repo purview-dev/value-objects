@@ -16,7 +16,9 @@ incremental source generator produces:
 **Use cases**
 
 - **DTOs** – strong, self-validating types with serialization/deserialization and business rules.
-- **Entity Framework** – value objects map cleanly onto JSON columns via `ScalarJsonConverterFactory`.
+- **Entity Framework** – reference `Microsoft.EntityFrameworkCore` and the generator emits mapping members
+  (value converters, comparers, complex-type mapping) plus a `ConfigureValueObjects` extension for automatic
+  mapping. Queries use the value object type directly — no `.Value` required.
 - **Domain models** – the F#-style single-case union pattern in C#.
 
 ## Install
@@ -74,6 +76,31 @@ modelBuilder
     .Property(c => c.Email)
     .HasColumnType("jsonb");
 ```
+
+## Entity Framework Core
+
+When your project references `Microsoft.EntityFrameworkCore`, the generator emits an `Ef` nested class per value
+object and an assembly-level `ConfigureValueObjects` extension that maps them automatically:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ConfigureValueObjects();   // generated into your project
+}
+```
+
+Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
+types (EF Core 8+) by default or JSON columns via `[ValueObject(EfMapping = EfMapping.Json)]`. Queries compare
+the value object type directly — no `.Value` required:
+
+```csharp
+EmailAddress email = "demo@example.com";
+var customers = await db.Customers.Where(c => c.Email == email).ToListAsync();
+var bigOrders = await db.Orders.Where(o => o.Total.Amount > 100m).ToListAsync();
+```
+
+See [Entity Framework](docs/Entity-Framework.md) for the full guide (automatic + manual mapping, assembly
+defaults, and the three opt-out levels).
 
 See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples and `docs/` for guidance.
 

@@ -50,6 +50,16 @@ static class ValueObjectDefaultsHelper
 				"GenerateImplicitToPrimitive"
 			),
 			GenerateEmpty = MergeBool(typeOptions.GenerateEmpty, assemblyDefaults.GenerateEmpty, "GenerateEmpty"),
+			GenerateEfConverter = MergeBool(
+				typeOptions.GenerateEfConverter,
+				assemblyDefaults.GenerateEfConverter,
+				"GenerateEfConverter"
+			),
+			GenerateEfComparer = MergeBool(
+				typeOptions.GenerateEfComparer,
+				assemblyDefaults.GenerateEfComparer,
+				"GenerateEfComparer"
+			),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,
 				assemblyDefaults.DeserializationMode,
@@ -101,6 +111,12 @@ static class ValueObjectDefaultsHelper
 				typeOptions.GenerateConstructor,
 				assemblyDefaults.GenerateConstructor,
 				"GenerateConstructor"
+			),
+			EfMapping = MergeString(typeOptions.EfMapping, assemblyDefaults.EfMapping, "EfMapping"),
+			GenerateEfComparer = MergeBool(
+				typeOptions.GenerateEfComparer,
+				assemblyDefaults.GenerateEfComparer,
+				"GenerateEfComparer"
 			),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,

@@ -47,5 +47,7 @@ sealed record class ScalarValueObjectModel(
 	EquatableArray<string> ExistingSelfRelationalOperators,
 	EquatableArray<string> ExistingScalarRelationalOperators,
 	bool HasZodSchemaValidation,
-	string? ZodSchemaClassName
+	string? ZodSchemaClassName,
+	bool IsEfReferenced,
+	bool EfProviderMappable
 );

@@ -14,19 +14,28 @@ static partial class TypeLibrarySpec
 	[TypeRef("Purview.ValueObjects")]
 	static readonly TypeIdentity IScalarValueObject = default;
 
-	[TypeRef("Purview.ValueObjects.Serialization")]
+	[TypeRef("Purview.ValueObjects")]
+	static readonly TypeIdentity IEfScalarValueObject = default;
+
+	[TypeRef("Purview.ValueObjects")]
+	static readonly TypeIdentity IEfComplexValueObject = default;
+
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ScalarAttribute = default;
 
-	[TypeRef("Purview.ValueObjects.Serialization")]
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ValueObjectAttribute = default;
 
-	[TypeRef("Purview.ValueObjects.Serialization")]
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ValueObjectDefaultsAttribute = default;
 
-	[TypeRef("Purview.ValueObjects.Serialization")]
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ValueObjectDeserializationMode = default;
 
-	[TypeRef("Purview.ValueObjects.Serialization")]
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	static readonly TypeIdentity EfMapping = default;
+
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ZodSchemaMode = default;
 
 	[TypeRef("System")]
@@ -56,6 +65,33 @@ static partial class TypeLibrarySpec
 	[TypeRef("System.Text.Json.Serialization")]
 	static readonly TypeIdentity JsonConverter = default;
 
-	[TypeRef("System.Text.Json.Serialization")]
+	[TypeRef("System.Text.Json.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity JsonConverterAttribute = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore")]
+	static readonly TypeIdentity ModelBuilder = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore")]
+	static readonly TypeIdentity DbContext = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore")]
+	static readonly TypeIdentity DbContextOptionsBuilder = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.ChangeTracking")]
+	static readonly TypeIdentity ValueComparer = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.Infrastructure")]
+	static readonly TypeIdentity IModelCustomizer = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.Infrastructure")]
+	static readonly TypeIdentity ModelCustomizer = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.Infrastructure")]
+	static readonly TypeIdentity ModelCustomizerDependencies = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.Storage.ValueConversion", generateFullNameConst: true)]
+	static readonly TypeIdentity ValueConverter = default;
+
+	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
+	static readonly TypeIdentity IComplexType = default;
 }

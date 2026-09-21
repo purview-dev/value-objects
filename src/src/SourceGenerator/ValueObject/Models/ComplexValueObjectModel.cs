@@ -33,7 +33,9 @@ sealed record class ComplexValueObjectModel(
 	string HydrateFactoryName,
 	EquatableArray<string> ExistingRelationalOperators,
 	bool HasZodSchemaValidation,
-	string? ZodSchemaClassName
+	string? ZodSchemaClassName,
+	bool IsEfReferenced,
+	bool IsEf8Referenced
 );
 
 readonly record struct ComplexPropertyModel(string Name, string TypeName, TypeReference Type);

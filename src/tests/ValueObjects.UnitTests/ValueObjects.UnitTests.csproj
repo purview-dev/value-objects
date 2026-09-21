@@ -2,6 +2,8 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
 		<PackageReference Include="Purview.ZodSharp" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
 	</ItemGroup>
 
 	<ItemGroup>

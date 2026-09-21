@@ -7,7 +7,9 @@ source generator produces `Create`/`Hydrate` factories, normalization (`OnNormal
 `Empty` instances, equality, comparison, implicit conversions, and JSON converters.
 
 - **DTOs** – strong types with serialization/deserialization and business rules.
-- **Entity Framework** – value objects map cleanly onto JSON columns via `ScalarJsonConverterFactory`.
+- **Entity Framework** – reference `Microsoft.EntityFrameworkCore` and the generator emits mapping members
+  (value converters, comparers, complex-type mapping) plus a `ConfigureValueObjects` extension for automatic
+  mapping. Queries use the value object type directly.
 - **Domain models** – the F#-style single-case union pattern in C#.
 
 ## Quick start
@@ -49,5 +51,22 @@ modelBuilder
     .Property(c => c.Email)
     .HasColumnType("jsonb");
 ```
+
+## Entity Framework Core
+
+When your project references `Microsoft.EntityFrameworkCore`, the generator emits an `Ef` nested class per value
+object (a `ValueConverter`/`ValueComparer`) and an assembly-level `ConfigureValueObjects` extension that maps
+them automatically:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ConfigureValueObjects();   // generated into your project
+}
+```
+
+Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
+types (EF Core 8+) by default or JSON columns via `[ValueObject(EfMapping = EfMapping.Json)]`. Queries compare
+the value object type directly — no `.Value` required. See `docs/Entity-Framework.md` for the full guide.
 
 See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples.

@@ -21,6 +21,7 @@
 	</Folder>
 	<Folder Name="/tests/">
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />
+		<Project Path="tests/SourceGenerator.EfTests/SourceGenerator.EfTests.csproj" />
 		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 	</Folder>
 </Solution>
