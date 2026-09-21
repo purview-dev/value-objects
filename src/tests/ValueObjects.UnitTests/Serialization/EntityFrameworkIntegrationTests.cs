@@ -1,7 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Purview.ValueObjects.Ef;
 using Purview.ValueObjects.Serialization;
 
 namespace Purview.ValueObjects;

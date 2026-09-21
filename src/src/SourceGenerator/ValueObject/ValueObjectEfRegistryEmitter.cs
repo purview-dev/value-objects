@@ -22,7 +22,6 @@ static class ValueObjectEfRegistryEmitter
 			.Using("System.Collections.Generic")
 			.Using("System.Linq")
 			.Using("System.Reflection")
-			.Using("Microsoft.EntityFrameworkCore")
 			.Using("Microsoft.EntityFrameworkCore.ChangeTracking")
 			.Using("Microsoft.EntityFrameworkCore.Metadata")
 			.Using("Microsoft.EntityFrameworkCore.Storage.ValueConversion");

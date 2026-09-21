@@ -32,7 +32,7 @@ public static partial class TypeLibrary
 		.ValueConversion
 		.ValueConverterFullName;
 
-	public const string EfValueObjectEFNamespace = "Purview.ValueObjects.EntityFramework";
+	public const string EfValueObjectEFNamespace = "Microsoft.EntityFrameworkCore";
 
 	public const string EfValueObjectExtensionsClassName = "ValueObjectEfExtensions";
 }

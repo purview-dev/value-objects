@@ -25,11 +25,10 @@ dotnet add package Microsoft.EntityFrameworkCore.Sqlite
 ## Automatic mapping
 
 Add one call in `OnModelCreating`. The generated `ConfigureValueObjects` extension is emitted into your project
-and maps every value object it finds on your entities:
+in the `Microsoft.EntityFrameworkCore` namespace (the same namespace as `ModelBuilder`), so no extra `using`
+is required when that namespace is already imported, and it maps every value object it finds on your entities:
 
 ```csharp
-using Purview.ValueObjects.Ef;
-
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.ConfigureValueObjects();

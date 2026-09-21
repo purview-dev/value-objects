@@ -227,10 +227,10 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 		);
 
 		var query = result.Generated();
-		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef")).IsTrue();
+		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore")).IsTrue();
 
 		var registryText = Normalize(
-			query.GetClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef").Node.ToString()
+			query.GetClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
 
 		await Assert.That(registryText).Contains("ConfigureValueObjects(this");
@@ -272,7 +272,7 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 		var result = await GenerateAsync(source, ValueObjectsEfGeneratorTestOptions.Default, cancellationToken);
 
 		var registry = Normalize(
-			result.Generated().GetClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef").Node.ToString()
+			result.Generated().GetClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
 
 		await Assert.That(registry).Contains("typeof(global::Testing.Money)");
@@ -297,7 +297,9 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 
 		var result = await GenerateAsync(source, ValueObjectsEfGeneratorTestOptions.Default, cancellationToken);
 
-		await Assert.That(result.Generated().HasClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef")).IsFalse();
+		await Assert
+			.That(result.Generated().HasClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore"))
+			.IsFalse();
 	}
 
 	[Test]
@@ -317,7 +319,7 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("Ef")).IsFalse();
-		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef")).IsFalse();
+		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore")).IsFalse();
 	}
 
 	[Test]
@@ -367,7 +369,7 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("Ef")).IsFalse();
-		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef")).IsFalse();
+		await Assert.That(query.HasClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore")).IsFalse();
 	}
 
 	[Test]
@@ -376,16 +378,18 @@ public sealed class ValueObjectEfSourceGeneratorTests : ValueObjectEfSourceGener
 		var result = await GenerateAsync(ScalarSource, ValueObjectsEfGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
-		await Assert.That(query.HasClass("ValueObjectModelCustomizer", "Purview.ValueObjects.Ef")).IsTrue();
+		await Assert.That(query.HasClass("ValueObjectModelCustomizer", "Microsoft.EntityFrameworkCore")).IsTrue();
 
-		var registry = Normalize(query.GetClass("ValueObjectEfExtensions", "Purview.ValueObjects.Ef").Node.ToString());
+		var registry = Normalize(
+			query.GetClass("ValueObjectEfExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
 		await Assert.That(registry).Contains("UseValueObjects");
 		await Assert.That(registry).Contains("ReplaceService<");
 		await Assert.That(registry).Contains("IModelCustomizer");
 		await Assert.That(registry).Contains("ValueObjectModelCustomizer");
 
 		var customizer = Normalize(
-			query.GetClass("ValueObjectModelCustomizer", "Purview.ValueObjects.Ef").Node.ToString()
+			query.GetClass("ValueObjectModelCustomizer", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
 		await Assert.That(customizer).Contains("ModelCustomizer");
 		await Assert.That(customizer).Contains("ConfigureValueObjects()");
