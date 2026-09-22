@@ -42,6 +42,7 @@ static class ValueObjectEFRegistryEmitter
 					Accessibility = TypeDeclarationAccessibility.Public,
 					IsStatic = true,
 					IsPartial = false,
+					IncludeEmbeddedAttribute = true,
 				},
 				body =>
 				{
