@@ -4,7 +4,7 @@ static class DiagnosticLibrary
 {
 	const string ValueObjectCategory = "ValueObjects";
 
-	/// <summary> VO1001: Value object must be partial </summary>
+	/// <summary>VO1001: Value object must be partial </summary>
 	public static readonly DiagnosticDescriptor ValueObjectMustBePartial = new(
 		id: "VO1001",
 		title: "Value object must be partial",
@@ -14,7 +14,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1002: Nested value objects are not supported </summary>
+	/// <summary>VO1002: Nested value objects are not supported </summary>
 	public static readonly DiagnosticDescriptor NestedValueObjectsAreNotSupported = new(
 		id: "VO1002",
 		title: "Nested value objects are not supported",
@@ -24,7 +24,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1003: Generic value objects are not supported </summary>
+	/// <summary>VO1003: Generic value objects are not supported </summary>
 	public static readonly DiagnosticDescriptor GenericValueObjectsAreNotSupported = new(
 		id: "VO1003",
 		title: "Generic value objects are not supported",
@@ -34,7 +34,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1004: Scalar property is missing </summary>
+	/// <summary>VO1004: Scalar property is missing </summary>
 	public static readonly DiagnosticDescriptor ScalarPropertyMissing = new(
 		id: "VO1004",
 		title: "Scalar property is missing",
@@ -44,7 +44,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1005: Scalar constructor is missing </summary>
+	/// <summary>VO1005: Scalar constructor is missing </summary>
 	public static readonly DiagnosticDescriptor ScalarConstructorMissing = new(
 		id: "VO1005",
 		title: "Scalar constructor is missing",
@@ -54,7 +54,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1006: Scalar value objects should be record structs </summary>
+	/// <summary>VO1006: Scalar value objects should be record structs </summary>
 	public static readonly DiagnosticDescriptor ScalarShouldBeRecordStruct = new(
 		id: "VO1006",
 		title: "Scalar value objects should be record structs",
@@ -64,7 +64,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1007: Strict mode requires Create </summary>
+	/// <summary>VO1007: Strict mode requires Create </summary>
 	public static readonly DiagnosticDescriptor StrictDeserializationRequiresCreate = new(
 		id: "VO1007",
 		title: "Strict mode requires Create",
@@ -74,7 +74,7 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1008: Conflicting value object attributes </summary>
+	/// <summary>VO1008: Conflicting value object attributes </summary>
 	public static readonly DiagnosticDescriptor ConflictingValueObjectAttributes = new(
 		id: "VO1008",
 		title: "Conflicting value object attributes",
@@ -84,8 +84,8 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1009: Entity Framework requested but not referenced </summary>
-	public static readonly DiagnosticDescriptor EfMappingRequiresEntityFramework = new(
+	/// <summary>VO1009: Entity Framework requested but not referenced </summary>
+	public static readonly DiagnosticDescriptor EFMappingRequiresEntityFramework = new(
 		id: "VO1009",
 		title: "Entity Framework mapping requires Microsoft.EntityFrameworkCore",
 		messageFormat: "Value object '{0}' requests Entity Framework mapping but the project does not reference Microsoft.EntityFrameworkCore; no Entity Framework members will be generated",
@@ -94,8 +94,8 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary> VO1010: Entity Framework auto-conversion skipped </summary>
-	public static readonly DiagnosticDescriptor EfAutoConversionSkipped = new(
+	/// <summary>VO1010: Entity Framework auto-conversion skipped </summary>
+	public static readonly DiagnosticDescriptor EFAutoConversionSkipped = new(
 		id: "VO1010",
 		title: "Entity Framework auto-conversion is not available for this value object",
 		messageFormat: "Scalar value object '{0}' wraps underlying type '{1}', which Entity Framework Core cannot map natively; automatic conversion is skipped, so the property must be mapped manually",

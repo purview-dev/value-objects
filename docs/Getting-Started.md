@@ -129,8 +129,8 @@ public readonly partial record struct EmailAddress
 Use `[ValueObjectDefaults]` to set generic defaults for the whole assembly. Every option that can be set on
 `[Scalar]`/`[ValueObject]` can be defaulted here (`GenerateJsonConverter`, `GenerateComparable`,
 `GenerateComparisonOperators`, `GenerateEnumProperties`, `GenerateImplicitFromPrimitive`,
-`GenerateImplicitToPrimitive`, `GenerateEmpty`, `GenerateConstructor`, `GenerateEfConverter`,
-`GenerateEfComparer`, `EfMapping`, `DeserializationMode`, and `ZodSchemaMode`):
+`GenerateImplicitToPrimitive`, `GenerateEmpty`, `GenerateConstructor`, `GenerateEFConverter`,
+`GenerateEFComparer`, `EFMapping`, `DeserializationMode`, and `ZodSchemaMode`):
 
 ```csharp
 [assembly: ValueObjectDefaults(

@@ -1117,7 +1117,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 	}
 
 	[Test]
-	public async Task ComplexValueObjectGeneration_GeneratesEfConstructorsForAllUserCaptureShapes(
+	public async Task ComplexValueObjectGeneration_GeneratesEFConstructorsForAllUserCaptureShapes(
 		CancellationToken cancellationToken
 	)
 	{

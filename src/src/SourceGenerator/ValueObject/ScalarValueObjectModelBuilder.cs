@@ -28,7 +28,12 @@ static class ScalarValueObjectModelBuilder
 		];
 
 		var attributes = typeSymbol.GetAttributes();
-		if (ValueObjectSymbolInspector.HasAttribute(attributes, ValueObjectSymbolInspector.ValueObjectAttributeName))
+		if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute
+			)
+		)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(
@@ -150,7 +155,7 @@ static class ScalarValueObjectModelBuilder
 		var toStringExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "ToString");
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
-			ValueObjectSymbolInspector.JsonConverterAttributeName
+			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
 		);
 		var declareOnNormalize = ValueObjectSymbolInspector.ShouldEmitScalarHookDeclaration(
 			typeSymbol,
@@ -182,16 +187,16 @@ static class ScalarValueObjectModelBuilder
 		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
 		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
 
-		var isEfReferenced = ValueObjectSymbolInspector.IsEfReferenced(compilation);
+		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
 		if (
-			isEfReferenced
-			&& scalarOptions.GenerateEfConverter
-			&& !ValueObjectSymbolInspector.IsEfMappableProviderType(scalarProperty.Type)
+			isEFReferenced
+			&& scalarOptions.GenerateEFConverter
+			&& !ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
 		)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(
-					DiagnosticLibrary.EfAutoConversionSkipped,
+					DiagnosticLibrary.EFAutoConversionSkipped,
 					isBlocking: false,
 					typeSymbol.Locations.FirstOrDefault(),
 					typeSymbol.Name,
@@ -200,24 +205,24 @@ static class ScalarValueObjectModelBuilder
 			);
 		}
 		else if (
-			!isEfReferenced
+			!isEFReferenced
 			&& (
 				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
 					attributes,
-					ValueObjectSymbolInspector.ScalarAttributeName,
-					"GenerateEfConverter"
+					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+					"GenerateEFConverter"
 				)
 				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
 					attributes,
-					ValueObjectSymbolInspector.ScalarAttributeName,
-					"GenerateEfComparer"
+					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+					"GenerateEFComparer"
 				)
 			)
 		)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(
-					DiagnosticLibrary.EfMappingRequiresEntityFramework,
+					DiagnosticLibrary.EFMappingRequiresEntityFramework,
 					isBlocking: false,
 					location,
 					typeSymbol.Name
@@ -273,8 +278,8 @@ static class ScalarValueObjectModelBuilder
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
 			hasZodSchemaValidation,
 			zodSchemaClassName,
-			isEfReferenced,
-			ValueObjectSymbolInspector.IsEfMappableProviderType(scalarProperty.Type)
+			isEFReferenced,
+			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

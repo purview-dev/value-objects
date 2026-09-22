@@ -1,9 +1,8 @@
 namespace Purview.ValueObjects.SourceGenerator.Common;
 
 /// <summary>
-/// Declares the value-object-specific type identities for the generated <see cref="TypeLibrary"/>.
-/// The generator mirrors the framework <c>PurviewTypeLibrary</c> shape, so common system types are
-/// inherited and only the value-object types and framework-absent system types are declared here.
+/// The generated library is kept in this namespace (rather than the global namespace) so it does not
+/// clash with the global-namespace <c>TypeLibrary</c> emitted by the referenced ZodSharp generator.
 /// </summary>
 [GenerateTypeLibrary(ClassName = "TypeLibrary", Namespace = "Purview.ValueObjects.SourceGenerator.Common")]
 static partial class TypeLibrarySpec
@@ -15,10 +14,10 @@ static partial class TypeLibrarySpec
 	static readonly TypeIdentity IScalarValueObject = default;
 
 	[TypeRef("Purview.ValueObjects")]
-	static readonly TypeIdentity IEfScalarValueObject = default;
+	static readonly TypeIdentity IEFScalarValueObject = default;
 
 	[TypeRef("Purview.ValueObjects")]
-	static readonly TypeIdentity IEfComplexValueObject = default;
+	static readonly TypeIdentity IEFComplexValueObject = default;
 
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ScalarAttribute = default;
@@ -30,43 +29,15 @@ static partial class TypeLibrarySpec
 	static readonly TypeIdentity ValueObjectDefaultsAttribute = default;
 
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	[EnumValue("Hydrate", 0)]
+	[EnumValue("Strict", 1)]
 	static readonly TypeIdentity ValueObjectDeserializationMode = default;
 
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
-	static readonly TypeIdentity EfMapping = default;
+	static readonly TypeIdentity EntityFrameworkMapping = default;
 
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ZodSchemaMode = default;
-
-	[TypeRef("System")]
-	static readonly TypeIdentity Guid = default;
-
-	[TypeRef("System")]
-	static readonly TypeIdentity IEquatable = default;
-
-	[TypeRef("System")]
-	static readonly TypeIdentity IComparable = default;
-
-	[TypeRef("System.Text.Json")]
-	static readonly TypeIdentity JsonSerializer = default;
-
-	[TypeRef("System.Text.Json")]
-	static readonly TypeIdentity JsonException = default;
-
-	[TypeRef("System.Text.Json")]
-	static readonly TypeIdentity JsonSerializerOptions = default;
-
-	[TypeRef("System.Text.Json")]
-	static readonly TypeIdentity Utf8JsonReader = default;
-
-	[TypeRef("System.Text.Json")]
-	static readonly TypeIdentity Utf8JsonWriter = default;
-
-	[TypeRef("System.Text.Json.Serialization")]
-	static readonly TypeIdentity JsonConverter = default;
-
-	[TypeRef("System.Text.Json.Serialization", generateFullNameConst: true)]
-	static readonly TypeIdentity JsonConverterAttribute = default;
 
 	[TypeRef("Microsoft.EntityFrameworkCore")]
 	static readonly TypeIdentity ModelBuilder = default;

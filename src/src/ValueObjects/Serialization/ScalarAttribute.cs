@@ -77,7 +77,7 @@ public sealed class ScalarAttribute(string propertyName = "Value") : Attribute
 	/// <see langword="false"/> to opt out per type (see <see cref="ValueObjectDefaultsAttribute"/> for
 	/// assembly-level opt-out).
 	/// </remarks>
-	public bool GenerateEfConverter { get; init; } = true;
+	public bool GenerateEFConverter { get; init; } = true;
 
 	/// <summary>
 	/// Gets or sets whether an Entity Framework Core <c>ValueComparer</c> should be generated for the
@@ -88,7 +88,7 @@ public sealed class ScalarAttribute(string propertyName = "Value") : Attribute
 	/// Entity Framework members are emitted only when the consuming project references
 	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored.
 	/// </remarks>
-	public bool GenerateEfComparer { get; init; } = true;
+	public bool GenerateEFComparer { get; init; } = true;
 
 	/// <summary>
 	/// Gets or sets the deserialization mode used by the generated JSON converter.

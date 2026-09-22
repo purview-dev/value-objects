@@ -6,7 +6,7 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 /// Framework assemblies and every in-memory test compilation has the Entity Framework integration
 /// active.
 /// </summary>
-public record ValueObjectsEfGeneratorTestOptions : SourceGeneratorTestOptions
+public record ValueObjectsEFGeneratorTestOptions : SourceGeneratorTestOptions
 {
 	public const string PreCompilationMarkerHintName = "PreCompilationMarker.g.cs";
 
@@ -16,7 +16,7 @@ public record ValueObjectsEfGeneratorTestOptions : SourceGeneratorTestOptions
 		"ValueObjectDefaultsAttribute.g.cs",
 	];
 
-	public ValueObjectsEfGeneratorTestOptions()
+	public ValueObjectsEFGeneratorTestOptions()
 	{
 		DisableSourceGeneratorPropertyName = PropertyLibrary.DisableSourceGenerator;
 		ValidateCodeWriterScopes = true;
@@ -26,7 +26,7 @@ public record ValueObjectsEfGeneratorTestOptions : SourceGeneratorTestOptions
 		AnalyzerTypes = [typeof(Analyzers.ValueObjectDiagnosticAnalyzer)];
 	}
 
-	public static new ValueObjectsEfGeneratorTestOptions Default => new();
+	public static new ValueObjectsEFGeneratorTestOptions Default => new();
 
-	public static ValueObjectsEfGeneratorTestOptions NoValidation => new() { ThrowOnGenerationException = false };
+	public static ValueObjectsEFGeneratorTestOptions NoValidation => new() { ThrowOnGenerationException = false };
 }

@@ -50,15 +50,15 @@ static class ValueObjectDefaultsHelper
 				"GenerateImplicitToPrimitive"
 			),
 			GenerateEmpty = MergeBool(typeOptions.GenerateEmpty, assemblyDefaults.GenerateEmpty, "GenerateEmpty"),
-			GenerateEfConverter = MergeBool(
-				typeOptions.GenerateEfConverter,
-				assemblyDefaults.GenerateEfConverter,
-				"GenerateEfConverter"
+			GenerateEFConverter = MergeBool(
+				typeOptions.GenerateEFConverter,
+				assemblyDefaults.GenerateEFConverter,
+				"GenerateEFConverter"
 			),
-			GenerateEfComparer = MergeBool(
-				typeOptions.GenerateEfComparer,
-				assemblyDefaults.GenerateEfComparer,
-				"GenerateEfComparer"
+			GenerateEFComparer = MergeBool(
+				typeOptions.GenerateEFComparer,
+				assemblyDefaults.GenerateEFComparer,
+				"GenerateEFComparer"
 			),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,
@@ -69,12 +69,20 @@ static class ValueObjectDefaultsHelper
 		};
 
 		bool MergeBool(bool typeValue, bool assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(attributes, ValueObjectSymbolInspector.ScalarAttributeName, propertyName)
+			IsPropertyExplicitlySet(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+				propertyName
+			)
 				? typeValue
 				: assemblyValue;
 
 		string MergeString(string typeValue, string assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(attributes, ValueObjectSymbolInspector.ScalarAttributeName, propertyName)
+			IsPropertyExplicitlySet(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+				propertyName
+			)
 				? typeValue
 				: assemblyValue;
 	}
@@ -112,11 +120,11 @@ static class ValueObjectDefaultsHelper
 				assemblyDefaults.GenerateConstructor,
 				"GenerateConstructor"
 			),
-			EfMapping = MergeString(typeOptions.EfMapping, assemblyDefaults.EfMapping, "EfMapping"),
-			GenerateEfComparer = MergeBool(
-				typeOptions.GenerateEfComparer,
-				assemblyDefaults.GenerateEfComparer,
-				"GenerateEfComparer"
+			EFMapping = MergeString(typeOptions.EFMapping, assemblyDefaults.EFMapping, "EFMapping"),
+			GenerateEFComparer = MergeBool(
+				typeOptions.GenerateEFComparer,
+				assemblyDefaults.GenerateEFComparer,
+				"GenerateEFComparer"
 			),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,
@@ -127,14 +135,32 @@ static class ValueObjectDefaultsHelper
 		};
 
 		bool MergeBool(bool typeValue, bool assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(attributes, ValueObjectSymbolInspector.ValueObjectAttributeName, propertyName)
+			IsPropertyExplicitlySet(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
+				propertyName
+			)
 				? typeValue
 				: assemblyValue;
 
 		string MergeString(string typeValue, string assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(attributes, ValueObjectSymbolInspector.ValueObjectAttributeName, propertyName)
+			IsPropertyExplicitlySet(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
+				propertyName
+			)
 				? typeValue
 				: assemblyValue;
+	}
+
+	public static bool IsPropertyExplicitlySet(
+		ImmutableArray<AttributeData> attributes,
+		TypeIdentity attributeType,
+		string propertyName
+	)
+	{
+		var attribute = attributes.FirstOrDefault(a => attributeType.Equals(a.AttributeClass));
+		return attribute?.NamedArguments.Any(kvp => kvp.Key == propertyName) ?? false;
 	}
 
 	public static bool IsPropertyExplicitlySet(

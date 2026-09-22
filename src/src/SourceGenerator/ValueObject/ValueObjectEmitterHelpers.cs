@@ -35,7 +35,7 @@ static class ValueObjectEmitterHelpers
 		EmitRelationalOperator(
 			writer,
 			existingOperators,
-			ValueObjectSymbolInspector.LessThanOperatorName,
+			OperatorNames.EqualityAndRelational.LessThanOperatorName,
 			"<",
 			leftType,
 			rightType,
@@ -45,7 +45,7 @@ static class ValueObjectEmitterHelpers
 		EmitRelationalOperator(
 			writer,
 			existingOperators,
-			ValueObjectSymbolInspector.GreaterThanOperatorName,
+			OperatorNames.EqualityAndRelational.GreaterThanOperatorName,
 			">",
 			leftType,
 			rightType,
@@ -55,7 +55,7 @@ static class ValueObjectEmitterHelpers
 		EmitRelationalOperator(
 			writer,
 			existingOperators,
-			ValueObjectSymbolInspector.LessThanOrEqualOperatorName,
+			OperatorNames.EqualityAndRelational.LessThanOrEqualOperatorName,
 			"<=",
 			leftType,
 			rightType,
@@ -65,7 +65,7 @@ static class ValueObjectEmitterHelpers
 		EmitRelationalOperator(
 			writer,
 			existingOperators,
-			ValueObjectSymbolInspector.GreaterThanOrEqualOperatorName,
+			OperatorNames.EqualityAndRelational.GreaterThanOrEqualOperatorName,
 			">=",
 			leftType,
 			rightType,

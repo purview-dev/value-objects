@@ -2,8 +2,6 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 
 public static partial class TypeLibrary
 {
-	public const string ValueObjectGeneratorName = "Purview.ValueObjects.ValueObjectSourceGenerator";
-
 	// The *FullTypeName constants below are consumed as attribute arguments by the [Generate]
 	// attribute-data-model declarations (see ValueObjectDataModels.cs). Attribute arguments must fold
 	// to constant strings within the same compilation pass, so these cannot reference the generated
@@ -22,17 +20,11 @@ public static partial class TypeLibrary
 	public const string ValueObjectDeserializationModeFullTypeName =
 		SerializationNamespace + ".ValueObjectDeserializationMode";
 
-	public const string EfMappingFullTypeName = SerializationNamespace + ".EfMapping";
+	public const string EntityFrameworkMappingFullTypeName = SerializationNamespace + ".EntityFrameworkMapping";
 
 	public const string ZodSchemaModeFullTypeName = SerializationNamespace + ".ZodSchemaMode";
 
-	public const string EfValueConverterFullTypeName = Microsoft
-		.EntityFrameworkCore
-		.Storage
-		.ValueConversion
-		.ValueConverterFullName;
+	public const string EFValueObjectEFNamespace = "Microsoft.EntityFrameworkCore";
 
-	public const string EfValueObjectEFNamespace = "Microsoft.EntityFrameworkCore";
-
-	public const string EfValueObjectExtensionsClassName = "ValueObjectEfExtensions";
+	public const string EFValueObjectExtensionsClassName = "ValueObjectEFExtensions";
 }

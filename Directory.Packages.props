@@ -6,8 +6,8 @@
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.68.17</TUnitVersion>
-		<PurviewSGFVersion>1.0.0-prerelease.44</PurviewSGFVersion>
-		<PurviewZodSharpVersion>2.0.0-prerelease.12</PurviewZodSharpVersion>
+		<PurviewSGFVersion>1.0.0-prerelease.47</PurviewSGFVersion>
+		<PurviewZodSharpVersion>2.0.0-prerelease.17</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />
@@ -22,6 +22,7 @@
 	</ItemGroup>
 	<ItemGroup Label="Testing">
 		<PackageVersion Include="TUnit" Version="$(TUnitVersion)" />
+		<PackageVersion Include="TUnit.Core" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Mocks" Version="$(TUnitVersion)" />
 		<PackageVersion Include="Bogus" Version="35.6.5" />
 	</ItemGroup>

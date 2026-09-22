@@ -17,7 +17,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
-		<ProjectReference Include="..\..\src\SourceGenerator\SourceGenerator.csproj" />
 		<ProjectReference Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj" />
 	</ItemGroup>
 

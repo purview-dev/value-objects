@@ -23,7 +23,11 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (_, _, _, _) => EmptyCapabilities.Instance
 		);
 
-		var efDisabled = IncrementalPipeline.IsDisabledValueProvider(context, PropertyLibrary.DisableEfGeneration);
+		var efDisabled = IncrementalPipeline.IsDisabledValueProvider(context, PropertyLibrary.DisableEFGeneration);
+		var registryDisabled = IncrementalPipeline.IsDisabledValueProvider(
+			context,
+			PropertyLibrary.DisableEFRegistryGeneration
+		);
 
 		// Keep the compilation reference stable across identical reruns so the incremental pipeline
 		// short-circuits instead of re-executing every value-object transform (see PreCompilationMarker).
@@ -34,33 +38,33 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		);
 #pragma warning restore RSEXPERIMENTAL007
 
-		var scalarCandidates = context
-			.SyntaxProvider.ForAttributeWithMetadataName(
-				ValueObjectSymbolInspector.ScalarAttributeName,
-				predicate: static (node, _) => node is TypeDeclarationSyntax,
-				transform: static (ctx, ct) =>
-					ScalarValueObjectModelBuilder.Build(
-						(INamedTypeSymbol)ctx.TargetSymbol,
-						(TypeDeclarationSyntax)ctx.TargetNode,
-						ctx.SemanticModel.Compilation,
-						ct
-					)
-			)
-			.WithTrackingName("GetScalarValueObjectTargets");
+		var scalarCandidates = IncrementalPipeline.ForAttributeWithMetadataName(
+			context,
+			TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+			static (ctx, ct) =>
+				ScalarValueObjectModelBuilder.Build(
+					(INamedTypeSymbol)ctx.TargetSymbol,
+					(TypeDeclarationSyntax)ctx.TargetNode,
+					ctx.SemanticModel.Compilation,
+					ct
+				),
+			static (node, _) => node is TypeDeclarationSyntax,
+			trackingName: "GetScalarValueObjectTargets"
+		);
 
-		var complexCandidates = context
-			.SyntaxProvider.ForAttributeWithMetadataName(
-				ValueObjectSymbolInspector.ValueObjectAttributeName,
-				predicate: static (node, _) => node is TypeDeclarationSyntax,
-				transform: static (ctx, ct) =>
-					ComplexValueObjectModelBuilder.Build(
-						(INamedTypeSymbol)ctx.TargetSymbol,
-						(TypeDeclarationSyntax)ctx.TargetNode,
-						ctx.SemanticModel.Compilation,
-						ct
-					)
-			)
-			.WithTrackingName("GetComplexValueObjectTargets");
+		var complexCandidates = IncrementalPipeline.ForAttributeWithMetadataName(
+			context,
+			TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
+			static (ctx, ct) =>
+				ComplexValueObjectModelBuilder.Build(
+					(INamedTypeSymbol)ctx.TargetSymbol,
+					(TypeDeclarationSyntax)ctx.TargetNode,
+					ctx.SemanticModel.Compilation,
+					ct
+				),
+			static (node, _) => node is TypeDeclarationSyntax,
+			trackingName: "GetComplexValueObjectTargets"
+		);
 
 		context.RegisterSourceOutput(
 			scalarCandidates.Combine(generationContext.Combine(efDisabled)),
@@ -71,7 +75,14 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (spc, tuple) => EmitComplexResult(spc, tuple.Left, tuple.Right.Left, tuple.Right.Right)
 		);
 
-		RegisterEfRegistryOutput(context, scalarCandidates, complexCandidates, efDisabled, generationContext);
+		RegisterEFRegistryOutput(
+			context,
+			scalarCandidates,
+			complexCandidates,
+			efDisabled,
+			registryDisabled,
+			generationContext
+		);
 	}
 
 	static void EmitScalarResult(
@@ -88,7 +99,7 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			return;
 
 		var writer = generationContext.CreateCodeWriter();
-		ScalarValueObjectEmitter.Emit(writer, result.Value, emitEf: !efDisabled);
+		ScalarValueObjectEmitter.Emit(writer, result.Value, emitEF: !efDisabled);
 		context.AddSource(result.Value.HintName, writer);
 	}
 
@@ -106,35 +117,44 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			return;
 
 		var writer = generationContext.CreateCodeWriter();
-		ComplexValueObjectEmitter.Emit(writer, result.Value, emitEf: !efDisabled);
+		ComplexValueObjectEmitter.Emit(writer, result.Value, emitEF: !efDisabled);
 		context.AddSource(result.Value.HintName, writer);
 	}
 
-	static void RegisterEfRegistryOutput(
+	static void RegisterEFRegistryOutput(
 		IncrementalGeneratorInitializationContext context,
 		IncrementalValuesProvider<GeneratorResult<ScalarValueObjectModel>> scalarCandidates,
 		IncrementalValuesProvider<GeneratorResult<ComplexValueObjectModel>> complexCandidates,
 		IncrementalValueProvider<bool> efDisabled,
+		IncrementalValueProvider<bool> registryDisabled,
 		IncrementalValueProvider<GeneratorContext> generationContext
 	)
 	{
 		var scalarDescriptors = scalarCandidates
-			.Select(static (result, _) => result.ShouldProcess ? BuildScalarEfDescriptor(result.Value) : null)
+			.Select(static (result, _) => result.ShouldProcess ? BuildScalarEFDescriptor(result.Value) : null)
 			.Collect();
 		var complexDescriptors = complexCandidates
-			.Select(static (result, _) => result.ShouldProcess ? BuildComplexEfDescriptor(result.Value) : null)
+			.Select(static (result, _) => result.ShouldProcess ? BuildComplexEFDescriptor(result.Value) : null)
 			.Collect();
 
-		var combinedDescriptors = scalarDescriptors.Combine(complexDescriptors);
-
-		var anyEfValueObject = combinedDescriptors.Select(
-			static (pair, _) =>
-				pair.Left.Any(static descriptor => descriptor is not null)
-				|| pair.Right.Any(static descriptor => descriptor is not null)
+		// Discover EF-enabled value objects declared in referenced assemblies (e.g. a shared domain
+		// models project) via their marker interfaces so the consumer registry maps them too.
+		var referencedDescriptors = context.CompilationProvider.Select(
+			static (compilation, cancellationToken) =>
+				ReferencedEFValueObjectDiscovery.Scan(compilation, cancellationToken)
 		);
 
-		var registryInput = anyEfValueObject
-			.Combine(efDisabled)
+		var combinedDescriptors = scalarDescriptors.Combine(complexDescriptors).Combine(referencedDescriptors);
+
+		var anyEFValueObject = combinedDescriptors.Select(
+			static (pair, _) =>
+				pair.Left.Left.Any(static descriptor => descriptor is not null)
+				|| pair.Left.Right.Any(static descriptor => descriptor is not null)
+				|| !pair.Right.IsEmpty
+		);
+
+		var registryInput = anyEFValueObject
+			.Combine(efDisabled.Combine(registryDisabled))
 			.Combine(combinedDescriptors)
 			.Combine(generationContext);
 
@@ -143,57 +163,64 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (spc, tuple) =>
 			{
 				var (left, generationContext) = tuple;
-				var (anyEf, combined) = left;
-				var (anyValueObject, efDisabled) = anyEf;
-				if (!anyValueObject || efDisabled)
+				var (anyEF, combined) = left;
+				var (anyValueObject, efOptions) = anyEF;
+				var (efDisabled, registryDisabled) = efOptions;
+				if (generationContext.Settings.IsSourceGeneratorDisabled)
 					return;
 
-				var scalars = ImmutableArray.CreateBuilder<EfScalarDescriptor>();
-				var complex = ImmutableArray.CreateBuilder<EfComplexDescriptor>();
-				foreach (var descriptor in combined.Left)
+				if (!anyValueObject || efDisabled || registryDisabled)
+					return;
+
+				var scalars = ImmutableArray.CreateBuilder<EFScalarDescriptor>();
+				var complex = ImmutableArray.CreateBuilder<EFComplexDescriptor>();
+				foreach (var descriptor in combined.Left.Left)
 				{
 					if (descriptor is not null)
 						scalars.Add(descriptor.Value);
 				}
 
-				foreach (var descriptor in combined.Right)
+				foreach (var descriptor in combined.Left.Right)
 				{
 					if (descriptor is not null)
 						complex.Add(descriptor.Value);
 				}
 
+				scalars.AddRange(combined.Right.Scalars);
+				complex.AddRange(combined.Right.Complex);
+
 				if (scalars.Count == 0 && complex.Count == 0)
 					return;
 
 				var writer = generationContext.CreateCodeWriter();
-				ValueObjectEfRegistryEmitter.Emit(writer, scalars, complex);
-				spc.AddSource($"{TypeLibrary.EfValueObjectExtensionsClassName}.g.cs", writer);
+				ValueObjectEFRegistryEmitter.Emit(writer, scalars, complex);
+				spc.AddSource($"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs", writer);
 			}
 		);
 	}
 
-	static EfScalarDescriptor? BuildScalarEfDescriptor(ScalarValueObjectModel model)
+	static EFScalarDescriptor? BuildScalarEFDescriptor(ScalarValueObjectModel model)
 	{
-		if (!model.IsEfReferenced || (!model.Options.GenerateEfConverter && !model.Options.GenerateEfComparer))
+		if (!model.IsEFReferenced || (!model.Options.GenerateEFConverter && !model.Options.GenerateEFComparer))
 			return null;
 
 		// If the value object is EF-referenced, but neither a converter nor a comparer is requested, we don't need to generate any EF-related code.
 		return new(
 			model.TypeModel.FullyQualifiedName,
-			model.Options.GenerateEfConverter,
-			model.Options.GenerateEfComparer,
-			model.EfProviderMappable
+			model.Options.GenerateEFConverter,
+			model.Options.GenerateEFComparer,
+			model.EFProviderMappable
 		);
 	}
 
-	static EfComplexDescriptor? BuildComplexEfDescriptor(ComplexValueObjectModel model)
+	static EFComplexDescriptor? BuildComplexEFDescriptor(ComplexValueObjectModel model)
 	{
 		if (
-			!model.IsEfReferenced
+			!model.IsEFReferenced
 			|| (
-				model.Options.EfMapping != null
-				&& ValueObjectSymbolInspector.IsEfMappingNone(model.Options.EfMapping)
-				&& !model.Options.GenerateEfComparer
+				model.Options.EFMapping != null
+				&& ValueObjectSymbolInspector.IsEFMappingNone(model.Options.EFMapping)
+				&& !model.Options.GenerateEFComparer
 			)
 		)
 			return null;
@@ -201,10 +228,10 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		// If the value object is EF-referenced, but neither a mapping nor a comparer is requested, we don't need to generate any EF-related code.
 		return new(
 			model.TypeModel.FullyQualifiedName,
-			model.Options.EfMapping,
-			model.IsEf8Referenced,
-			model.Options.GenerateEfComparer,
-			model.Options.EfMapping != null && ValueObjectSymbolInspector.IsEfMappingJson(model.Options.EfMapping)
+			model.Options.EFMapping,
+			model.IsEF8Referenced,
+			model.Options.GenerateEFComparer,
+			model.Options.EFMapping != null && ValueObjectSymbolInspector.IsEFMappingJson(model.Options.EFMapping)
 		);
 	}
 }

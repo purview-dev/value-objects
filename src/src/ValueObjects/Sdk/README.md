@@ -54,7 +54,7 @@ modelBuilder
 
 ## Entity Framework Core
 
-When your project references `Microsoft.EntityFrameworkCore`, the generator emits an `Ef` nested class per value
+When your project references `Microsoft.EntityFrameworkCore`, the generator emits an `EF` nested class per value
 object (a `ValueConverter`/`ValueComparer`) and an assembly-level `ConfigureValueObjects` extension that maps
 them automatically:
 
@@ -66,7 +66,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 ```
 
 Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
-types (EF Core 8+) by default or JSON columns via `[ValueObject(EfMapping = EfMapping.Json)]`. Queries compare
+types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]`. Queries compare
 the value object type directly — no `.Value` required. See `docs/Entity-Framework.md` for the full guide.
 
 See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples.

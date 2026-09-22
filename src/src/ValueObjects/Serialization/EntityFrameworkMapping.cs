@@ -9,7 +9,7 @@ namespace Purview.ValueObjects.Serialization;
 /// package. The source generator emits the corresponding Entity Framework members only when Entity
 /// Framework Core is referenced by the consuming project.
 /// </remarks>
-public enum EfMapping
+public enum EntityFrameworkMapping
 {
 	/// <summary>
 	/// Maps the value object as an Entity Framework Core complex type (EF Core 8+), producing separate

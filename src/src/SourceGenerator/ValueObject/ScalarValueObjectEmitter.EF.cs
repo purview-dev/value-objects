@@ -1,19 +1,20 @@
 namespace Purview.ValueObjects.SourceGenerator.ValueObject;
 
-static partial class ComplexValueObjectEmitter
+static partial class ScalarValueObjectEmitter
 {
-	static void EmitEf(CodeWriter writer, ComplexValueObjectModel model, bool emitEf)
+	static void EmitEF(CodeWriter writer, ScalarValueObjectModel model, bool emitEF)
 	{
-		if (!emitEf || !model.IsEfReferenced)
+		if (!emitEF || !model.IsEFReferenced)
 			return;
 
-		var emitComparer = model.Options.GenerateEfComparer;
-		var emitJsonConverter =
-			model.Options.EfMapping != null && ValueObjectSymbolInspector.IsEfMappingJson(model.Options.EfMapping);
-		if (!emitComparer && !emitJsonConverter)
+		var emitConverter = model.Options.GenerateEFConverter;
+		var emitComparer = model.Options.GenerateEFComparer;
+		if (!emitConverter && !emitComparer)
 			return;
 
 		var valueObjectType = ValueObjectType(model);
+		var factoryName =
+			model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate";
 
 		writer
 			.XmlSummary(
@@ -21,7 +22,7 @@ static partial class ComplexValueObjectEmitter
 				"Generated only when the consuming project references Microsoft.EntityFrameworkCore."
 			)
 			.Class(
-				new TypeDeclarationOptions("Ef")
+				new TypeDeclarationOptions("EF")
 				{
 					Accessibility = TypeDeclarationAccessibility.Public,
 					IsStatic = true,
@@ -29,18 +30,18 @@ static partial class ComplexValueObjectEmitter
 				},
 				body =>
 				{
-					if (emitJsonConverter)
+					if (emitConverter)
 					{
 						body.XmlSummary(
-								"Converts the value object to and from a JSON string for Entity Framework Core JSON columns.",
-								"Serialization uses the generated JSON converter."
+								"Converts between the value object and its underlying value for Entity Framework Core.",
+								$"Persists {model.TypeModel.Name} as a native {model.ScalarTypeName} column."
 							)
 							.Field(
 								new FieldDeclarationOptions(
 									"Converter",
 									TypeLibrary.Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.MakeGeneric(
 										valueObjectType,
-										TypeLibrary.System.String.AsTypeReference()
+										model.ScalarTypeReference
 									),
 									TypeDeclarationAccessibility.Public
 								)
@@ -48,7 +49,7 @@ static partial class ComplexValueObjectEmitter
 									IsStatic = true,
 									IsReadOnly = true,
 									Initializer =
-										$"new(vo => global::System.Text.Json.JsonSerializer.Serialize(vo), v => global::System.Text.Json.JsonSerializer.Deserialize<{model.TypeModel.FullyQualifiedName}>(v)!)",
+										$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.{factoryName}(v))",
 								}
 							);
 					}

@@ -6,7 +6,7 @@ primitive column; complex value objects map as EF Core complex types (EF Core 8+
 
 The runtime package stays free of Entity Framework dependencies: all Entity Framework code is generated into the
 consuming project, and everything below is opt-in per feature with an opt-out hierarchy
-(`DisableValueObjectsEfGeneration` MSBuild property → assembly defaults → per-type options).
+(`DisableValueObjectsEFGeneration` MSBuild property → assembly defaults → per-type options).
 
 ## Prerequisite
 
@@ -35,6 +35,43 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
+### Value objects in referenced assemblies
+
+The mapping is not limited to value objects declared in the same project. When a referenced assembly (for
+example a shared domain models project) references `Microsoft.EntityFrameworkCore`, the generator emits each
+of its value objects an `EF` nested class and an `IEFScalarValueObject`/`IEFComplexValueObject` marker
+interface. Your project's generated registry discovers those markers and maps the shared value objects just
+like locally-declared ones — so `EmailAddress` from a `SharedModels` assembly is automatically converted on
+your entities:
+
+```csharp
+// SharedModels assembly (references Microsoft.EntityFrameworkCore):
+[Scalar]
+public readonly partial record struct EmailAddress { public string Value { get; } }
+
+// Consumer assembly (references Microsoft.EntityFrameworkCore + SharedModels):
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ConfigureValueObjects();   // maps SharedModels.EmailAddress too
+}
+```
+
+A provider assembly that only *defines* value objects (and does not own any `DbContext`) can opt out of
+emitting its own registry so consumer projects aren't affected by duplicate `ValueObjectEFExtensions`/
+`ValueObjectModelCustomizer` types in the `Microsoft.EntityFrameworkCore` namespace:
+
+```xml
+<PropertyGroup>
+    <!-- SharedModels: emit per-type EF members + markers, but not the assembly-level registry. -->
+    <DisableValueObjectsEFRegistry>true</DisableValueObjectsEFRegistry>
+</PropertyGroup>
+```
+
+> **Limitation.** Referenced value objects are discovered through their marker interfaces. A complex value
+> object in another assembly is only discovered when it emitted at least one EF member (a comparer or a JSON
+> column converter); a complex type with `EFMapping` set but both `GenerateEFComparer = false` and no JSON
+> mapping is not auto-discovered across assemblies — configure it manually on the entity.
+
 ### Configure from DI registration (`AddDbContext`, `AddDbContextFactory`, `AddDbContextPool`)
 
 Instead of overriding `OnModelCreating` per context, chain the generated `UseValueObjects()` extension on the
@@ -60,7 +97,7 @@ What the mapping does:
   `ValueConverter<TSelf, TUnderlying>` + `ValueComparer`. `EmailAddress` stores as a `TEXT` column.
 - **Complex value objects** (`[ValueObject]`) map as **EF Core complex types** (EF Core 8+) by default, producing
   a column per member — including nested scalar value objects (e.g. `Money.Currency` converts to its primitive).
-- Complex value objects with `[ValueObject(EfMapping = EfMapping.Json)]` map to a single JSON column using the
+- Complex value objects with `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` map to a single JSON column using the
   generated JSON converter.
 
 ## Queries — no `.Value` required
@@ -100,13 +137,13 @@ var orders = await db.Orders
 
 ## Manual control
 
-The generator exposes per value object a nested static `Ef` class. Use it for per-property configuration instead
+The generator exposes per value object a nested static `EF` class. Use it for per-property configuration instead
 of (or alongside) the automatic registry:
 
 ```csharp
 builder.Entity<Customer>()
     .Property(c => c.Email)
-    .HasConversion(EmailAddress.Ef.Converter, EmailAddress.Ef.Comparer);
+    .HasConversion(EmailAddress.EF.Converter, EmailAddress.EF.Comparer);
 ```
 
 Complex value objects can be configured explicitly with `ComplexProperty`:
@@ -116,7 +153,7 @@ builder.Entity<Order>()
     .ComplexProperty(o => o.Total, money =>
     {
         money.Property(m => m.Amount);
-        money.Property(m => m.Currency).HasConversion(CurrencyCode.Ef.Converter, CurrencyCode.Ef.Comparer);
+        money.Property(m => m.Currency).HasConversion(CurrencyCode.EF.Converter, CurrencyCode.EF.Comparer);
     });
 ```
 
@@ -125,13 +162,13 @@ builder.Entity<Order>()
 ### Per type
 
 ```csharp
-[Scalar(GenerateEfConverter = false, GenerateEfComparer = false)]   // opt this scalar out of EF support
+[Scalar(GenerateEFConverter = false, GenerateEFComparer = false)]   // opt this scalar out of EF support
 public readonly partial record struct InternalCode { ... }
 
-[ValueObject(EfMapping = EfMapping.Json)]                           // map as a JSON column instead of complex type
+[ValueObject(EFMapping = EntityFrameworkMapping.Json)]                           // map as a JSON column instead of complex type
 public readonly partial record struct Audit { ... }
 
-[ValueObject(EfMapping = EfMapping.None, GenerateEfComparer = false)] // no EF support for this type
+[ValueObject(EFMapping = EntityFrameworkMapping.None, GenerateEFComparer = false)] // no EF support for this type
 public readonly partial record struct Notes { ... }
 ```
 
@@ -141,8 +178,8 @@ Assembly-level defaults apply to every value object and can be overridden per ty
 the complex/JSON mapping mode as the assembly default:
 
 ```csharp
-[assembly: ValueObjectDefaults(EfMapping = EfMapping.Json)]
-[assembly: ValueObjectDefaults(GenerateEfConverter = false, GenerateEfComparer = false)] // opt the whole assembly out
+[assembly: ValueObjectDefaults(EFMapping = EntityFrameworkMapping.Json)]
+[assembly: ValueObjectDefaults(GenerateEFConverter = false, GenerateEFComparer = false)] // opt the whole assembly out
 ```
 
 ### MSBuild property (whole project)
@@ -151,7 +188,16 @@ Disable all Entity Framework generation for the compilation:
 
 ```xml
 <PropertyGroup>
-    <DisableValueObjectsEfGeneration>true</DisableValueObjectsEfGeneration>
+    <DisableValueObjectsEFGeneration>true</DisableValueObjectsEFGeneration>
+</PropertyGroup>
+```
+
+Disable only the assembly-level registry (keeping per-type `EF` members and marker interfaces) — useful for
+value-object provider assemblies referenced by EF consumers:
+
+```xml
+<PropertyGroup>
+    <DisableValueObjectsEFRegistry>true</DisableValueObjectsEFRegistry>
 </PropertyGroup>
 ```
 
@@ -165,8 +211,8 @@ Disable all Entity Framework generation for the compilation:
 ## Notes
 
 - EF Core 8+ is required for complex type mapping; on older EF references, complex value objects fall back to
-  no automatic mapping (use `EfMapping.Json` or configure manually).
+  no automatic mapping (use `EntityFrameworkMapping.Json` or configure manually).
 - Value objects are immutable; EF tracks them by value like any struct/record. The generator emits a
   parameterless constructor for `[ValueObject]` types to support EF Core materialization.
 - See `src/src/Sample` for a runnable EF Core (SQLite) example, and
-  `src/tests/ValueObjects.UnitTests/Serialization/EntityFrameworkIntegrationTests.cs` for integration tests.
+  `src/tests/ValueObjects.IntegrationTests/Serialization/EntityFrameworkIntegrationTests.cs` for integration tests.
