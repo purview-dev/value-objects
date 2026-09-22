@@ -156,7 +156,7 @@ static class ValueObjectEFRegistryEmitter
 			complex
 				.Where(static descriptor => descriptor.HasJsonConverter)
 				.Select(static descriptor =>
-					$"[typeof({descriptor.TypeName})] = new JsonMapping({descriptor.TypeName}.EF.Converter, {ComparerExpression(descriptor)})"
+					$"[typeof({descriptor.TypeName})] = new JsonMapping({JsonConverterExpression(descriptor)}, {ComparerExpression(descriptor)})"
 				)
 		);
 		var complexTypes = complex
@@ -401,13 +401,33 @@ static class ValueObjectEFRegistryEmitter
 	}
 
 	static string ConverterExpression(EFScalarDescriptor descriptor) =>
-		descriptor.HasConverter ? $"{descriptor.TypeName}.EF.Converter" : "null";
+		descriptor.HasConverter
+			? descriptor.HasEFMembers
+				? $"{descriptor.TypeName}.EF.Converter"
+				: $"new global::Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<{descriptor.TypeName}, {descriptor.ProviderTypeName}>(vo => vo.{descriptor.ScalarPropertyName}, v => {descriptor.TypeName}.{descriptor.FactoryName}(v))"
+			: "null";
 
 	static string ComparerExpression(EFScalarDescriptor descriptor) =>
-		descriptor.HasComparer ? $"{descriptor.TypeName}.EF.Comparer" : "null";
+		descriptor.HasComparer
+			? descriptor.HasEFMembers
+				? $"{descriptor.TypeName}.EF.Comparer"
+				: InlineComparerExpression(descriptor.TypeName)
+			: "null";
 
 	static string ComparerExpression(EFComplexDescriptor descriptor) =>
-		descriptor.HasComparer ? $"{descriptor.TypeName}.EF.Comparer" : "null";
+		descriptor.HasComparer
+			? descriptor.HasEFMembers
+				? $"{descriptor.TypeName}.EF.Comparer"
+				: InlineComparerExpression(descriptor.TypeName)
+			: "null";
+
+	static string JsonConverterExpression(EFComplexDescriptor descriptor) =>
+		descriptor.HasEFMembers
+			? $"{descriptor.TypeName}.EF.Converter"
+			: $"new global::Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<{descriptor.TypeName}, global::System.String>(vo => global::System.Text.Json.JsonSerializer.Serialize(vo), v => global::System.Text.Json.JsonSerializer.Deserialize<{descriptor.TypeName}>(v)!)";
+
+	static string InlineComparerExpression(string typeName) =>
+		$"new global::Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<{typeName}>((a, b) => a == b, vo => vo.GetHashCode(), vo => vo)";
 
 	static string Bool(bool value) => value ? "true" : "false";
 }

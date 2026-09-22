@@ -8,8 +8,6 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 /// </summary>
 public record ValueObjectsEFGeneratorTestOptions : SourceGeneratorTestOptions
 {
-	public const string PreCompilationMarkerHintName = "PreCompilationMarker.g.cs";
-
 	public static readonly string[] ValueObjectGeneratedAttributes =
 	[
 		"EmbeddedAttribute.g.cs",
@@ -22,7 +20,7 @@ public record ValueObjectsEFGeneratorTestOptions : SourceGeneratorTestOptions
 		ValidateCodeWriterScopes = true;
 		AdditionalNamespaces = [typeof(ScalarJsonConverterFactory).Namespace!, typeof(IValueObject).Namespace!];
 		AdditionalAssemblyTypes = [typeof(IValueObject)];
-		ExcludeGeneratedSourceHintNames = [.. ValueObjectGeneratedAttributes, PreCompilationMarkerHintName];
+		ExcludeGeneratedSourceHintNames = [.. ValueObjectGeneratedAttributes];
 		AnalyzerTypes = [typeof(Analyzers.ValueObjectDiagnosticAnalyzer)];
 	}
 

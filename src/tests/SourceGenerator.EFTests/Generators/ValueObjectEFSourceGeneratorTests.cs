@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace Purview.ValueObjects.SourceGenerator.Generators;
 
@@ -8,6 +9,11 @@ namespace Purview.ValueObjects.SourceGenerator.Generators;
 /// members, the marker interfaces, the assembly-level <c>ValueObjectEFExtensions</c> registry, and the
 /// three opt-out levels (MSBuild property, assembly defaults, per-type options).
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+	"Design",
+	"CA1506:Avoid excessive class coupling",
+	Justification = "Value object EF tests couple many Roslyn test helper types."
+)]
 public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGeneratorTestBase
 {
 	const string ScalarSource = """
@@ -524,6 +530,197 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	}
 
 	[Test]
+	public async Task ReferencedScalarValueObjects_WithoutEFInDeclaringAssembly_AreMappedWithInlineConversions(
+		CancellationToken cancellationToken
+	)
+	{
+		// A shared models assembly that does NOT reference EF Core (e.g. a domain project that must stay
+		// EF-free) emits no markers and no EF members; the consumer discovers its value objects from their
+		// attributes and maps them with inline conversions.
+		const string sharedSource = """
+			namespace Shared
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CustomerId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var sharedReference = await EmitSharedReferenceWithoutEFAsync(sharedSource, cancellationToken);
+
+		const string consumerSource = """
+			namespace Consumer
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct LocalId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("[typeof(global::Shared.EmailAddress)]");
+		await Assert.That(registry).Contains("ValueConverter<global::Shared.EmailAddress");
+		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).Contains("ValueComparer<global::Shared.EmailAddress>");
+		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.EF.Converter");
+		await Assert.That(registry).Contains("[typeof(global::Shared.CustomerId)]");
+		await Assert.That(registry).Contains("ValueConverter<global::Shared.CustomerId,global::System.Guid>");
+
+		// The inline converter/comparer must compile against the referenced (EF-free) value objects.
+		var compilationErrors = result
+			.CompilationResult.Compilation.GetDiagnostics(cancellationToken)
+			.Where(static d => d.Severity == DiagnosticSeverity.Error)
+			.ToArray();
+		await Assert.That(compilationErrors).IsEmpty();
+	}
+
+	[Test]
+	public async Task ReferencedScalarValueObjects_StrictDeserializationWithoutEF_UsesCreateFactory(
+		CancellationToken cancellationToken
+	)
+	{
+		const string sharedSource = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+			namespace Shared
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+			}
+			""";
+
+		var sharedReference = await EmitSharedReferenceWithoutEFAsync(sharedSource, cancellationToken);
+
+		const string consumerSource = """
+			namespace Consumer
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct LocalId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Create(v)");
+		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.Hydrate(v)");
+	}
+
+	[Test]
+	public async Task ReferencedComplexValueObjects_JsonMappingWithoutEF_EmitsInlineJsonConverter(
+		CancellationToken cancellationToken
+	)
+	{
+		const string sharedSource = """
+			namespace Shared
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json)]
+				public readonly partial record struct Audit
+				{
+					public System.DateTimeOffset OccurredAt { get; }
+				}
+			}
+			""";
+
+		var sharedReference = await EmitSharedReferenceWithoutEFAsync(sharedSource, cancellationToken);
+
+		const string consumerSource = """
+			namespace Consumer
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct LocalId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("[typeof(global::Shared.Audit)]");
+		await Assert.That(registry).Contains("ValueConverter<global::Shared.Audit,global::System.String>");
+		await Assert.That(registry).Contains("JsonSerializer.Serialize(vo)");
+		await Assert.That(registry).DoesNotContain("global::Shared.Audit.EF.Converter");
+
+		var compilationErrors = result
+			.CompilationResult.Compilation.GetDiagnostics(cancellationToken)
+			.Where(static d => d.Severity == DiagnosticSeverity.Error)
+			.ToArray();
+		await Assert.That(compilationErrors).IsEmpty();
+	}
+
+	[Test]
+	public async Task ReferencedComplexValueObjects_WithoutEF_AreMappedAsComplexTypes(
+		CancellationToken cancellationToken
+	)
+	{
+		const string sharedSource = """
+			namespace Shared
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CurrencyCode
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+
+					public CurrencyCode Currency { get; }
+				}
+			}
+			""";
+
+		var sharedReference = await EmitSharedReferenceWithoutEFAsync(sharedSource, cancellationToken);
+
+		const string consumerSource = """
+			namespace Consumer
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct LocalId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("typeof(global::Shared.Money)");
+		await Assert.That(registry).Contains("ValueConverter<global::Shared.CurrencyCode");
+		await Assert.That(registry).DoesNotContain("global::Shared.CurrencyCode.EF.Converter");
+	}
+
+	[Test]
 	public async Task ReferencedValueObjects_OptedOutOfEF_AreNotMappedByConsumerRegistry(
 		CancellationToken cancellationToken
 	)
@@ -593,12 +790,57 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		};
 
 		using var sharedResult = await GenerateAsync(source, sharedOptions.Compile(), cancellationToken);
-		using System.IO.MemoryStream stream = new();
+		using MemoryStream stream = new();
 		var emitResult = sharedResult.CompilationResult.Compilation.Emit(stream, cancellationToken: cancellationToken);
 		await Assert.That(emitResult.Success).IsTrue();
 
 		return MetadataReference.CreateFromImage(stream.ToArray());
 	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage(
+		"Design",
+		"CA1506:Avoid excessive class coupling",
+		Justification = "Emitting a value object provider assembly without Entity Framework requires Roslyn types."
+	)]
+	async Task<MetadataReference> EmitSharedReferenceWithoutEFAsync(string source, CancellationToken cancellationToken)
+	{
+		// Reuse the framework to obtain the full reference set, then drop Entity Framework so the value
+		// object provider assembly is generated without any EF members or marker interfaces.
+		var probe = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		var references = probe
+			.CompilationResult.Compilation.References.Where(static reference =>
+				!IsEntityFrameworkReference(reference.Display)
+			)
+			.ToImmutableArray();
+
+		var tree = CSharpSyntaxTree.ParseText(
+			source,
+			new CSharpParseOptions(LanguageVersion.Latest),
+			cancellationToken: cancellationToken
+		);
+		var compilation = CSharpCompilation.Create(
+			"SharedModelsWithoutEF",
+			[tree],
+			references,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+		);
+
+		var generator = new ValueObjectSourceGenerator().AsSourceGenerator();
+		GeneratorDriver driver = CSharpGeneratorDriver.Create(
+			generators: [generator],
+			parseOptions: new CSharpParseOptions(LanguageVersion.Latest)
+		);
+		driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out _, cancellationToken);
+
+		using MemoryStream stream = new();
+		var emitResult = outputCompilation.Emit(stream, cancellationToken: cancellationToken);
+		await Assert.That(emitResult.Success).IsTrue();
+
+		return MetadataReference.CreateFromImage(stream.ToArray());
+	}
+
+	static bool IsEntityFrameworkReference(string? display) =>
+		display?.Contains("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) is true;
 
 	static ValueObjectsEFGeneratorTestOptions WithSharedReference(MetadataReference reference) =>
 		ValueObjectsEFGeneratorTestOptions.Default with

@@ -67,10 +67,34 @@ emitting its own registry so consumer projects aren't affected by duplicate `Val
 </PropertyGroup>
 ```
 
-> **Limitation.** Referenced value objects are discovered through their marker interfaces. A complex value
-> object in another assembly is only discovered when it emitted at least one EF member (a comparer or a JSON
-> column converter); a complex type with `EFMapping` set but both `GenerateEFComparer = false` and no JSON
-> mapping is not auto-discovered across assemblies — configure it manually on the entity.
+#### Value objects in assemblies that do not reference EF Core
+
+The declaring assembly does not need to reference `Microsoft.EntityFrameworkCore`. A domain project that must
+stay free of Entity Framework dependencies (for example a model assembly shipped as a WASM contract) emits no
+`EF` members and no marker interfaces. The consumer still discovers those value objects — from their
+`[Scalar]`/`[ValueObject]` attributes — and generates the converters and comparers **inline** in its own
+registry, so all EF code is produced in the consuming project:
+
+```csharp
+// Domain/Models assembly (references Purview.ValueObjects only — no Entity Framework):
+[Scalar]
+public readonly partial record struct TenantId { public Guid Value { get; }
+
+// Persistence assembly (references Microsoft.EntityFrameworkCore + Domain/Models):
+services.AddDbContextFactory<ShopContext>(options =>
+    options.UseSqlite("Data Source=shop.db").UseValueObjects());   // maps Domain/Models.TenantId inline
+```
+
+The inline conversion mirrors what the per-type `EF` members would emit: scalars convert via
+`vo => vo.Value` / `T.Create(v)` (or `T.Hydrate(v)` for non-strict deserialization), JSON-mapped complex
+value objects serialize to a string column, and complex-type-mapped value objects map as EF Core complex
+types.
+
+> **Limitation.** Referenced value objects are discovered through their marker interfaces when the declaring
+> assembly references EF Core, or through their attributes when it does not. A complex value object in
+> another assembly is only discovered when it opted into at least one EF feature (a comparer, a complex-type
+> mapping, or a JSON column converter); a complex type with `EFMapping` set but both `GenerateEFComparer = false`
+> and no JSON mapping is not auto-discovered across assemblies — configure it manually on the entity.
 
 ### Configure from DI registration (`AddDbContext`, `AddDbContextFactory`, `AddDbContextPool`)
 

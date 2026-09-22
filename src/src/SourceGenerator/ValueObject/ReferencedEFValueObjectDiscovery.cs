@@ -1,10 +1,12 @@
 namespace Purview.ValueObjects.SourceGenerator.ValueObject;
 
 /// <summary>
-/// Discovers Entity Framework Core-enabled value objects declared in referenced assemblies by walking
-/// the <c>IEFScalarValueObject</c>/<c>IEFComplexValueObject</c> marker interfaces those assemblies emit
-/// when they reference <c>Microsoft.EntityFrameworkCore</c>. The consumer's generated
-/// <c>ValueObjectEFExtensions</c> registry then maps shared value objects just like locally-declared ones.
+/// Discovers Entity Framework Core-enabled value objects declared in referenced assemblies. When a
+/// referenced assembly references <c>Microsoft.EntityFrameworkCore</c> its value objects carry the
+/// <c>IEFScalarValueObject</c>/<c>IEFComplexValueObject</c> marker interfaces and are discovered from
+/// those; otherwise (the declaring assembly stays free of Entity Framework dependencies) they are
+/// discovered from their <c>[Scalar]</c>/<c>[ValueObject]</c> attributes and the consumer's generated
+/// <c>ValueObjectEFExtensions</c> registry maps them with inline conversions.
 /// </summary>
 static class ReferencedEFValueObjectDiscovery
 {
@@ -107,25 +109,112 @@ static class ReferencedEFValueObjectDiscovery
 					ValueObjectSymbolInspector.ToTypeName(type),
 					HasEFMember(type, "Converter"),
 					HasEFMember(type, "Comparer"),
-					ValueObjectSymbolInspector.IsEFMappableProviderType(scalarMarker.TypeArguments[1])
+					ValueObjectSymbolInspector.IsEFMappableProviderType(scalarMarker.TypeArguments[1]),
+					ProviderTypeName: null,
+					ScalarPropertyName: null,
+					FactoryName: null,
+					HasEFMembers: true
 				)
 			);
 			return;
 		}
 
-		if (FindMarkerInterface(type, ComplexMarkerName) is null)
+		if (FindMarkerInterface(type, ComplexMarkerName) is not null)
+		{
+			var efMapping = ResolveEFMapping(type);
+			complexBuilder.Add(
+				new EFComplexDescriptor(
+					ValueObjectSymbolInspector.ToTypeName(type),
+					efMapping,
+					isEF8Referenced,
+					HasEFMember(type, "Comparer"),
+					ValueObjectSymbolInspector.IsEFMappingJson(efMapping),
+					HasEFMembers: true
+				)
+			);
 			return;
+		}
 
-		var efMapping = ResolveEFMapping(type);
-		complexBuilder.Add(
-			new EFComplexDescriptor(
-				ValueObjectSymbolInspector.ToTypeName(type),
-				efMapping,
-				isEF8Referenced,
-				HasEFMember(type, "Comparer"),
-				ValueObjectSymbolInspector.IsEFMappingJson(efMapping)
+		// Value objects declared in an assembly that does not reference Entity Framework Core emit
+		// neither the marker interfaces nor an EF nested class. The consumer still discovers them from
+		// their [Scalar]/[ValueObject] attributes and emits the conversions inline.
+		var attributes = type.GetAttributes();
+		if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute
 			)
-		);
+		)
+		{
+			var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+				type.ContainingAssembly.GetAttributes()
+			);
+			var options = ValueObjectDefaultsHelper.Apply(
+				ScalarAttributeData.FromAttributeData(attributes),
+				assemblyDefaults,
+				attributes
+			);
+
+			if (!options.GenerateEFConverter && !options.GenerateEFComparer)
+				return;
+
+			var scalarProperty = type.GetMembers(options.PropertyName)
+				.OfType<IPropertySymbol>()
+				.FirstOrDefault(property => !property.IsStatic && property.GetMethod is not null);
+			if (scalarProperty is null)
+				return;
+
+			scalarBuilder.Add(
+				new EFScalarDescriptor(
+					ValueObjectSymbolInspector.ToTypeName(type),
+					options.GenerateEFConverter,
+					options.GenerateEFComparer,
+					ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
+					ValueObjectSymbolInspector.ToTypeName(scalarProperty.Type),
+					scalarProperty.Name,
+					options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate",
+					HasEFMembers: false
+				)
+			);
+			return;
+		}
+
+		if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute
+			)
+		)
+		{
+			var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+				type.ContainingAssembly.GetAttributes()
+			);
+			var options = ValueObjectDefaultsHelper.Apply(
+				ValueObjectAttributeData.FromAttributeData(attributes),
+				assemblyDefaults,
+				attributes
+			);
+
+			var efMapping = options.EFMapping;
+			if (
+				efMapping is not null
+				&& ValueObjectSymbolInspector.IsEFMappingNone(efMapping)
+				&& !options.GenerateEFComparer
+			)
+				return;
+
+			complexBuilder.Add(
+				new EFComplexDescriptor(
+					ValueObjectSymbolInspector.ToTypeName(type),
+					efMapping,
+					isEF8Referenced,
+					options.GenerateEFComparer,
+					efMapping is not null && ValueObjectSymbolInspector.IsEFMappingJson(efMapping),
+					HasEFMembers: false
+				)
+			);
+			return;
+		}
 	}
 
 	static INamedTypeSymbol? FindMarkerInterface(INamedTypeSymbol type, string markerName)

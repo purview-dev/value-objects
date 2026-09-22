@@ -394,6 +394,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 		await Assert
 			.That(result.AllSyntaxTrees.Length)
 			.IsEqualTo(ValueObjectsGeneratorTestOptions.ValueObjectExpectedFileCount);
+
 		await Assert.That(result.Generated().HasRecord("BrokenScalar", "Testing")).IsFalse();
 	}
 

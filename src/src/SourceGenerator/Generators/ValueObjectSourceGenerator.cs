@@ -7,13 +7,7 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 {
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		context
-			.RegisterEmbeddedAttribute<ValueObjectSourceGenerator>()
-			.RegisterPostInitializationOutput(ctx =>
-			{
-				foreach (var (HintName, Source) in ValueObjectsAttributeEmitter.EmitAttributes())
-					ctx.AddSource(HintName, Source);
-			});
+		context.RegisterEmbeddedAttribute<ValueObjectSourceGenerator>();
 
 		var generationContext = IncrementalPipeline.GenerationContextValueProvider(
 			context,
@@ -28,15 +22,6 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			context,
 			PropertyLibrary.DisableEFRegistryGeneration
 		);
-
-		// Keep the compilation reference stable across identical reruns so the incremental pipeline
-		// short-circuits instead of re-executing every value-object transform (see PreCompilationMarker).
-#pragma warning disable RSEXPERIMENTAL007 // Pre-compilation source output is intentionally used to stabilize the incremental cache.
-		context.RegisterPreCompilationSourceOutput(
-			PreCompilationMarker.Provider(context),
-			static (spc, source) => spc.AddSource(PreCompilationMarker.HintName, source)
-		);
-#pragma warning restore RSEXPERIMENTAL007
 
 		var scalarCandidates = IncrementalPipeline.ForAttributeWithMetadataName(
 			context,
@@ -138,7 +123,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			.Collect();
 
 		// Discover EF-enabled value objects declared in referenced assemblies (e.g. a shared domain
-		// models project) via their marker interfaces so the consumer registry maps them too.
+		// models project) via their marker interfaces, or their value object attributes when the
+		// declaring assembly does not reference Entity Framework Core.
 		var referencedDescriptors = context.CompilationProvider.Select(
 			static (compilation, cancellationToken) =>
 				ReferencedEFValueObjectDiscovery.Scan(compilation, cancellationToken)
@@ -209,7 +195,11 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			model.TypeModel.FullyQualifiedName,
 			model.Options.GenerateEFConverter,
 			model.Options.GenerateEFComparer,
-			model.EFProviderMappable
+			model.EFProviderMappable,
+			ProviderTypeName: null,
+			ScalarPropertyName: null,
+			FactoryName: null,
+			HasEFMembers: true
 		);
 	}
 
@@ -231,7 +221,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			model.Options.EFMapping,
 			model.IsEF8Referenced,
 			model.Options.GenerateEFComparer,
-			model.Options.EFMapping != null && ValueObjectSymbolInspector.IsEFMappingJson(model.Options.EFMapping)
+			model.Options.EFMapping != null && ValueObjectSymbolInspector.IsEFMappingJson(model.Options.EFMapping),
+			HasEFMembers: true
 		);
 	}
 }
