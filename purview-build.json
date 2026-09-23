@@ -11,14 +11,15 @@
 		"RequireSymbolFiles": true,
 		"RequiredContent": {
 			"purview.valueobjects": [
-				"README.md",
-				"purview-logo-light.png",
 				"buildTransitive/Purview.ValueObjects.targets",
 				"analyzers/dotnet/cs/Purview.ValueObjects.SourceGenerator.dll",
-				"analyzers/dotnet/cs/Purview.ValueObjects.SourceGenerator.Refactorings.dll"
+				"analyzers/dotnet/cs/Purview.ValueObjects.SourceGenerator.Refactorings.dll",
+				"lib/$(TFM)/Purview.ValueObjects.dll",
+				"lib/$(TFM)/Purview.ValueObjects.xml",
+				"README.md",
+				"purview-logo-light.png"
 			]
-		},
-		"ForbiddenContent": {}
+		}
 	},
 	"Release": {
 		"Mode": "None"
