@@ -137,7 +137,8 @@ the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details fo
 ## How it works
 
 - `Create(...)` is the strict creation path: normalize, validate, then construct.
-- `Hydrate(...)` reconstructs from persisted data without re-validating.
+- `Hydrate(...)` reconstructs from persisted data without re-validating and is the path used by EF
+  provider conversions.
 - `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
   `Strict` re-runs validation).
 - Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance

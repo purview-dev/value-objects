@@ -405,7 +405,7 @@ static class ValueObjectEFRegistryEmitter
 		descriptor.HasConverter
 			? descriptor.HasEFMembers
 				? $"{descriptor.TypeName}.EF.Converter"
-				: $"new global::Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<{descriptor.TypeName}, {descriptor.ProviderTypeName}>(vo => vo.{descriptor.ScalarPropertyName}, v => {descriptor.TypeName}.{descriptor.FactoryName}(v))"
+				: $"new global::Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<{descriptor.TypeName}, {descriptor.ProviderTypeName}>(vo => vo.{descriptor.ScalarPropertyName}, v => {descriptor.TypeName}.Hydrate(v))"
 			: "null";
 
 	static string ComparerExpression(EFScalarDescriptor descriptor) =>

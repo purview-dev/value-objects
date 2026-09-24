@@ -13,9 +13,6 @@ static partial class ScalarValueObjectEmitter
 			return;
 
 		var valueObjectType = ValueObjectType(model);
-		var factoryName =
-			model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate";
-
 		writer
 			.XmlSummary(
 				"Entity Framework Core mapping members for this value object.",
@@ -48,11 +45,11 @@ static partial class ScalarValueObjectEmitter
 								{
 									IsStatic = true,
 									IsReadOnly = true,
-									Initializer =
-										$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.{factoryName}(v))",
-								}
-							);
-					}
+						Initializer =
+							$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.Hydrate(v))",
+						}
+					);
+				}
 
 					if (emitComparer)
 					{

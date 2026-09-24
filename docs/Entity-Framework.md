@@ -85,10 +85,11 @@ services.AddDbContextFactory<ShopContext>(options =>
     options.UseSqlite("Data Source=shop.db").UseValueObjects());   // maps Domain/Models.TenantId inline
 ```
 
-The inline conversion mirrors what the per-type `EF` members would emit: scalars convert via
-`vo => vo.Value` / `T.Create(v)` (or `T.Hydrate(v)` for non-strict deserialization), JSON-mapped complex
-value objects serialize to a string column, and complex-type-mapped value objects map as EF Core complex
-types.
+The inline conversion mirrors what the per-type `EF` members emit: scalars convert via
+`vo => vo.Value` / `T.Hydrate(v)` for the provider-to-model path, JSON-mapped complex value objects serialize
+to a string column, and complex-type-mapped value objects map as EF Core complex types. EF uses the hydrate
+path even when the value object's `Create(...)` factory is strict, so query parameterization and persistence
+remain safe for provider values such as `Guid`, strings, enums, and other EF-mappable primitives.
 
 > **Limitation.** Referenced value objects are discovered through their marker interfaces when the declaring
 > assembly references EF Core, or through their attributes when it does not. A complex value object in
@@ -118,7 +119,9 @@ the mapping applies to every context created from that registration.
 What the mapping does:
 
 - **Scalar value objects** (`[Scalar]`) map to their underlying primitive via a generated
-  `ValueConverter<TSelf, TUnderlying>` + `ValueComparer`. `EmailAddress` stores as a `TEXT` column.
+  `ValueConverter<TSelf, TUnderlying>` + `ValueComparer`. The provider-to-model conversion uses
+  `Hydrate(...)` so raw provider values can be materialized safely from queries and persisted rows.
+  `EmailAddress` stores as a `TEXT` column.
 - **Complex value objects** (`[ValueObject]`) map as **EF Core complex types** (EF Core 8+) by default, producing
   a column per member — including nested scalar value objects (e.g. `Money.Currency` converts to its primitive).
 - Complex value objects with `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` map to a single JSON column using the

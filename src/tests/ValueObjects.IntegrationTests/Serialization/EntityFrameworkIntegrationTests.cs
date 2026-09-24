@@ -43,6 +43,40 @@ public sealed class EntityFrameworkIntegrationTests
 	}
 
 	[Test]
+	public async Task ScalarValueObjects_TranslateEqualityPredicateAgainstGuidBackedKey()
+	{
+		// Arrange
+		await using SqliteConnection connection = new("Data Source=:memory:");
+		await connection.OpenAsync();
+
+		TestEFDbContext context = new(new DbContextOptionsBuilder<TestEFDbContext>().UseSqlite(connection).Options);
+		await using (context)
+		{
+			await context.Database.EnsureCreatedAsync();
+
+			var customerId = CustomerId.Hydrate(Guid.NewGuid());
+			var email = EmailAddress.Create("regression@example.com");
+			context.Customers.Add(
+				new EFCustomer
+				{
+					Id = customerId,
+					Email = email,
+					Status = OrderStatus.Hydrate(OrderStatusKind.Shipped),
+				}
+			);
+			await context.SaveChangesAsync();
+			context.ChangeTracker.Clear();
+
+			// Act
+			var found = await context.Customers.SingleAsync(c => c.Id == customerId);
+
+			// Assert
+			await Assert.That(found.Id).IsEqualTo(customerId);
+			await Assert.That(found.Email).IsEqualTo(email);
+		}
+	}
+
+	[Test]
 	public async Task ComplexValueObjects_MapAsComplexTypesAndTranslateNestedMemberQueries()
 	{
 		await using SqliteConnection connection = new("Data Source=:memory:");

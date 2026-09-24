@@ -105,7 +105,69 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	}
 
 	[Test]
-	public async Task ScalarEFGeneration_StrictDeserialization_UsesCreateFactory(CancellationToken cancellationToken)
+	public async Task ScalarEFGeneration_GuidBackedInitOnlyProperty_UsesGuidProvider(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CustomerId
+				{
+					public System.Guid Value { get; init; }
+				}
+			}
+			""";
+
+		// Arrange
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		// Act
+		var registry = Normalize(result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString());
+
+		// Assert
+		await Assert.That(registry).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(registry).Contains("global::Testing.CustomerId.Hydrate(v)");
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_StrictDeserialization_UsesHydrateFactoryInEfConverter(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.Scalar(DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+				public readonly partial record struct CustomerId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		// Arrange
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default.Compile(), cancellationToken);
+
+		// Act
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+
+		// Assert
+		await Assert.That(registry).Contains("ValueConverter<global::Testing.EmailAddress,global::System.String>");
+		await Assert.That(registry).Contains("v=>global::Testing.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(registry).Contains("v=>global::Testing.CustomerId.Hydrate(v)");
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_StrictDeserialization_UsesHydrateFactory(CancellationToken cancellationToken)
 	{
 		const string source = """
 			namespace Testing
@@ -121,7 +183,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var converterInitializer = GetFieldInitializer(result.Generated().GetClass("EF").Node, "Converter");
-		await Assert.That(converterInitializer).Contains("Testing.EmailAddress.Create(v)");
+		await Assert.That(converterInitializer).Contains("Testing.EmailAddress.Hydrate(v)");
 	}
 
 	[Test]
@@ -623,8 +685,8 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
-		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Create(v)");
-		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.Create(v)");
 	}
 
 	[Test]
