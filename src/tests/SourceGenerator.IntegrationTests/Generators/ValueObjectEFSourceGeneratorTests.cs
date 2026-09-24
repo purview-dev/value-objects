@@ -105,7 +105,9 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	}
 
 	[Test]
-	public async Task ScalarEFGeneration_GuidBackedInitOnlyProperty_UsesGuidProvider(CancellationToken cancellationToken)
+	public async Task ScalarEFGeneration_GuidBackedInitOnlyProperty_UsesGuidProvider(
+		CancellationToken cancellationToken
+	)
 	{
 		const string source = """
 			namespace Testing
@@ -155,7 +157,11 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			""";
 
 		// Arrange
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default.Compile(), cancellationToken);
+		var result = await GenerateAsync(
+			source,
+			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		// Act
 		var query = result.Generated();
@@ -167,9 +173,11 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		// Assert
 		await Assert.That(emailAddress.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
 		await Assert.That(customerId.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
-		await Assert.That(emailGeneratedText).Contains("ValueConverter<global::Testing.EmailAddress,global::System.String>");
+		await Assert.That(emailGeneratedText).Contains("ValueConverter<global::Testing.EmailAddress,string>");
 		await Assert.That(emailGeneratedText).Contains("Testing.EmailAddress.Hydrate(v)");
-		await Assert.That(customerGeneratedText).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert
+			.That(customerGeneratedText)
+			.Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
 		await Assert.That(customerGeneratedText).Contains("Testing.CustomerId.Hydrate(v)");
 	}
 
@@ -347,7 +355,9 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
-		var registry = Normalize(query.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString());
+		var registry = Normalize(
+			query.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
 
 		await Assert.That(registry).Contains("typeof(global::Testing.Money)");
 		await Assert.That(registry).Contains("ComplexProperty(");

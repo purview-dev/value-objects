@@ -21,12 +21,9 @@
 	</Folder>
 	<Folder Name="/tests/">
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />
-		<Project Path="tests/SharedTestingInfra/SharedTestingInfra.csproj" Id="19e9e25d-c82c-4e71-af55-8bfb1a15598e" />
-		<Project Path="tests/SourceGenerator.EFTests/SourceGenerator.EFTests.csproj" />
-		<Project
-			Path="tests/ValueObjects.IntegrationTests/ValueObjects.IntegrationTests.csproj"
-			Id="04b4affd-f826-4d58-a237-d4d9ef7e3951"
-		/>
+		<Project Path="tests/SharedTestingInfra/SharedTestingInfra.csproj" />
+		<Project Path="tests/SourceGenerator.IntegrationTests/SourceGenerator.IntegrationTests.csproj" />
+		<Project Path="tests/ValueObjects.IntegrationTests/ValueObjects.IntegrationTests.csproj" />
 		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 	</Folder>
 </Solution>

@@ -45,11 +45,11 @@ static partial class ScalarValueObjectEmitter
 								{
 									IsStatic = true,
 									IsReadOnly = true,
-						Initializer =
-							$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.Hydrate(v))",
-						}
-					);
-				}
+									Initializer =
+										$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.Hydrate(v))",
+								}
+							);
+					}
 
 					if (emitComparer)
 					{
