@@ -122,11 +122,14 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		// Act
-		var registry = Normalize(result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString());
+		var query = result.Generated();
+		var customerId = query.GetRecord("CustomerId", "Testing");
+		var generatedText = Normalize(customerId.Node.ToString());
 
 		// Assert
-		await Assert.That(registry).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
-		await Assert.That(registry).Contains("global::Testing.CustomerId.Hydrate(v)");
+		await Assert.That(customerId.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(generatedText).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(generatedText).Contains("Testing.CustomerId.Hydrate(v)");
 	}
 
 	[Test]
@@ -155,15 +158,19 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default.Compile(), cancellationToken);
 
 		// Act
-		var registry = Normalize(
-			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
-		);
+		var query = result.Generated();
+		var emailAddress = query.GetRecord("EmailAddress", "Testing");
+		var customerId = query.GetRecord("CustomerId", "Testing");
+		var emailGeneratedText = Normalize(emailAddress.Node.ToString());
+		var customerGeneratedText = Normalize(customerId.Node.ToString());
 
 		// Assert
-		await Assert.That(registry).Contains("ValueConverter<global::Testing.EmailAddress,global::System.String>");
-		await Assert.That(registry).Contains("v=>global::Testing.EmailAddress.Hydrate(v)");
-		await Assert.That(registry).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
-		await Assert.That(registry).Contains("v=>global::Testing.CustomerId.Hydrate(v)");
+		await Assert.That(emailAddress.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(customerId.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(emailGeneratedText).Contains("ValueConverter<global::Testing.EmailAddress,global::System.String>");
+		await Assert.That(emailGeneratedText).Contains("Testing.EmailAddress.Hydrate(v)");
+		await Assert.That(customerGeneratedText).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(customerGeneratedText).Contains("Testing.CustomerId.Hydrate(v)");
 	}
 
 	[Test]
@@ -339,9 +346,8 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
-		var registry = Normalize(
-			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
-		);
+		var query = result.Generated();
+		var registry = Normalize(query.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString());
 
 		await Assert.That(registry).Contains("typeof(global::Testing.Money)");
 		await Assert.That(registry).Contains("ComplexProperty(");
