@@ -6,7 +6,9 @@ namespace Purview.ValueObjects.SourceGenerator.Generators;
 /// the ZodSharp generator), the generated <c>Create</c> validates the constructed instance through
 /// the schema class the ZodSharp generator produces.
 /// </summary>
-public sealed class ZodSchemaValidationGeneratorTests : ValueObjectSourceGeneratorTestBase
+//[Skip("Too flakey to run - dual source generator tests")]
+public sealed class ZodSchemaValidationGeneratorTests
+	: ValueObjectSourceGeneratorTestBase<ZodSchemaValidationGeneratorTestOptions>
 {
 	[Test]
 	public async Task Scalar_GivenZodSchema_GeneratedCreateValidatesViaSchema(CancellationToken cancellationToken)
@@ -47,11 +49,7 @@ public sealed class ZodSchemaValidationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(
-			source,
-			ZodSchemaValidationGeneratorTestOptions.Default.Compile(),
-			cancellationToken
-		);
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -105,11 +103,7 @@ public sealed class ZodSchemaValidationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(
-			source,
-			ZodSchemaValidationGeneratorTestOptions.Default.Compile(),
-			cancellationToken
-		);
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -149,11 +143,7 @@ public sealed class ZodSchemaValidationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(
-			source,
-			ZodSchemaValidationGeneratorTestOptions.Default.Compile(),
-			cancellationToken
-		);
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;

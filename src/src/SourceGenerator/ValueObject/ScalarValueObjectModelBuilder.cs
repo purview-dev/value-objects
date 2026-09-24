@@ -12,6 +12,7 @@ static class ScalarValueObjectModelBuilder
 	public static GeneratorResult<ScalarValueObjectModel> Build(
 		INamedTypeSymbol typeSymbol,
 		TypeDeclarationSyntax syntax,
+		Compilation compilation,
 		CancellationToken cancellationToken
 	)
 	{
@@ -27,7 +28,12 @@ static class ScalarValueObjectModelBuilder
 		];
 
 		var attributes = typeSymbol.GetAttributes();
-		if (ValueObjectSymbolInspector.HasAttribute(attributes, ValueObjectSymbolInspector.ValueObjectAttributeName))
+		if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute
+			)
+		)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(
@@ -149,7 +155,7 @@ static class ScalarValueObjectModelBuilder
 		var toStringExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "ToString");
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
-			ValueObjectSymbolInspector.JsonConverterAttributeName
+			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
 		);
 		var declareOnNormalize = ValueObjectSymbolInspector.ShouldEmitScalarHookDeclaration(
 			typeSymbol,
@@ -180,6 +186,49 @@ static class ScalarValueObjectModelBuilder
 
 		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
 		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+
+		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
+		if (
+			isEFReferenced
+			&& scalarOptions.GenerateEFConverter
+			&& !ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFAutoConversionSkipped,
+					isBlocking: false,
+					typeSymbol.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					scalarTypeName
+				)
+			);
+		}
+		else if (
+			!isEFReferenced
+			&& (
+				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+					"GenerateEFConverter"
+				)
+				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
+					"GenerateEFComparer"
+				)
+			)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFMappingRequiresEntityFramework,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
 
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
@@ -228,7 +277,9 @@ static class ScalarValueObjectModelBuilder
 			BuildExistingRelationalOperators(typeSymbol, typeName, typeName),
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
 			hasZodSchemaValidation,
-			zodSchemaClassName
+			zodSchemaClassName,
+			isEFReferenced,
+			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

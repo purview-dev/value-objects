@@ -29,11 +29,13 @@ sealed record class ComplexValueObjectModel(
 	bool EmptyExists,
 	EquatableArray<string> EmptyArguments,
 	bool ParameterlessCtorExists,
-	string? EfConstructorArguments,
+	string? EFConstructorArguments,
 	string HydrateFactoryName,
 	EquatableArray<string> ExistingRelationalOperators,
 	bool HasZodSchemaValidation,
-	string? ZodSchemaClassName
+	string? ZodSchemaClassName,
+	bool IsEFReferenced,
+	bool IsEF8Referenced
 );
 
 readonly record struct ComplexPropertyModel(string Name, string TypeName, TypeReference Type);

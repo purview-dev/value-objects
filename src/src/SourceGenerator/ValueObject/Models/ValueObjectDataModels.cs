@@ -10,6 +10,8 @@ readonly partial record struct ScalarAttributeData(
 	[Property(DefaultValue = true)] bool GenerateImplicitFromPrimitive,
 	[Property(DefaultValue = true)] bool GenerateImplicitToPrimitive,
 	[Property(DefaultValue = true)] bool GenerateEmpty,
+	[Property(DefaultValue = true)] bool GenerateEFConverter,
+	[Property(DefaultValue = true)] bool GenerateEFComparer,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
@@ -23,6 +25,9 @@ readonly partial record struct ValueObjectAttributeData(
 	[Property(DefaultValue = true)] bool GenerateComparisonOperators,
 	[Property(DefaultValue = true)] bool GenerateEmpty,
 	[Property(DefaultValue = true)] bool GenerateConstructor,
+	[Property(DefaultValue = TypeLibrary.EntityFrameworkMappingFullTypeName + ".ComplexType", IsEnum = true)]
+		string EFMapping,
+	[Property(DefaultValue = true)] bool GenerateEFComparer,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
@@ -39,6 +44,10 @@ readonly partial record struct ValueObjectDefaultsAttributeData(
 	[Property(DefaultValue = true)] bool GenerateImplicitToPrimitive,
 	[Property(DefaultValue = true)] bool GenerateEmpty,
 	[Property(DefaultValue = true)] bool GenerateConstructor,
+	[Property(DefaultValue = TypeLibrary.EntityFrameworkMappingFullTypeName + ".ComplexType", IsEnum = true)]
+		string EFMapping,
+	[Property(DefaultValue = true)] bool GenerateEFConverter,
+	[Property(DefaultValue = true)] bool GenerateEFComparer,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]

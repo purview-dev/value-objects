@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- This project is a value-object provider, not an EF mapping consumer: emit per-type EF
+		     converters/comparers and marker interfaces, but not the assembly-level registry
+		     (ValueObjectEFExtensions/UseValueObjects/ValueObjectModelCustomizer). Consumers
+		     discover these types through the markers and map them from their own registry. -->
+		<DisableValueObjectsEFRegistry>true</DisableValueObjectsEFRegistry>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Purview.ZodSharp" />
+		<!-- PrivateAssets=all keeps EF Core project-local to this provider assembly: consumers that map
+		     these value objects reference EF Core themselves, and hermetic generator test compilations
+		     must not inherit the transitive EF reference. -->
+		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The source generator and its code fix run on the test project so the [Scalar]/[ValueObject]
+		     DTO fixtures exercise the standalone generator + runtime + serialization experience. -->
+		<ProjectReference
+			Include="..\..\src\SourceGenerator\SourceGenerator.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference
+			Include="..\..\src\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
+	</ItemGroup>
+</Project>

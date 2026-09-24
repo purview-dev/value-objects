@@ -5,24 +5,12 @@ namespace Purview.ValueObjects.SourceGenerator.ValueObject;
 
 static class ValueObjectSymbolInspector
 {
-	public const string ScalarAttributeName = "Purview.ValueObjects.Serialization.ScalarAttribute";
-	public const string ValueObjectAttributeName = "Purview.ValueObjects.Serialization.ValueObjectAttribute";
-	public const string JsonConverterAttributeName = "System.Text.Json.Serialization.JsonConverterAttribute";
-	public const string StrictModeName =
-		"global::Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict";
-	public const string HydrateModeName =
-		"global::Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Hydrate";
-	public const string LessThanOperatorName = "op_LessThan";
-	public const string GreaterThanOperatorName = "op_GreaterThan";
-	public const string LessThanOrEqualOperatorName = "op_LessThanOrEqual";
-	public const string GreaterThanOrEqualOperatorName = "op_GreaterThanOrEqual";
-
 	public static readonly string[] RelationalOperatorNames =
 	[
-		LessThanOperatorName,
-		GreaterThanOperatorName,
-		LessThanOrEqualOperatorName,
-		GreaterThanOrEqualOperatorName,
+		OperatorNames.EqualityAndRelational.LessThanOperatorName,
+		OperatorNames.EqualityAndRelational.GreaterThanOperatorName,
+		OperatorNames.EqualityAndRelational.LessThanOrEqualOperatorName,
+		OperatorNames.EqualityAndRelational.GreaterThanOrEqualOperatorName,
 	];
 
 	public static List<ReportableDiagnostic> ValidateValueObjectType(
@@ -78,6 +66,12 @@ static class ValueObjectSymbolInspector
 
 		return diagnostics;
 	}
+
+	public static bool HasAttribute(INamedTypeSymbol typeSymbol, TypeIdentity attributeType) =>
+		typeSymbol.GetAttributes().Any(attribute => attributeType.Equals(attribute.AttributeClass));
+
+	public static bool HasAttribute(ImmutableArray<AttributeData> attributes, TypeIdentity attributeType) =>
+		attributes.Any(attribute => attributeType.Equals(attribute.AttributeClass));
 
 	public static bool HasAttribute(INamedTypeSymbol typeSymbol, string metadataName) =>
 		typeSymbol.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == metadataName);
@@ -354,7 +348,7 @@ static class ValueObjectSymbolInspector
 		return true;
 	}
 
-	public static bool TryGetEfConstructorArguments(
+	public static bool TryGetEFConstructorArguments(
 		INamedTypeSymbol typeSymbol,
 		IPropertySymbol[] properties,
 		out string arguments
@@ -533,7 +527,10 @@ static class ValueObjectSymbolInspector
 		typeSymbol.GetMembers(name).Any(member => !member.IsImplicitlyDeclared);
 
 	public const string InsteadOfHooksModeName =
-		"global::Purview.ValueObjects.Serialization.ZodSchemaMode.InsteadOfHooks";
+		"global::" + TypeLibrary.Purview.ValueObjects.Serialization.ZodSchemaModeFullName + ".InsteadOfHooks";
+
+	public const string StrictModeName =
+		"global::" + TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectDeserializationModeFullName + ".Strict";
 
 	/// <summary>
 	/// True when the value object is also annotated with ZodSharp's <c>[ZodSchema]</c> attribute.
@@ -574,4 +571,89 @@ static class ValueObjectSymbolInspector
 			.FirstOrDefault();
 		return string.IsNullOrWhiteSpace(schemaName) ? typeSymbol.Name + "Schema" : schemaName!;
 	}
+
+	const string EntityFrameworkMappingTypeName = TypeLibrary
+		.Purview
+		.ValueObjects
+		.Serialization
+		.EntityFrameworkMappingFullName;
+
+	public static bool IsEFMappingComplexType(string value) => MatchesEFMapping(value, "ComplexType");
+
+	public static bool IsEFMappingJson(string value) => MatchesEFMapping(value, "Json");
+
+	public static bool IsEFMappingNone(string value) => MatchesEFMapping(value, "None");
+
+	static bool MatchesEFMapping(string value, string member) =>
+		value == $"{EntityFrameworkMappingTypeName}.{member}"
+		|| value == $"global::{EntityFrameworkMappingTypeName}.{member}";
+
+	/// <summary>
+	/// True when the compilation references Entity Framework Core's value conversion types. This gates all
+	/// Entity Framework member generation: without the reference, no <c>EF</c> members or mapping
+	/// extensions are emitted, keeping the runtime package free of Entity Framework dependencies.
+	/// </summary>
+	public static bool IsEFReferenced(Compilation compilation) =>
+		compilation.GetTypeByMetadataName(
+			TypeLibrary.Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverterFullName
+		)
+			is not null;
+
+	/// <summary>
+	/// True when the compilation references EF Core 8+, which introduced complex types
+	/// (<c>EntityTypeBuilder.ComplexProperty</c>).
+	/// </summary>
+	public static bool IsEF8Referenced(Compilation compilation) =>
+		compilation.GetTypeByMetadataName(TypeLibrary.Microsoft.EntityFrameworkCore.Metadata.IComplexTypeFullName)
+			is not null;
+
+	/// <summary>
+	/// True when <paramref name="typeSymbol"/> is a provider type Entity Framework Core can map natively
+	/// (primitives, enums, <see cref="Guid"/>, dates, <c>TimeSpan</c>, <c>byte[]</c>, and nullable forms).
+	/// Used to decide whether a scalar value object can be automatically converted to a primitive column.
+	/// </summary>
+	public static bool IsEFMappableProviderType(ITypeSymbol typeSymbol)
+	{
+		if (typeSymbol.TypeKind == TypeKind.Enum)
+			return true;
+
+		if (typeSymbol is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte })
+			return true;
+
+		if (typeSymbol is not INamedTypeSymbol named)
+			return false;
+
+		if (named.IsGenericType && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+			return IsEFMappableProviderType(named.TypeArguments[0]);
+
+		// EF Core 8+ supports mapping of complex types, but we only want to treat the well-known provider types as mappable for now.
+#pragma warning disable IDE0072 // Add missing cases
+		return named.SpecialType switch
+		{
+			SpecialType.System_Boolean
+			or SpecialType.System_Char
+			or SpecialType.System_SByte
+			or SpecialType.System_Byte
+			or SpecialType.System_Int16
+			or SpecialType.System_UInt16
+			or SpecialType.System_Int32
+			or SpecialType.System_UInt32
+			or SpecialType.System_Int64
+			or SpecialType.System_UInt64
+			or SpecialType.System_Single
+			or SpecialType.System_Double
+			or SpecialType.System_Decimal
+			or SpecialType.System_String
+			or SpecialType.System_DateTime => true,
+			_ => IsWellKnownEFMappableType(named),
+		};
+#pragma warning restore IDE0072 // Add missing cases
+	}
+
+	static bool IsWellKnownEFMappableType(INamedTypeSymbol named) =>
+		TypeLibrary.System.Guid.Equals(named)
+		|| TypeLibrary.System.DateTimeOffset.Equals(named)
+		|| TypeLibrary.System.DateOnly.Equals(named)
+		|| TypeLibrary.System.TimeOnly.Equals(named)
+		|| TypeLibrary.System.TimeSpan.Equals(named);
 }

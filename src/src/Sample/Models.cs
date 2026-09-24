@@ -86,11 +86,11 @@ readonly partial record struct OrderStatus
 
 sealed class Order
 {
-	public OrderId Id { get; init; }
+	public OrderId Id { get; set; }
 
-	public EmailAddress CustomerEmail { get; init; }
+	public EmailAddress CustomerEmail { get; set; }
 
-	public Money Total { get; init; }
+	public Money Total { get; set; }
 
-	public OrderStatus Status { get; init; }
+	public OrderStatus Status { get; set; }
 }

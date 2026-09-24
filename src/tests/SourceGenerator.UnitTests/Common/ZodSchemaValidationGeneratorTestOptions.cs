@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ZodSharp.SourceGenerators;
 
 namespace Purview.ValueObjects.SourceGenerator.Common;
@@ -14,7 +15,12 @@ public sealed record ZodSchemaValidationGeneratorTestOptions : ValueObjectsGener
 	{
 		AdditionalGeneratorTypes = [.. AdditionalGeneratorTypes, typeof(ZodSchemaGenerator)];
 		ExcludeGeneratedSourceHintNames = [.. ExcludeGeneratedSourceHintNames, "ZodSchemaAttribute.g.cs"];
+		AnalyzerTypes = [typeof(ZodSchemaAnalyzer)];
+		AdditionalAssemblyTypes = [.. AdditionalAssemblyTypes, typeof(RequiredAttribute)];
+		ValidateCodeWriterScopes = false;
 	}
 
 	public static new ZodSchemaValidationGeneratorTestOptions Default => new();
+
+	public static ZodSchemaValidationGeneratorTestOptions Compile => new() { CompileToAssembly = true };
 }

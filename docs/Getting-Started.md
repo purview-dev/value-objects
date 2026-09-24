@@ -129,8 +129,8 @@ public readonly partial record struct EmailAddress
 Use `[ValueObjectDefaults]` to set generic defaults for the whole assembly. Every option that can be set on
 `[Scalar]`/`[ValueObject]` can be defaulted here (`GenerateJsonConverter`, `GenerateComparable`,
 `GenerateComparisonOperators`, `GenerateEnumProperties`, `GenerateImplicitFromPrimitive`,
-`GenerateImplicitToPrimitive`, `GenerateEmpty`, `GenerateConstructor`, `DeserializationMode`, and
-`ZodSchemaMode`):
+`GenerateImplicitToPrimitive`, `GenerateEmpty`, `GenerateConstructor`, `GenerateEFConverter`,
+`GenerateEFComparer`, `EFMapping`, `DeserializationMode`, and `ZodSchemaMode`):
 
 ```csharp
 [assembly: ValueObjectDefaults(
@@ -182,7 +182,8 @@ See `ZodSharp-Validation.md` and the `src/src/ZodSharpSample` project.
 
 ## Next steps
 
-- `Entity-Framework.md` – mapping value objects to EF JSON columns.
+- `Entity-Framework.md` – mapping value objects to EF Core: automatic `ConfigureValueObjects()`, manual
+  control, and query patterns (no `.Value` needed).
 - `Value-Object-Design.md` – where validation lives and the `Create`/`Hydrate` split.
 - `ZodSharp-Validation.md` – validating value objects with Purview.ZodSharp.
 - The `src/src/Sample` and `src/src/ZodSharpSample` projects for runnable examples.

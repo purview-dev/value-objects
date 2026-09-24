@@ -1,6 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\ValueObjects\ValueObjects.csproj" />
 		<PackageReference Include="Purview.ZodSharp" />
 	</ItemGroup>
 

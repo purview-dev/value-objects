@@ -6,6 +6,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
 		<!-- In-repo consumers reference the analyzer directly; NuGet consumers get it from the
 		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
 		<ProjectReference

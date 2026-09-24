@@ -28,7 +28,12 @@ static class ComplexValueObjectModelBuilder
 		];
 
 		var attributes = typeSymbol.GetAttributes();
-		if (ValueObjectSymbolInspector.HasAttribute(attributes, ValueObjectSymbolInspector.ScalarAttributeName))
+		if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute
+			)
+		)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(
@@ -101,7 +106,7 @@ static class ComplexValueObjectModelBuilder
 			|| ValueObjectSymbolInspector.HasBinaryOperator(typeSymbol, "op_Inequality", [typeSymbol, typeSymbol]);
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
-			ValueObjectSymbolInspector.JsonConverterAttributeName
+			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
 		);
 		var createExists = ValueObjectSymbolInspector.HasStaticFactory(
 			typeSymbol,
@@ -130,7 +135,7 @@ static class ComplexValueObjectModelBuilder
 		var hydrateFactoryName =
 			valueObjectOptions.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate";
 
-		var efConstructorArguments = ValueObjectSymbolInspector.TryGetEfConstructorArguments(
+		var efConstructorArguments = ValueObjectSymbolInspector.TryGetEFConstructorArguments(
 			typeSymbol,
 			properties,
 			out var efCtorArgs
@@ -142,6 +147,33 @@ static class ComplexValueObjectModelBuilder
 
 		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
 		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+
+		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
+		if (
+			!isEFReferenced
+			&& (
+				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
+					"EFMapping"
+				)
+				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
+					attributes,
+					TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
+					"GenerateEFComparer"
+				)
+			)
+		)
+		{
+			diagnosticsList.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFMappingRequiresEntityFramework,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
 
 		var emptyArguments = ImmutableArray.CreateBuilder<string>(properties.Length);
 		foreach (var property in properties)
@@ -184,7 +216,9 @@ static class ComplexValueObjectModelBuilder
 				typeModel.Value.FullyQualifiedName
 			),
 			hasZodSchemaValidation,
-			zodSchemaClassName
+			zodSchemaClassName,
+			isEFReferenced,
+			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

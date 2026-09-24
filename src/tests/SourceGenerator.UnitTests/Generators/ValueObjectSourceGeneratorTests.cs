@@ -394,6 +394,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 		await Assert
 			.That(result.AllSyntaxTrees.Length)
 			.IsEqualTo(ValueObjectsGeneratorTestOptions.ValueObjectExpectedFileCount);
+
 		await Assert.That(result.Generated().HasRecord("BrokenScalar", "Testing")).IsFalse();
 	}
 
@@ -1117,7 +1118,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 	}
 
 	[Test]
-	public async Task ComplexValueObjectGeneration_GeneratesEfConstructorsForAllUserCaptureShapes(
+	public async Task ComplexValueObjectGeneration_GeneratesEFConstructorsForAllUserCaptureShapes(
 		CancellationToken cancellationToken
 	)
 	{

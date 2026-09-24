@@ -15,6 +15,8 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.ScalarPropertyMissing,
 			DiagnosticLibrary.ScalarShouldBeRecordStruct,
 			DiagnosticLibrary.StrictDeserializationRequiresCreate,
+			DiagnosticLibrary.EFMappingRequiresEntityFramework,
+			DiagnosticLibrary.EFAutoConversionSkipped,
 		];
 
 	public override void Initialize(AnalysisContext context)
@@ -25,18 +27,35 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
 
-		context.RegisterSymbolAction(ValidateValueObject, SymbolKind.NamedType);
+		context.RegisterCompilationStartAction(compilationContext =>
+		{
+			var scalarAttribute = compilationContext.Compilation.GetTypeByMetadataName(
+				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttributeFullName
+			);
+			var valueObjectAttribute = compilationContext.Compilation.GetTypeByMetadataName(
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttributeFullName
+			);
+			if (scalarAttribute is null && valueObjectAttribute is null)
+				return;
+
+			compilationContext.RegisterSymbolAction(
+				context => ValidateValueObject(context, scalarAttribute, valueObjectAttribute),
+				SymbolKind.NamedType
+			);
+		});
 	}
 
-	static void ValidateValueObject(SymbolAnalysisContext context)
+	static void ValidateValueObject(
+		SymbolAnalysisContext context,
+		INamedTypeSymbol? scalarAttribute,
+		INamedTypeSymbol? valueObjectAttribute
+	)
 	{
 		var typeSymbol = (INamedTypeSymbol)context.Symbol;
 
-		var hasScalarAttribute = TypeHelpers.HasAttribute(typeSymbol, ValueObjectSymbolInspector.ScalarAttributeName);
-		var hasValueObjectAttribute = TypeHelpers.HasAttribute(
-			typeSymbol,
-			ValueObjectSymbolInspector.ValueObjectAttributeName
-		);
+		var hasScalarAttribute = scalarAttribute is not null && HasAttribute(typeSymbol, scalarAttribute);
+		var hasValueObjectAttribute =
+			valueObjectAttribute is not null && HasAttribute(typeSymbol, valueObjectAttribute);
 		if (!hasScalarAttribute && !hasValueObjectAttribute)
 			return;
 
@@ -48,7 +67,12 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 
 		if (hasScalarAttribute)
 		{
-			var result = ScalarValueObjectModelBuilder.Build(typeSymbol, syntax, context.CancellationToken);
+			var result = ScalarValueObjectModelBuilder.Build(
+				typeSymbol,
+				syntax,
+				context.Compilation,
+				context.CancellationToken
+			);
 
 			foreach (var diagnostic in result.Diagnostics)
 				context.ReportDiagnostic(diagnostic.ToDiagnostic());
@@ -66,4 +90,9 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 				context.ReportDiagnostic(diagnostic.ToDiagnostic());
 		}
 	}
+
+	static bool HasAttribute(INamedTypeSymbol typeSymbol, INamedTypeSymbol attributeType) =>
+		typeSymbol
+			.GetAttributes()
+			.Any(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType));
 }
