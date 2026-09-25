@@ -63,6 +63,12 @@ static partial class TypeLibrarySpec
 	[TypeRef("Microsoft.EntityFrameworkCore.Storage.ValueConversion", generateFullNameConst: true)]
 	static readonly TypeIdentity ValueConverter = default;
 
+	[TypeRef("Microsoft.EntityFrameworkCore.Storage.Json")]
+	static readonly TypeIdentity JsonValueReaderWriter = default;
+
+	[TypeRef("System.Linq.Expressions", arity: 1)]
+	static readonly TypeIdentity Expression = default;
+
 	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
 	static readonly TypeIdentity IComplexType = default;
 }

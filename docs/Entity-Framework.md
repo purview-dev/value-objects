@@ -89,7 +89,9 @@ The inline conversion mirrors what the per-type `EF` members emit: scalars conve
 `vo => vo.Value` / `T.Hydrate(v)` for the provider-to-model path, JSON-mapped complex value objects serialize
 to a string column, and complex-type-mapped value objects map as EF Core complex types. EF uses the hydrate
 path even when the value object's `Create(...)` factory is strict, so query parameterization and persistence
-remain safe for provider values such as `Guid`, strings, enums, and other EF-mappable primitives.
+remain safe for provider values such as `Guid`, strings, enums, and other EF-mappable primitives. Both paths
+build their converter from the generated `ValueObjectConverter<TSelf, TProvider>`, which accepts either the
+value object or an already provider-shaped value.
 
 > **Limitation.** Referenced value objects are discovered through their marker interfaces when the declaring
 > assembly references EF Core, or through their attributes when it does not. A complex value object in
@@ -118,10 +120,15 @@ the mapping applies to every context created from that registration.
 
 What the mapping does:
 
-- **Scalar value objects** (`[Scalar]`) map to their underlying primitive via a generated
-  `ValueConverter<TSelf, TUnderlying>` + `ValueComparer`. The provider-to-model conversion uses
-  `Hydrate(...)` so raw provider values can be materialized safely from queries and persisted rows.
-  `EmailAddress` stores as a `TEXT` column.
+- **Scalar value objects** (`[Scalar]`) map to their underlying primitive via a per-value-object generated
+  converter class (a `ValueObjectConverter<TSelf, TProvider>`, exposed as
+  `{Type}.EF.Converter`) + `ValueComparer`. The provider-to-model conversion uses `Hydrate(...)` so raw provider
+  values can be materialized safely from queries and persisted rows, and the converter accepts either the value
+  object or an already provider-shaped value so comparisons against the underlying primitive translate. An
+  enum-backed scalar converts through the enum's **integral** type (for example
+  `ValueConverter<OrderStatus, int>`), because leaving the enum as the provider type makes Entity Framework Core
+  compose its own enum-to-number converter with the generated one — and the composite loses the provider
+  tolerance. `EmailAddress` stores as a `TEXT` column.
 - **Complex value objects** (`[ValueObject]`) map as **EF Core complex types** (EF Core 8+) by default, producing
   a column per member — including nested scalar value objects (e.g. `Money.Currency` converts to its primitive).
 - Complex value objects with `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` map to a single JSON column using the
@@ -149,18 +156,30 @@ var orders = await db.Orders
     .ToListAsync();
 ```
 
-> **Note on comparing to a raw primitive literal.** EF Core translates equality against a value-converted
-> property only when the other side is the value object type. `c.Email == "demo@example.com"` (comparing the
-> `EmailAddress` property to a `string` literal) does **not** translate — it throws at query time. Use the value
-> object type instead:
+> **Comparing to a raw primitive.** A query may compare a scalar value object property to either the value
+> object **or** its raw underlying value — both translate:
 >
 > ```csharp
-> EmailAddress email = "demo@example.com";                 // implicit conversion
+> EmailAddress email = "demo@example.com";                    // value object (implicit conversion)
 > .Where(c => c.Email == email)
 >
-> // or inline:
-> .Where(c => c.Email == EmailAddress.Create("demo@example.com"))
+> .Where(c => c.Email == "demo@example.com")                  // raw underlying string
+> .Where(m => m.Id == guid)                                   // raw underlying Guid
 > ```
+>
+> This works because every generated converter is built from a per-value-object `ValueObjectConverter` type that
+> accepts either shape (enum-backed scalars convert through the enum's integral type). Entity Framework Core
+> hands the raw provider value to a converted property's converter in this case, and its built-in converter
+> coerces that value with `Convert.ChangeType`, which throws for provider types that do not implement
+> `IConvertible` (`Guid`, `DateTimeOffset`, `TimeSpan`, `DateOnly`, `TimeOnly`) or cannot be converted at all
+> (strings). See [dotnet/efcore#32030](https://github.com/dotnet/efcore/issues/32030).
+>
+> **Compiled models.** Entity Framework Core's design-time generator rebuilds a converter as
+> `new ValueConverter<TSelf, TProvider>(…)` — the built-in type — unless the converter exposes a
+> `JsonValueReaderWriter`-taking constructor and a `JsonReaderWriter` property. Every generated converter does,
+> so a compiled model (`dotnet ef dbcontext optimize`) keeps the same provider tolerance. That detection is an
+> undocumented Entity Framework Core implementation detail: if it ever changes, compiled models silently fall
+> back to the built-in converter, and only raw-primitive comparisons are affected.
 
 ## Manual control
 
@@ -237,6 +256,8 @@ value-object provider assemblies referenced by EF consumers:
 
 ## Notes
 
+- Only `[Scalar]`/`[ValueObject]` types are given a conversion; a plain `enum` property keeps Entity Framework
+  Core's own enum mapping untouched.
 - EF Core 8+ is required for complex type mapping; on older EF references, complex value objects fall back to
   no automatic mapping (use `EntityFrameworkMapping.Json` or configure manually).
 - Value objects are immutable; EF tracks them by value like any struct/record. The generator emits a

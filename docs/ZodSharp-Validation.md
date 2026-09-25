@@ -347,6 +347,26 @@ When a project uses `Purview.ZodSharp` types directly (as this sample does), ref
 explicitly — do not rely on transitive flow. The ZodSharp source generator is active in any project
 that references the package, so `[ZodSchema]` is available there.
 
+## Testing the dual-generator integration
+
+Tests that run the value-object generator and the ZodSharp generator together come in two shapes:
+
+- **In-memory (unit):** `src/tests/SourceGenerator.UnitTests` registers the packaged ZodSharp generator
+  through `ZodSchemaValidationGeneratorTestOptions`, which resolves the component types out of band via
+  `Common/ZodSharpSourceGenerators.cs`. The project copies
+  `analyzers/dotnet/cs/Purview.ZodSharp.SourceGenerators.dll` beside the test binaries
+  (`GeneratePathProperty` + `None`/`CopyToOutputDirectory`) and loads it with `Assembly.LoadFrom`.
+  Never turn that copy into a `<Reference>`: a merged analyzer component used to carry
+  `Purview.SourceGeneratorFramework.*` types that then collide (`CS0433`) with the framework assembly
+  the test harness loads. `Common/ZodSharpSourceGeneratorsTests.cs` guards the invariant.
+- **Real compile (integration):** `src/tests/ValueObjects.IntegrationTests` declares `[Scalar]` +
+  `[ZodSchema]` fixtures and asserts runtime behaviour directly — both generators run in the real
+  compiler for that project, so nothing has to be reflected or registered.
+
+The loaded generator carries its own framework implementation, so it keeps its own log sink and
+CodeWriter scope validation: do not assert on its log entries, and leave `ValidateCodeWriterScopes`
+off for that run.
+
 ## See also
 
 - The runnable `src/src/ZodSharpSample` project.

@@ -230,6 +230,10 @@ static class ScalarValueObjectModelBuilder
 			);
 		}
 
+		var (efProviderType, efHydrateCastTypeName) = ValueObjectSymbolInspector.ResolveEFProviderType(
+			scalarProperty.Type
+		);
+
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
 			scalarOptions,
@@ -279,7 +283,10 @@ static class ScalarValueObjectModelBuilder
 			hasZodSchemaValidation,
 			zodSchemaClassName,
 			isEFReferenced,
-			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
+			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
+			ValueObjectSymbolInspector.ToTypeName(efProviderType),
+			TypeReference.Create(efProviderType),
+			efHydrateCastTypeName
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());

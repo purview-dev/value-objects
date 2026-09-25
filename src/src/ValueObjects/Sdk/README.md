@@ -67,6 +67,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
 types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]`. Queries compare
-the value object type directly — no `.Value` required. See `docs/Entity-Framework.md` for the full guide.
+the value object type directly — no `.Value` required — or the raw underlying value (`c.Email == "..."`,
+`m.Id == guid`). See `docs/Entity-Framework.md` for the full guide.
 
 See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples.

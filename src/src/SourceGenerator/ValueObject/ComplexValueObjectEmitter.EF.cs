@@ -14,6 +14,16 @@ static partial class ComplexValueObjectEmitter
 			return;
 
 		var valueObjectType = ValueObjectType(model);
+		EFConverterDefinition converterDefinition = new(
+			ValueObjectEFConverterEmitter.DefaultClassName,
+			TypeDeclarationAccessibility.Public,
+			ValueObjectEmitterHelpers.EFConverterBaseType(model.TypeModel.FullyQualifiedName, "global::System.String"),
+			model.TypeModel.FullyQualifiedName,
+			"global::System.String",
+			"vo => global::System.Text.Json.JsonSerializer.Serialize(vo)",
+			$"v => global::System.Text.Json.JsonSerializer.Deserialize<{model.TypeModel.FullyQualifiedName}>(v)!",
+			ValueObjectEmitterHelpers.EFJsonReaderWriterType("global::System.String")
+		);
 
 		writer
 			.XmlSummary(
@@ -47,10 +57,11 @@ static partial class ComplexValueObjectEmitter
 								{
 									IsStatic = true,
 									IsReadOnly = true,
-									Initializer =
-										$"new(vo => global::System.Text.Json.JsonSerializer.Serialize(vo), v => global::System.Text.Json.JsonSerializer.Deserialize<{model.TypeModel.FullyQualifiedName}>(v)!)",
+									Initializer = $"new {ValueObjectEFConverterEmitter.DefaultClassName}()",
 								}
 							);
+
+						ValueObjectEFConverterEmitter.EmitConverterClass(body, converterDefinition);
 					}
 
 					if (emitComparer)

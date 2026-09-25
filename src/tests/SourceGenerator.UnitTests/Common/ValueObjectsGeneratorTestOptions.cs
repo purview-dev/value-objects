@@ -2,9 +2,13 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 
 public record ValueObjectsGeneratorTestOptions : SourceGeneratorTestOptions
 {
-	public static readonly string[] ValueObjectGeneratedAttributes = ["EmbeddedAttribute.g.cs"];
+	public static readonly string[] ValueObjectGeneratedTypes =
+	[
+		"EmbeddedAttribute.g.cs",
+		$"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs",
+	];
 
-	public static readonly int ValueObjectExpectedFileCount = ValueObjectGeneratedAttributes.Length;
+	public static readonly int ValueObjectExpectedFileCount = ValueObjectGeneratedTypes.Length;
 
 	public static readonly int ValueObjectExpectedFileCountPlusGen = ValueObjectExpectedFileCount;
 
@@ -24,7 +28,7 @@ public record ValueObjectsGeneratorTestOptions : SourceGeneratorTestOptions
 		];
 		AdditionalAssemblyTypes = [typeof(IValueObject), typeof(ZodSharp.Core.ValidationResult<>)];
 		AdditionalReferences = [.. TestMetadataReferences.GetAdditionalReferences()];
-		ExcludeGeneratedSourceHintNames = [.. ValueObjectGeneratedAttributes];
+		ExcludeGeneratedSourceHintNames = [.. ValueObjectGeneratedTypes];
 		AnalyzerTypes = [typeof(Analyzers.ValueObjectDiagnosticAnalyzer)];
 	}
 
