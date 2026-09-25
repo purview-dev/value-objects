@@ -6,8 +6,8 @@
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.68.17</TUnitVersion>
-		<PurviewSGFVersion>1.0.0-prerelease.49</PurviewSGFVersion>
-		<PurviewZodSharpVersion>2.0.0-prerelease.20</PurviewZodSharpVersion>
+		<PurviewSGFVersion>1.0.0-prerelease.52</PurviewSGFVersion>
+		<PurviewZodSharpVersion>2.0.0-prerelease.23</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />

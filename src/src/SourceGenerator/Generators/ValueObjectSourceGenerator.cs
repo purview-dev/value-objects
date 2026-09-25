@@ -198,7 +198,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			model.EFProviderMappable,
 			ProviderTypeName: null,
 			ScalarPropertyName: null,
-			FactoryName: null,
+			EFProviderTypeName: null,
+			EFHydrateCastTypeName: null,
 			HasEFMembers: true
 		);
 	}

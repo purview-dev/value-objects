@@ -91,11 +91,13 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
 types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]`. Queries compare
-the value object type directly — no `.Value` required:
+the value object type directly — no `.Value` required — or the raw underlying value:
 
 ```csharp
 EmailAddress email = "demo@example.com";
 var customers = await db.Customers.Where(c => c.Email == email).ToListAsync();
+var byRawString = await db.Customers.Where(c => c.Email == "demo@example.com").ToListAsync();
+var byRawGuid = await db.Customers.Where(c => c.Id == customerId).ToListAsync();
 var bigOrders = await db.Orders.Where(o => o.Total.Amount > 100m).ToListAsync();
 ```
 
@@ -137,7 +139,8 @@ the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details fo
 ## How it works
 
 - `Create(...)` is the strict creation path: normalize, validate, then construct.
-- `Hydrate(...)` reconstructs from persisted data without re-validating.
+- `Hydrate(...)` reconstructs from persisted data without re-validating and is the path used by EF
+  provider conversions.
 - `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
   `Strict` re-runs validation).
 - Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance

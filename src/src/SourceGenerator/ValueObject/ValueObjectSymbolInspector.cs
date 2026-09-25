@@ -656,4 +656,38 @@ static class ValueObjectSymbolInspector
 		|| TypeLibrary.System.DateOnly.Equals(named)
 		|| TypeLibrary.System.TimeOnly.Equals(named)
 		|| TypeLibrary.System.TimeSpan.Equals(named);
+
+	/// <summary>
+	/// Resolves the provider type an Entity Framework Core converter should use for a scalar property, plus
+	/// the cast applied when hydrating from that provider value (or <see langword="null"/> when the provider
+	/// type is the scalar property type itself).
+	/// </summary>
+	/// <remarks>
+	/// An enum-backed scalar converts through the enum's underlying integral type. Leaving the enum as the
+	/// provider type makes Entity Framework Core compose its own enum-to-number converter with the generated
+	/// converter, and the composed converter loses the generated converter's provider tolerance — so a query
+	/// comparing the property to a raw enum value would still throw.
+	/// See https://github.com/dotnet/efcore/issues/32030.
+	/// </remarks>
+	public static (ITypeSymbol ProviderType, string? HydrateCastTypeName) ResolveEFProviderType(ITypeSymbol scalarType)
+	{
+		INamedTypeSymbol? nullableScalar = null;
+		if (
+			scalarType is INamedTypeSymbol namedType
+			&& namedType.IsGenericType
+			&& namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+		)
+			nullableScalar = namedType;
+
+		var underlyingType = nullableScalar is null ? scalarType : nullableScalar.TypeArguments[0];
+		if (underlyingType.TypeKind != TypeKind.Enum)
+			return (scalarType, null);
+
+		var integralType = ((INamedTypeSymbol)underlyingType).EnumUnderlyingType!;
+
+		return (
+			nullableScalar is not null ? nullableScalar.OriginalDefinition.Construct(integralType) : integralType,
+			ToTypeName(scalarType)
+		);
+	}
 }

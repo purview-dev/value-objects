@@ -1,18 +1,25 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
 		<PackageReference Include="Purview.SourceGeneratorFramework.Testing.TUnit" />
-		<PackageReference Include="Purview.ZodSharp" />
+		<!-- GeneratePathProperty exposes $(PkgPurview_ZodSharp) so the packaged analyzer can be copied
+		     beside the test binaries without referencing it. -->
+		<PackageReference Include="Purview.ZodSharp" GeneratePathProperty="true" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- Reference the ZodSharp generator assembly normally (it ships as an analyzer in the
-		     Purview.ZodSharp package) so tests can register ZodSchemaGenerator via
-		     AdditionalGeneratorTypes and run it alongside the value-object generator. -->
-		<Reference Include="Purview.ZodSharp.SourceGenerators">
-			<HintPath>$(NuGetPackageRoot)purview.zodsharp\$(PurviewZodSharpVersion)\analyzers\dotnet\cs\Purview.ZodSharp.SourceGenerators.dll</HintPath>
-		</Reference>
+		<!-- The ZodSharp generator ships as a merged, self-contained analyzer inside the package. It must
+		     not be a compile-time reference: a merged component's assembly can carry framework types
+		     (Purview.SourceGeneratorFramework.*), which would then be ambiguous (CS0433) with the real
+		     framework assembly the test harness already loads. Copy it beside the test binaries and load
+		     it out of band instead; see Common/ZodSharpSourceGenerators.cs. -->
+		<None
+			Include="$(PkgPurview_ZodSharp)\analyzers\dotnet\cs\Purview.ZodSharp.SourceGenerators.dll"
+			Link="Purview.ZodSharp.SourceGenerators.dll"
+			CopyToOutputDirectory="PreserveNewest"
+			Visible="false"
+		/>
 	</ItemGroup>
 
 	<ItemGroup>

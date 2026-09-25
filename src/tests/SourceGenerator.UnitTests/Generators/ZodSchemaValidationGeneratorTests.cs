@@ -6,7 +6,6 @@ namespace Purview.ValueObjects.SourceGenerator.Generators;
 /// the ZodSharp generator), the generated <c>Create</c> validates the constructed instance through
 /// the schema class the ZodSharp generator produces.
 /// </summary>
-//[Skip("Too flakey to run - dual source generator tests")]
 public sealed class ZodSchemaValidationGeneratorTests
 	: ValueObjectSourceGeneratorTestBase<ZodSchemaValidationGeneratorTestOptions>
 {

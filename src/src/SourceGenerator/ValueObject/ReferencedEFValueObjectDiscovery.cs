@@ -112,7 +112,8 @@ static class ReferencedEFValueObjectDiscovery
 					ValueObjectSymbolInspector.IsEFMappableProviderType(scalarMarker.TypeArguments[1]),
 					ProviderTypeName: null,
 					ScalarPropertyName: null,
-					FactoryName: null,
+					EFProviderTypeName: null,
+					EFHydrateCastTypeName: null,
 					HasEFMembers: true
 				)
 			);
@@ -164,6 +165,10 @@ static class ReferencedEFValueObjectDiscovery
 			if (scalarProperty is null)
 				return;
 
+			var (efProviderType, efHydrateCastTypeName) = ValueObjectSymbolInspector.ResolveEFProviderType(
+				scalarProperty.Type
+			);
+
 			scalarBuilder.Add(
 				new EFScalarDescriptor(
 					ValueObjectSymbolInspector.ToTypeName(type),
@@ -172,7 +177,8 @@ static class ReferencedEFValueObjectDiscovery
 					ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
 					ValueObjectSymbolInspector.ToTypeName(scalarProperty.Type),
 					scalarProperty.Name,
-					options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate",
+					ValueObjectSymbolInspector.ToTypeName(efProviderType),
+					efHydrateCastTypeName,
 					HasEFMembers: false
 				)
 			);

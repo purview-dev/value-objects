@@ -27,7 +27,7 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `Directory.Packages.props` | Centrally managed NuGet versions |
 | `src/Directory.Build.props` / `src/Directory.Build.targets` | Solution-wide SDK, package, analyzer, and build behavior |
 | `global.json` | Required .NET SDK and Microsoft.Testing.Platform selection |
-| `package.json` | Authoritative repository/package version and Changesets package identity |
+| `package.json` | Authoritative repository/package version |
 | `Justfile` | Supported local workflow commands |
 
 ## Standard workflow
@@ -119,10 +119,9 @@ dotnet csharpier check .
 Use `dotnet csharpier check .` for validation and `dotnet csharpier format .` to fix formatting. Pack when package
 assets, public package dependencies, analyzers, build targets, or packaging metadata change.
 
-## Versioning, changesets, and releases
+## Versioning and releases
 
 - `package.json` is the authoritative release/package version. Do not manually diverge project versions.
-- User-facing package changes normally require a Changeset when release preparation is in scope.
 - Release is automatic on push to `main`: the `Release` workflow runs the shared `Purview.Build` pipeline with
   `Release:Mode=NuGet`, publishing packages and creating the `v<version>` GitHub release only when that tag does
   not already exist.

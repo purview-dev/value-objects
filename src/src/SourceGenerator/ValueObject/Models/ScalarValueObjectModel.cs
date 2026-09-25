@@ -49,5 +49,8 @@ sealed record class ScalarValueObjectModel(
 	bool HasZodSchemaValidation,
 	string? ZodSchemaClassName,
 	bool IsEFReferenced,
-	bool EFProviderMappable
+	bool EFProviderMappable,
+	string EFProviderTypeName,
+	TypeReference EFProviderTypeReference,
+	string? EFHydrateCastTypeName
 );

@@ -101,11 +101,211 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(emailAddress.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
 
 		var converterInitializer = GetFieldInitializer(query.GetClass("EF").Node, "Converter");
-		await Assert.That(converterInitializer).Contains("Testing.EmailAddress.Hydrate(v)");
+		await Assert.That(converterInitializer).Contains("= new ValueObjectConverter()");
+
+		// The conversion expressions live inside the generated converter class.
+		var generatedRecord = Normalize(emailAddress.Node.ToString());
+		await Assert.That(generatedRecord).Contains("Testing.EmailAddress.Hydrate(v)");
 	}
 
 	[Test]
-	public async Task ScalarEFGeneration_StrictDeserialization_UsesCreateFactory(CancellationToken cancellationToken)
+	public async Task ScalarEFGeneration_ConverterAcceptsProviderShapedValues(CancellationToken cancellationToken)
+	{
+		// Arrange
+		var result = await GenerateAsync(ScalarSource, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		// Act
+		var emailAddress = Normalize(result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString());
+
+		// Assert — Entity Framework Core hands the raw provider value to the property's converter when a
+		// query compares the converted property to the underlying primitive (dotnet/efcore#32030), so the
+		// generated converter accepts either shape. It also exposes the members Entity Framework Core's
+		// design-time generator probes, so a compiled model rebuilds this converter type.
+		await Assert
+			.That(emailAddress)
+			.Contains(
+				"classValueObjectConverter:global::Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<global::Testing.EmailAddress,string>"
+			);
+		await Assert.That(emailAddress).Contains("ConvertToProvider=>ConvertToProviderValue");
+		await Assert.That(emailAddress).Contains("ConvertFromProvider=>ConvertFromProviderValue");
+		await Assert.That(emailAddress).Contains("valueisglobal::Testing.EmailAddressmodel");
+		await Assert
+			.That(emailAddress)
+			.Contains("global::System.Enum.GetUnderlyingType(value.GetType())==providerType");
+		await Assert.That(emailAddress).Contains("ComposeWith");
+		await Assert
+			.That(emailAddress)
+			.Contains(
+				"JsonReaderWriter=>global::Microsoft.EntityFrameworkCore.Storage.Json.JsonStringReaderWriter.Instance"
+			);
+		await Assert.That(emailAddress).Contains("newValueObjectConverter()");
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_EnumBackedScalar_ConvertsThroughItsIntegralProvider(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public enum OrderStatusKind
+				{
+					Pending,
+					Shipped,
+				}
+
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct OrderStatus
+				{
+					public OrderStatusKind Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		var record = Normalize(result.Generated().GetRecord("OrderStatus", "Testing").Node.ToString());
+
+		// The enum's underlying integral type is used as the provider type: keeping the enum makes Entity
+		// Framework Core compose its own enum-to-number converter with the generated one, and the composite
+		// loses the provider tolerance.
+		await Assert.That(record).Contains("ValueConverter<global::Testing.OrderStatus,int>");
+		await Assert.That(record).Contains("vo=>(int)vo.Value");
+		await Assert.That(record).Contains("Hydrate((global::Testing.OrderStatusKind)v)");
+		await Assert
+			.That(record)
+			.Contains(
+				"JsonReaderWriter=>global::Microsoft.EntityFrameworkCore.Storage.Json.JsonInt32ReaderWriter.Instance"
+			);
+	}
+
+	[Test]
+	public async Task EFRegistry_PlainEnumProperties_AreNotConverted(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public enum TenantKind
+				{
+					Organisation,
+					Project,
+				}
+
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+
+				public sealed class Customer
+				{
+					public EmailAddress Email { get; set; }
+
+					public TenantKind Kind { get; set; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		var query = result.Generated();
+		var registry = Normalize(
+			query.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+
+		// Only [Scalar]/[ValueObject] types receive a conversion. A plain enum keeps Entity Framework Core's
+		// own enum mapping, so the registry neither converts nor even mentions the enum type.
+		await Assert.That(registry).Contains("Testing.EmailAddress");
+		await Assert.That(registry).DoesNotContain("TenantKind");
+
+		var compilation = result.CompilationResult.Compilation;
+		var tenantKind = compilation.GetTypeByMetadataName("Testing.TenantKind")!;
+		await Assert.That(tenantKind.GetTypeMembers("EF")).IsEmpty();
+		await Assert
+			.That(tenantKind.AllInterfaces.Any(static i => i.Name is "IEFScalarValueObject" or "IEFComplexValueObject"))
+			.IsFalse();
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_GuidBackedInitOnlyProperty_UsesGuidProvider(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CustomerId
+				{
+					public System.Guid Value { get; init; }
+				}
+			}
+			""";
+
+		// Arrange
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		// Act
+		var query = result.Generated();
+		var customerId = query.GetRecord("CustomerId", "Testing");
+		var generatedText = Normalize(customerId.Node.ToString());
+
+		// Assert
+		await Assert.That(customerId.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(generatedText).Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(generatedText).Contains("Testing.CustomerId.Hydrate(v)");
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_StrictDeserialization_UsesHydrateFactoryInEfConverter(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.Scalar(DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+				public readonly partial record struct CustomerId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		// Arrange
+		var result = await GenerateAsync(
+			source,
+			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		// Act
+		var query = result.Generated();
+		var emailAddress = query.GetRecord("EmailAddress", "Testing");
+		var customerId = query.GetRecord("CustomerId", "Testing");
+		var emailGeneratedText = Normalize(emailAddress.Node.ToString());
+		var customerGeneratedText = Normalize(customerId.Node.ToString());
+
+		// Assert
+		await Assert.That(emailAddress.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(customerId.Node.BaseList?.ToString()).Contains("IEFScalarValueObject");
+		await Assert.That(emailGeneratedText).Contains("ValueConverter<global::Testing.EmailAddress,string>");
+		await Assert.That(emailGeneratedText).Contains("Testing.EmailAddress.Hydrate(v)");
+		await Assert
+			.That(customerGeneratedText)
+			.Contains("ValueConverter<global::Testing.CustomerId,global::System.Guid>");
+		await Assert.That(customerGeneratedText).Contains("Testing.CustomerId.Hydrate(v)");
+	}
+
+	[Test]
+	public async Task ScalarEFGeneration_StrictDeserialization_UsesHydrateFactory(CancellationToken cancellationToken)
 	{
 		const string source = """
 			namespace Testing
@@ -120,8 +320,12 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
-		var converterInitializer = GetFieldInitializer(result.Generated().GetClass("EF").Node, "Converter");
-		await Assert.That(converterInitializer).Contains("Testing.EmailAddress.Create(v)");
+		var emailAddress = Normalize(result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString());
+
+		// The provider-to-model path hydrates: Entity Framework Core uses it for persisted rows and query
+		// parameters, which may not satisfy a strict Create(...) factory.
+		await Assert.That(emailAddress).Contains("Testing.EmailAddress.Hydrate(v)");
+		await Assert.That(emailAddress).DoesNotContain("Testing.EmailAddress.Create(v)");
 	}
 
 	[Test]
@@ -196,8 +400,9 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(converterType.Name).IsEqualTo("ValueConverter");
 		await Assert.That(converterType.TypeArguments[1].SpecialType).IsEqualTo(SpecialType.System_String);
 
-		var initializer = GetFieldInitializer(efType, "Converter");
-		await Assert.That(initializer).Contains("JsonSerializer.Serialize(vo)");
+		var moneyRecord = Normalize(result.Generated().GetRecord("Money", "Testing").Node.ToString());
+		await Assert.That(moneyRecord).Contains("JsonSerializer.Serialize(vo)");
+		await Assert.That(moneyRecord).Contains("JsonStringReaderWriter.Instance");
 	}
 
 	[Test]
@@ -277,8 +482,9 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 
 		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
+		var query = result.Generated();
 		var registry = Normalize(
-			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+			query.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
 
 		await Assert.That(registry).Contains("typeof(global::Testing.Money)");
@@ -331,6 +537,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsFalse();
 		await Assert.That(query.HasClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore")).IsFalse();
+		await Assert.That(query.HasClass("ValueObjectConverter", "Microsoft.EntityFrameworkCore")).IsFalse();
 	}
 
 	[Test]
@@ -573,7 +780,8 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
 		await Assert.That(registry).Contains("[typeof(global::Shared.EmailAddress)]");
-		await Assert.That(registry).Contains("ValueConverter<global::Shared.EmailAddress");
+		await Assert.That(registry).Contains("ValueConverter<global::Shared.EmailAddress,string>");
+		await Assert.That(registry).Contains("_Shared_CustomerIdConverter");
 		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Hydrate(v)");
 		await Assert.That(registry).Contains("ValueComparer<global::Shared.EmailAddress>");
 		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.EF.Converter");
@@ -623,8 +831,8 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
 		);
-		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Create(v)");
-		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).Contains("v=>global::Shared.EmailAddress.Hydrate(v)");
+		await Assert.That(registry).DoesNotContain("global::Shared.EmailAddress.Create(v)");
 	}
 
 	[Test]
@@ -663,6 +871,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		);
 		await Assert.That(registry).Contains("[typeof(global::Shared.Audit)]");
 		await Assert.That(registry).Contains("ValueConverter<global::Shared.Audit,global::System.String>");
+		await Assert.That(registry).Contains("JsonStringReaderWriter.Instance");
 		await Assert.That(registry).Contains("JsonSerializer.Serialize(vo)");
 		await Assert.That(registry).DoesNotContain("global::Shared.Audit.EF.Converter");
 
@@ -776,6 +985,10 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(query.HasClass("EF")).IsTrue();
 		await Assert.That(query.HasClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore")).IsFalse();
 		await Assert.That(query.HasClass("ValueObjectModelCustomizer", "Microsoft.EntityFrameworkCore")).IsFalse();
+
+		// The per-type converters are still built from the provider-tolerant converter even though the
+		// assembly-level registry is not emitted.
+		await Assert.That(query.HasClass("ValueObjectConverter", "Testing")).IsTrue();
 	}
 
 	async Task<MetadataReference> EmitSharedReferenceAsync(string source, CancellationToken cancellationToken)
@@ -849,13 +1062,6 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		};
 
 	static string Normalize(string source) => string.Concat(source.Where(static c => !char.IsWhiteSpace(c)));
-
-	static string GetFieldInitializer(INamedTypeSymbol efType, string fieldName)
-	{
-		var field = efType.GetMembers(fieldName).Single();
-		var syntax = field.DeclaringSyntaxReferences[0].GetSyntax();
-		return syntax.ToString();
-	}
 
 	static string GetFieldInitializer(
 		Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax efClass,

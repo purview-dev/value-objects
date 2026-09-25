@@ -1,5 +1,15 @@
 namespace Purview.ValueObjects.Serialization;
 
+/// <summary>
+/// A plain enum column: it is neither a scalar nor a complex value object, so Entity Framework Core must
+/// keep mapping it with its own enum support.
+/// </summary>
+public enum CustomerKind
+{
+	Active,
+	Suspended,
+}
+
 sealed class EFCustomer
 {
 	public CustomerId Id { get; set; }
@@ -7,6 +17,8 @@ sealed class EFCustomer
 	public EmailAddress Email { get; set; }
 
 	public OrderStatus Status { get; set; }
+
+	public CustomerKind Kind { get; set; }
 }
 
 sealed class EFOrder

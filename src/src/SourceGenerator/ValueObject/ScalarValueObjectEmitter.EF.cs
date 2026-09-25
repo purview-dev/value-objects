@@ -13,9 +13,20 @@ static partial class ScalarValueObjectEmitter
 			return;
 
 		var valueObjectType = ValueObjectType(model);
-		var factoryName =
-			model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate";
-
+		var providerType = model.EFProviderTypeReference;
+		EFConverterDefinition converterDefinition = new(
+			ValueObjectEFConverterEmitter.DefaultClassName,
+			TypeDeclarationAccessibility.Public,
+			ValueObjectEmitterHelpers.EFConverterBaseType(model.TypeName, model.EFProviderTypeName),
+			model.TypeName,
+			model.EFProviderTypeName,
+			ValueObjectEFConverterEmitter.ToProviderExpression(
+				model.ScalarPropertyName,
+				model.EFHydrateCastTypeName is null ? null : model.EFProviderTypeName
+			),
+			ValueObjectEFConverterEmitter.FromProviderExpression(model.TypeName, model.EFHydrateCastTypeName),
+			ValueObjectEmitterHelpers.EFJsonReaderWriterType(model.EFProviderTypeName)
+		);
 		writer
 			.XmlSummary(
 				"Entity Framework Core mapping members for this value object.",
@@ -34,24 +45,25 @@ static partial class ScalarValueObjectEmitter
 					{
 						body.XmlSummary(
 								"Converts between the value object and its underlying value for Entity Framework Core.",
-								$"Persists {model.TypeModel.Name} as a native {model.ScalarTypeName} column."
+								$"Persists {model.TypeModel.Name} as a native {model.EFProviderTypeName} column."
 							)
 							.Field(
 								new FieldDeclarationOptions(
 									"Converter",
 									TypeLibrary.Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.MakeGeneric(
 										valueObjectType,
-										model.ScalarTypeReference
+										providerType
 									),
 									TypeDeclarationAccessibility.Public
 								)
 								{
 									IsStatic = true,
 									IsReadOnly = true,
-									Initializer =
-										$"new(vo => vo.{model.ScalarPropertyName}, v => {model.TypeModel.FullyQualifiedName}.{factoryName}(v))",
+									Initializer = $"new {ValueObjectEFConverterEmitter.DefaultClassName}()",
 								}
 							);
+
+						ValueObjectEFConverterEmitter.EmitConverterClass(body, converterDefinition);
 					}
 
 					if (emitComparer)

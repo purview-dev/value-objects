@@ -9,10 +9,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Purview.ZodSharp" />
-		<!-- PrivateAssets=all keeps EF Core project-local to this provider assembly: consumers that map
-		     these value objects reference EF Core themselves, and hermetic generator test compilations
-		     must not inherit the transitive EF reference. -->
-		<PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
 	</ItemGroup>
 
 	<ItemGroup>
