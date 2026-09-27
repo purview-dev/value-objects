@@ -204,16 +204,13 @@ public sealed class ZodSchemaValidationGeneratorTests
 
 		var emailAddress = query.GetRecord("EmailAddress", "Testing");
 
-		var hook = emailAddress.GetMethod("OnZodValidate");
-		await Assert.That(hook.Node.Modifiers.ToString()).Contains("partial");
-		await Assert.That(hook.Node.ParameterList.Parameters[0].Type?.ToString()).Contains("RefineCtx");
-		await Assert.That(hook.Node.Body).IsNull();
-
+		// The ZodSharp generator declares and invokes the refinement hook; the value object generator only
+		// validates through the generated schema, so nothing hook-shaped is emitted here.
+		await Assert.That(emailAddress.HasMethod("OnZodValidate")).IsFalse();
 		await Assert.That(emailAddress.HasMethod("Validate")).IsFalse();
 
 		var createBody = emailAddress.GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
-		await Assert.That(createBody).Contains("OnZodValidate(context);");
-		await Assert.That(createBody).Contains("context.HasIssues");
+		await Assert.That(createBody).Contains("EmailAddressSchema.Validate(instance)");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -225,133 +222,6 @@ public sealed class ZodSchemaValidationGeneratorTests
 		await Assert.That(acceptsValid).IsTrue();
 		await Assert.That(hookCode).IsEqualTo("invalid_domain");
 		await Assert.That(hydrateSkips).IsTrue();
-	}
-
-	[Test]
-	public async Task Scalar_GivenUserDeclaredRefinement_GeneratorStepsAside(CancellationToken cancellationToken)
-	{
-		const string source = """
-			using ZodSharp;
-
-			namespace Testing
-			{
-				[Scalar]
-				[ZodSchema]
-				public readonly partial record struct EmailAddress
-				{
-					public string Value { get; }
-
-					public System.Collections.Generic.IEnumerable<global::ZodSharp.Core.ValidationError> Validate()
-					{
-						if (Value != "allowed")
-							yield return global::ZodSharp.Core.ValidationError.Create(
-								"denied",
-								"Only 'allowed' is accepted.",
-								[]
-							);
-					}
-				}
-
-				public static class Harness
-				{
-					public static bool SchemaReportsUserRefinement() =>
-						!EmailAddressSchema.Validate(EmailAddress.Hydrate("denied")).IsSuccess;
-
-					public static bool CreateThrowsUserRefinement()
-					{
-						try
-						{
-							EmailAddress.Create("denied");
-							return false;
-						}
-						catch (global::ZodSharp.Core.ZodException)
-						{
-							return true;
-						}
-					}
-				}
-			}
-			""";
-
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
-		var query = result.Generated();
-
-		var emailAddress = query.GetRecord("EmailAddress", "Testing");
-		await Assert.That(emailAddress.HasMethod("OnZodValidate")).IsFalse();
-
-		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
-		var compiledType = assembly!.GetType("Testing.EmailAddress")!;
-		await Assert.That(compiledType.GetMethod("Validate")).IsNotNull();
-		await Assert
-			.That(
-				compiledType.GetMethod(
-					"OnZodValidate",
-					System.Reflection.BindingFlags.Instance
-						| System.Reflection.BindingFlags.Public
-						| System.Reflection.BindingFlags.NonPublic
-				)
-			)
-			.IsNull();
-
-		var harness = assembly.GetType("Testing.Harness")!;
-
-		var schemaReports = (bool)harness.GetMethod("SchemaReportsUserRefinement")!.Invoke(null, null)!;
-		var createThrows = (bool)harness.GetMethod("CreateThrowsUserRefinement")!.Invoke(null, null)!;
-
-		await Assert.That(schemaReports).IsTrue();
-		await Assert.That(createThrows).IsTrue();
-	}
-
-	[Test]
-	public async Task Scalar_GivenCustomRefinementName_ZodSharpWiresTheUserRefinement(
-		CancellationToken cancellationToken
-	)
-	{
-		const string source = """
-			using ZodSharp;
-
-			namespace Testing
-			{
-				[Scalar]
-				[ZodSchema(RefinementMethodName = nameof(CheckDomain))]
-				public readonly partial record struct EmailAddress
-				{
-					public string Value { get; }
-
-					public System.Collections.Generic.IEnumerable<global::ZodSharp.Core.ValidationError> CheckDomain()
-					{
-						if (Value.EndsWith(".invalid", System.StringComparison.Ordinal))
-							yield return global::ZodSharp.Core.ValidationError.Create(
-								"invalid_domain",
-								"Domain is not allowed.",
-								[nameof(Value)]
-							);
-					}
-				}
-
-				public static class Harness
-				{
-					public static bool SchemaReportsConfiguredRefinement() =>
-						!EmailAddressSchema.Validate(EmailAddress.Hydrate("demo@example.invalid")).IsSuccess;
-				}
-			}
-			""";
-
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
-		var query = result.Generated();
-
-		var emailAddress = query.GetRecord("EmailAddress", "Testing");
-		await Assert.That(emailAddress.HasMethod("OnZodValidate")).IsFalse();
-
-		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
-		var compiledType = assembly!.GetType("Testing.EmailAddress")!;
-		await Assert.That(compiledType.GetMethod("CheckDomain")).IsNotNull();
-
-		var harness = assembly.GetType("Testing.Harness")!;
-
-		var schemaReports = (bool)harness.GetMethod("SchemaReportsConfiguredRefinement")!.Invoke(null, null)!;
-
-		await Assert.That(schemaReports).IsTrue();
 	}
 
 	[Test]
@@ -397,10 +267,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 		var query = result.Generated();
 
 		var money = query.GetRecord("Money", "Testing");
-		await Assert.That(money.HasMethod("OnZodValidate")).IsTrue();
+		// The ZodSharp generator owns the hook; the value object generator only validates through the schema.
+		await Assert.That(money.HasMethod("OnZodValidate")).IsFalse();
 
 		var createBody = money.GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
-		await Assert.That(createBody).Contains("OnZodValidate(context);");
+		await Assert.That(createBody).Contains("MoneySchema.Validate(instance)");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -410,76 +281,6 @@ public sealed class ZodSchemaValidationGeneratorTests
 
 		await Assert.That(acceptsValid).IsTrue();
 		await Assert.That(hookCode).IsEqualTo("invalid_amount");
-	}
-
-	[Test]
-	public async Task Scalar_GivenImplementedHookWithDeclaredRefinement_ReportsRefinementHookNotInvoked(
-		CancellationToken cancellationToken
-	)
-	{
-		// The type declares a refinement method ZodSharp can bind, so the generator defers to it and the
-		// hook the user implemented is declared but never invoked - the generated Create must still be
-		// emitted, hence a non-blocking diagnostic.
-		const string source = """
-			using ZodSharp;
-
-			namespace Testing
-			{
-				[Scalar]
-				[ZodSchema]
-				public readonly partial record struct EmailAddress
-				{
-					public string Value { get; }
-
-					public System.Collections.Generic.IEnumerable<global::ZodSharp.Core.ValidationError> Validate()
-					{
-						yield break;
-					}
-
-					partial void OnZodValidate(global::ZodSharp.Schemas.RefineCtx<EmailAddress> context)
-					{
-						_ = context;
-					}
-				}
-			}
-			""";
-
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Default, cancellationToken);
-
-		await Assert.That(result).HasDiagnostic("VO1011");
-
-		var emailAddress = result.Generated().GetRecord("EmailAddress", "Testing");
-		var createBody = emailAddress.GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
-		await Assert.That(createBody).DoesNotContain("OnZodValidate(context);");
-	}
-
-	[Test]
-	public async Task Scalar_GivenShadowedZodRefinementName_ReportsRefinementNameShadowed(
-		CancellationToken cancellationToken
-	)
-	{
-		// A property cannot be bound by ZodSharp as a refinement, and ZodSharp reports nothing when it
-		// finds no method of the refinement name, so the value object ends up with no refinement at all.
-		const string source = """
-			using ZodSharp;
-
-			namespace Testing
-			{
-				[Scalar]
-				[ZodSchema]
-				public readonly partial record struct EmailAddress
-				{
-					public string Value { get; }
-
-					public string Validate => "not-a-refinement";
-				}
-			}
-			""";
-
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Default, cancellationToken);
-
-		await Assert.That(result).HasDiagnostic("VO1012");
-		await Assert.That(result.Generated().GetRecord("EmailAddress", "Testing").HasMethod("OnZodValidate")).IsFalse();
 	}
 
 	[Test]

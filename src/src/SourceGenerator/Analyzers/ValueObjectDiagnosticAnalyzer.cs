@@ -17,8 +17,6 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.StrictDeserializationRequiresCreate,
 			DiagnosticLibrary.EFMappingRequiresEntityFramework,
 			DiagnosticLibrary.EFAutoConversionSkipped,
-			DiagnosticLibrary.ZodRefinementHookNotInvoked,
-			DiagnosticLibrary.ZodRefinementNameShadowed,
 			DiagnosticLibrary.OnValidateSkippedByInsteadOfHooks,
 			DiagnosticLibrary.ZodSchemaNameInvalid,
 			DiagnosticLibrary.EFValueGenerationUnavailable,

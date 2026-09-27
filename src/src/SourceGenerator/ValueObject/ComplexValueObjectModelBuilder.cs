@@ -236,9 +236,6 @@ static class ComplexValueObjectModelBuilder
 			),
 			zodSchema.HasSchema,
 			zodSchema.SchemaClassName,
-			zodSchema.DeclareRefinementHook,
-			zodSchema.InvokeRefinementHook,
-			zodSchema.RefinementHookIsReadOnly,
 			isEFReferenced,
 			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
 		);

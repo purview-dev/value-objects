@@ -4,8 +4,6 @@ Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 VO1009 | ValueObjects | Warning | Entity Framework mapping requested but Microsoft.EntityFrameworkCore is not referenced
 VO1010 | ValueObjects | Warning | Entity Framework auto-conversion skipped for a value object whose underlying type is not mappable
-VO1011 | ValueObjects | Warning | Zod refinement hook is declared but the generated Create does not invoke it
-VO1012 | ValueObjects | Warning | ZodSharp refinement name is shadowed by a member ZodSharp cannot bind
 VO1013 | ValueObjects | Warning | OnValidate is not invoked because ZodSchemaMode.InsteadOfHooks is set
 VO1015 | ValueObjects | Error | ZodSharp SchemaName is not a valid identifier
 VO1016 | ValueObjects | Warning | Value object member is mutable

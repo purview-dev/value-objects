@@ -60,88 +60,22 @@ static class ValueObjectEmitterHelpers
 	/// </remarks>
 	public static class ZodRefinement
 	{
-		/// <summary>The type of the hook parameter and of the generated refinement context.</summary>
-		public static TypeReference RefineContext(TypeReference valueObjectType) =>
-			new(
-				new TypeIdentity(TypeLibrary.ZodRefineContextName, TypeLibrary.ZodSharpSchemasNamespace, 1).MakeGeneric(
-					valueObjectType
-				)
-			);
-
-		/// <summary>The ZodSharp issue type (<c>global::ZodSharp.Core.ValidationError</c>).</summary>
-		public static TypeReference ValidationError =>
-			new(new TypeIdentity(TypeLibrary.ZodValidationErrorName, TypeLibrary.ZodSharpCoreNamespace));
-
-		/// <summary>The merged-issue list type (<c>List&lt;ValidationError&gt;</c>).</summary>
-		static TypeReference ValidationErrors =>
-			new(PurviewTypeLibrary.System.Collections.Generic.List.MakeGeneric(ValidationError));
-
 		/// <summary>
-		/// Declares the optional partial hook a value object implements to contribute Zod-compatible
-		/// refinement issues. A value object that never implements it simply contributes no extra issues.
+		/// Emits the generated <c>Create</c> validation step: the ZodSharp schema is always consulted and its
+		/// issues surface as one <c>ZodException</c>.
 		/// </summary>
-		public static void EmitHookDeclaration(
-			CodeWriter writer,
-			TypeReference refineContextType,
-			bool isReadOnly,
-			string schemaDescription
-		)
-		{
-			writer.XmlSummary(
-				"Optional ZodSharp refinement hook. Implement this partial method to add Zod-compatible",
-				$"validation rules to {schemaDescription}.",
-				$"Issues added to {XmlCommentWriter.XmlParamRef("context")} are reported by the generated",
-				$"{XmlCommentWriter.XmlInlineCode("Create")} path and by strict deserialization; the",
-				$"{XmlCommentWriter.XmlInlineCode("Hydrate")} path remains replay-safe."
-			);
-			writer.XmlParam("context", "The refinement context carrying the value under validation and its issues.");
-
-			writer.PartialMethod(
-				new(TypeLibrary.ZodRefinementHookName)
-				{
-					IsReadOnly = isReadOnly,
-					Parameters = [new("context", refineContextType)],
-				}
-			);
-		}
-
-		/// <summary>
-		/// Emits the generated <c>Create</c> validation step: the ZodSharp schema is always consulted, and when
-		/// the value object supplies refinement rules the hook runs too, so both sets of issues surface as one
-		/// <c>ZodException</c>.
-		/// </summary>
-		public static void EmitCreateValidation(
-			CodeWriter body,
-			string schemaReference,
-			TypeReference refineContextType,
-			bool invokeRefinementHook
-		)
+		/// <remarks>
+		/// Refinement rules — including the <c>OnZodValidate</c> hook the ZodSharp generator declares on the
+		/// type — run inside the generated schema's <c>Validate</c>. This generator neither declares nor
+		/// invokes that hook, so a value object observes refinements through exactly the same path as any
+		/// other <c>[ZodSchema]</c> consumer.
+		/// </remarks>
+		public static void EmitCreateValidation(CodeWriter body, string schemaReference)
 		{
 			body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-
-			if (!invokeRefinementHook)
-			{
-				body.IfBlock(
-					"!result.IsSuccess",
-					ifBody => ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(result.Errors)")
-				);
-				return;
-			}
-
-			body.Assignment(
-				"var",
-				"context",
-				$"new {refineContextType}(instance, {TypeLibrary.ZodEmptyPathExpression})"
-			);
-			body.MethodCall($"instance.{TypeLibrary.ZodRefinementHookName}", "context");
 			body.IfBlock(
-				"!result.IsSuccess || context.HasIssues",
-				ifBody =>
-				{
-					ifBody.Assignment("var", "errors", $"new {ValidationErrors}(result.Errors)");
-					ifBody.MethodCall("errors.AddRange", "context.Issues");
-					ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(errors)");
-				}
+				"!result.IsSuccess",
+				ifBody => ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(result.Errors)")
 			);
 		}
 	}
@@ -154,7 +88,7 @@ static class ValueObjectEmitterHelpers
 	/// <remarks>
 	/// The generator must be typed as the value object, not as its provider value: Entity Framework Core
 	/// assigns what a generator returns straight to the property, so a <c>Guid</c>-producing generator
-	/// throws <see cref="System.InvalidCastException"/> on a converted value object property.
+	/// throws <see cref="InvalidCastException"/> on a converted value object property.
 	/// </remarks>
 	/// <summary>Describes the default UUIDv7 ordering strategy in generated documentation.</summary>
 	public const string EFUuidV7StrategyDescription = "a time-ordered (UUIDv7) identifier";

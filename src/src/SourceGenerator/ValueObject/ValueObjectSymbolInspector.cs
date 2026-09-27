@@ -232,9 +232,9 @@ static class ValueObjectSymbolInspector
 	}
 
 	/// <summary>
-	/// True when the scalar's underlying value is <see cref="System.Guid"/>. Entity Framework Core value
+	/// True when the scalar's underlying value is <see cref="Guid"/>. Entity Framework Core value
 	/// generators are emitted for these value objects only: a time-ordered identifier is meaningful for a
-	/// <see cref="System.Guid"/> key and nothing else.
+	/// <see cref="Guid"/> key and nothing else.
 	/// </summary>
 	public static bool IsGuidProviderType(ITypeSymbol type) => TypeLibrary.System.Guid.Equals(type);
 
@@ -329,6 +329,7 @@ static class ValueObjectSymbolInspector
 		if (memberType is IArrayTypeSymbol)
 			return true;
 
+		// The member is a collection if it implements IEnumerable<T> (or a derived interface). This is the same
 		return memberType is INamedTypeSymbol named
 			&& named.AllInterfaces.Any(static iface =>
 				iface.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
@@ -661,42 +662,29 @@ static class ValueObjectSymbolInspector
 
 	/// <summary>
 	/// Resolves everything the emitters need about a type's ZodSharp integration: whether <c>[ZodSchema]</c> is
-	/// present, the generated schema class name (<c>[ZodSchema(SchemaName = "...")]</c> aware), the synchronous
-	/// refinement method name (<c>[ZodSchema(RefinementMethodName = "...")]</c> aware, defaulting to
-	/// <c>Validate</c>), whether the caller already declares that refinement, and whether the optional partial
-	/// refinement hook is generated.
+	/// present and the generated schema class name (<c>[ZodSchema(SchemaName = "..." )]</c> aware).
 	/// </summary>
+	/// <remarks>
+	/// Refinements — including the <c>OnZodValidate</c> hook — belong to the ZodSharp generator, which declares
+	/// and invokes them inside the generated schema. The <c>Create</c> path only has to validate through that
+	/// schema, so nothing here declares or invokes a refinement.
+	/// </remarks>
 	public static ZodSchemaIntegration ResolveZodSchemaIntegration(INamedTypeSymbol typeSymbol)
 	{
 		if (GetZodSchemaAttribute(typeSymbol) is not { } zodSchemaAttribute)
 			return default;
 
-		var refinementMethodName =
-			GetZodSchemaStringArgument(zodSchemaAttribute, "RefinementMethodName")
-			?? TypeLibrary.ZodDefaultRefinementMethodName;
 		var schemaName = GetZodSchemaStringArgument(zodSchemaAttribute, "SchemaName");
-		var hasUserRefinement = HasZodRefinementMember(typeSymbol, refinementMethodName);
-		var hasHookImplementation = HasZodRefinementHookImplementation(typeSymbol);
 
 		return new ZodSchemaIntegration(
 			HasSchema: true,
 			SchemaClassName: schemaName ?? (typeSymbol.Name + "Schema"),
-			// The hook is declared when the user has not supplied their own refinement, or when they already
-			// wrote the hook body (which is legal only alongside the generated declaration).
-			DeclareRefinementHook: ShouldDeclareZodRefinementHook(typeSymbol)
-				&& (!hasUserRefinement || hasHookImplementation),
-			InvokeRefinementHook: !hasUserRefinement && hasHookImplementation,
-			RefinementHookIsReadOnly: IsComplexHookReadOnly(typeSymbol, TypeLibrary.ZodRefinementHookName, 1),
-			SchemaName: schemaName,
-			RefinementMethodName: refinementMethodName,
-			HasUserRefinement: hasUserRefinement,
-			HasHookImplementation: hasHookImplementation
+			SchemaName: schemaName
 		);
 	}
 
 	/// <summary>
-	/// Collects the diagnostics for the ZodSharp integration states that are otherwise silent: a refinement
-	/// hook the generated <c>Create</c> never invokes, a refinement name ZodSharp can bind no method to, an
+	/// Collects the diagnostics for the ZodSharp integration states that are otherwise silent: an
 	/// <c>OnValidate</c> implementation made unreachable by <c>ZodSchemaMode.InsteadOfHooks</c>, and a
 	/// configured schema name the two generators would not resolve to the same identifier.
 	/// </summary>
@@ -716,7 +704,6 @@ static class ValueObjectSymbolInspector
 		if (!zodSchema.HasSchema)
 			return;
 
-		var refinementMethodName = zodSchema.RefinementMethodName ?? TypeLibrary.ZodDefaultRefinementMethodName;
 		var typeLocation = typeSymbol.Locations.FirstOrDefault(static location => location.IsInSource);
 
 		// ZodSharp applies any non-empty SchemaName, so a value that is not a valid identifier (for
@@ -731,38 +718,6 @@ static class ValueObjectSymbolInspector
 					GetZodSchemaAttributeLocation(typeSymbol) ?? typeLocation,
 					typeSymbol.Name,
 					schemaName
-				)
-			);
-		}
-
-		// The user wrote the refinement hook body, but a member already owns the refinement name, so the
-		// generated Create steps aside and the hook is never invoked.
-		if (zodSchema.HasUserRefinement && zodSchema.HasHookImplementation)
-		{
-			diagnostics.Add(
-				ReportableDiagnostic.Create(
-					DiagnosticLibrary.ZodRefinementHookNotInvoked,
-					isBlocking: false,
-					GetZodRefinementHookLocation(typeSymbol) ?? typeLocation,
-					typeSymbol.Name,
-					refinementMethodName,
-					TypeLibrary.ZodRefinementHookName
-				)
-			);
-		}
-
-		// ZodSharp binds refinements by name and only considers methods, reporting nothing when it finds
-		// no candidate. A non-method member (or no member at all) therefore leaves the value object with
-		// no refinement at all - the reason the hook was suppressed in favour of it.
-		if (zodSchema.HasUserRefinement && !HasMethodWithName(typeSymbol, refinementMethodName))
-		{
-			diagnostics.Add(
-				ReportableDiagnostic.Create(
-					DiagnosticLibrary.ZodRefinementNameShadowed,
-					isBlocking: false,
-					GetMemberLocation(typeSymbol, refinementMethodName) ?? typeLocation,
-					typeSymbol.Name,
-					refinementMethodName
 				)
 			);
 		}
@@ -782,9 +737,6 @@ static class ValueObjectSymbolInspector
 			);
 		}
 	}
-
-	static bool HasMethodWithName(INamedTypeSymbol typeSymbol, string name) =>
-		typeSymbol.GetMembers(name).OfType<IMethodSymbol>().Any(static method => !method.IsImplicitlyDeclared);
 
 	static Location? GetMemberLocation(INamedTypeSymbol typeSymbol, string name) =>
 		typeSymbol
@@ -806,9 +758,6 @@ static class ValueObjectSymbolInspector
 			.FirstOrDefault(static method => method.Body is not null || method.ExpressionBody is not null)
 			?.GetLocation();
 
-	static Location? GetZodRefinementHookLocation(INamedTypeSymbol typeSymbol) =>
-		GetHookImplementationLocation(typeSymbol, TypeLibrary.ZodRefinementHookName);
-
 	static Location? GetZodSchemaAttributeLocation(INamedTypeSymbol typeSymbol) =>
 		GetZodSchemaAttribute(typeSymbol)?.ApplicationSyntaxReference?.GetSyntax().GetLocation();
 
@@ -822,71 +771,13 @@ static class ValueObjectSymbolInspector
 	}
 
 	/// <summary>
-	/// True when the type already declares a member with the ZodSharp refinement name. The generator then
-	/// leaves schema wiring to the caller so the documented ZodSharp refinement pattern keeps working and no
-	/// duplicate member is emitted (ZodSharp reports its own diagnostics for a malformed refinement).
-	/// </summary>
-	static bool HasZodRefinementMember(INamedTypeSymbol typeSymbol, string refinementMethodName) =>
-		typeSymbol.GetMembers(refinementMethodName).Any(member => !member.IsImplicitlyDeclared);
-
-	/// <summary>
-	/// True when the generator should declare the partial Zod refinement hook. A user-declared partial
-	/// implementation (a body without a declaration part) pairs with the generated declaration, so the hook
-	/// is still declared. Any other user-declared member already owns the name and the generated call binds
-	/// to it instead.
-	/// </summary>
-	static bool ShouldDeclareZodRefinementHook(INamedTypeSymbol typeSymbol) =>
-		GetZodRefinementHookDeclarations(typeSymbol).All(IsPartialImplementationDeclaration);
-
-	/// <summary>
-	/// True when the user supplies the Zod refinement hook body, so the generated <c>Create</c> path invokes
-	/// it. Without a body the hook call would be elided, so no refinement context is allocated either.
-	/// </summary>
-	static bool HasZodRefinementHookImplementation(INamedTypeSymbol typeSymbol) =>
-		GetZodRefinementHookDeclarations(typeSymbol)
-			.Any(static method => method.Body is not null || method.ExpressionBody is not null);
-
-	static MethodDeclarationSyntax[] GetZodRefinementHookDeclarations(INamedTypeSymbol typeSymbol) =>
-		[
-			.. typeSymbol
-				.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax())
-				.OfType<TypeDeclarationSyntax>()
-				.SelectMany(declaration => declaration.Members.OfType<MethodDeclarationSyntax>())
-				.Where(method => method.Identifier.Text == TypeLibrary.ZodRefinementHookName),
-		];
-
-	/// <summary>
-	/// True for a <c>partial</c> method declaration that supplies a body. Such a declaration is the
-	/// implementation part of the generator-declared hook and is legal only while the declaration exists.
-	/// </summary>
-	static bool IsPartialImplementationDeclaration(MethodDeclarationSyntax method) =>
-		method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword))
-		&& (method.Body is not null || method.ExpressionBody is not null);
-
-	/// <summary>
 	/// Everything the emitters need to know about a type's ZodSharp integration. <see langword="default"/>
 	/// means <c>[ZodSchema]</c> is not applied.
 	/// </summary>
 	/// <param name="HasSchema">True when <c>[ZodSchema]</c> is applied.</param>
 	/// <param name="SchemaClassName">The generated schema class the <c>Create</c> path validates through.</param>
-	/// <param name="DeclareRefinementHook">True when the generator declares the optional refinement hook.</param>
-	/// <param name="InvokeRefinementHook">True when the generated <c>Create</c> invokes the refinement hook.</param>
-	/// <param name="RefinementHookIsReadOnly">True when the declared hook must be <c>readonly</c> to pair with the user's implementation.</param>
 	/// <param name="SchemaName">The configured <c>SchemaName</c>, or <see langword="null"/> when unset.</param>
-	/// <param name="RefinementMethodName">The effective refinement method name (defaults to <c>Validate</c>).</param>
-	/// <param name="HasUserRefinement">True when the type already declares a member with the refinement name.</param>
-	/// <param name="HasHookImplementation">True when the caller supplies the refinement hook body.</param>
-	public readonly record struct ZodSchemaIntegration(
-		bool HasSchema,
-		string? SchemaClassName,
-		bool DeclareRefinementHook,
-		bool InvokeRefinementHook,
-		bool RefinementHookIsReadOnly,
-		string? SchemaName,
-		string? RefinementMethodName,
-		bool HasUserRefinement,
-		bool HasHookImplementation
-	);
+	public readonly record struct ZodSchemaIntegration(bool HasSchema, string? SchemaClassName, string? SchemaName);
 
 	const string EntityFrameworkMappingTypeName = TypeLibrary
 		.Purview

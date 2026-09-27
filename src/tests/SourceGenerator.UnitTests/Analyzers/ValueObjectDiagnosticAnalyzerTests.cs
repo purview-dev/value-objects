@@ -226,79 +226,9 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 			public sealed class ZodSchemaAttribute : System.Attribute
 			{
 				public string? SchemaName { get; init; }
-
-				public string? RefinementMethodName { get; init; }
 			}
 		}
 		""";
-
-	[Test]
-	public async Task Generate_GivenImplementedZodRefinementHookWithShadowingMethod_ReportsRefinementHookNotInvoked(
-		CancellationToken cancellationToken
-	)
-	{
-		// A member named like the refinement method (default 'Validate') makes the generator defer the
-		// refinement to ZodSharp, so the hook the caller implemented is declared but never invoked.
-		const string source =
-			ZodSchemaAttributeStub
-			+ """
-
-				namespace Testing
-				{
-					[Scalar]
-					[ZodSharp.ZodSchema]
-					public readonly partial record struct EmailAddress
-					{
-						public string Value { get; }
-
-						public void Validate() { }
-
-						partial void OnZodValidate(object context);
-
-						partial void OnZodValidate(object context)
-						{
-							_ = context;
-						}
-					}
-				}
-				""";
-
-		var result = await AnalyzeAsync(source, cancellationToken);
-
-		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ZodRefinementHookNotInvoked);
-		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodRefinementNameShadowed);
-	}
-
-	[Test]
-	public async Task Generate_GivenZodRefinementNameShadowedByProperty_ReportsRefinementNameShadowed(
-		CancellationToken cancellationToken
-	)
-	{
-		// ZodSharp binds refinements by looking for a *method* of the configured name. A property with
-		// that name makes the generator step aside while ZodSharp reports nothing, so no Zod rules - and
-		// no hook - apply to the value object.
-		const string source =
-			ZodSchemaAttributeStub
-			+ """
-
-				namespace Testing
-				{
-					[Scalar]
-					[ZodSharp.ZodSchema]
-					public readonly partial record struct EmailAddress
-					{
-						public string Value { get; }
-
-						public string Validate => "not-a-refinement";
-					}
-				}
-				""";
-
-		var result = await AnalyzeAsync(source, cancellationToken);
-
-		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ZodRefinementNameShadowed);
-		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodRefinementHookNotInvoked);
-	}
 
 	[Test]
 	public async Task Generate_GivenInsteadOfHooksWithImplementedOnValidate_ReportsOnValidateSkipped(
@@ -390,8 +320,6 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 
 		var result = await AnalyzeAsync(source, cancellationToken);
 
-		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodRefinementHookNotInvoked);
-		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodRefinementNameShadowed);
 		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.OnValidateSkippedByInsteadOfHooks);
 		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
 	}

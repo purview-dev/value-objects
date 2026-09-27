@@ -81,7 +81,7 @@ readonly partial record struct CorporateEmail
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase")]
 	static partial void OnNormalize(ref string value) => value = value?.Trim().ToLowerInvariant()!;
 
-	partial void OnZodValidate(global::ZodSharp.Schemas.RefineCtx<CorporateEmail> context)
+	partial void OnZodValidate(ZodSharp.Schemas.RefineCtx<CorporateEmail> context)
 	{
 		if (!context.Value.Value.EndsWith("@contoso.com", StringComparison.Ordinal))
 			context.AddIssue("invalid_domain", "Corporate emails must use the contoso.com domain.", [nameof(Value)]);

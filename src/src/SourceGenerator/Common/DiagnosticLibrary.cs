@@ -104,26 +104,6 @@ static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary>VO1011: Zod refinement hook declared but never invoked </summary>
-	public static readonly DiagnosticDescriptor ZodRefinementHookNotInvoked = new(
-		id: "VO1011",
-		title: "Zod refinement hook is not invoked",
-		messageFormat: "Value object '{0}' implements '{2}' but the generated Create does not invoke it because '{1}' is already declared; the issues the hook adds are never reported",
-		category: ValueObjectCategory,
-		defaultSeverity: DiagnosticSeverity.Warning,
-		isEnabledByDefault: true
-	);
-
-	/// <summary>VO1012: ZodSharp refinement name shadowed by a non-method member </summary>
-	public static readonly DiagnosticDescriptor ZodRefinementNameShadowed = new(
-		id: "VO1012",
-		title: "ZodSharp refinement name is shadowed",
-		messageFormat: "Value object '{0}' declares a member named '{1}' that ZodSharp cannot bind as a refinement; no Zod refinement method exists, so no Zod rules run and the generated refinement hook is suppressed",
-		category: ValueObjectCategory,
-		defaultSeverity: DiagnosticSeverity.Warning,
-		isEnabledByDefault: true
-	);
-
 	/// <summary>VO1013: OnValidate is skipped by ZodSchemaMode.InsteadOfHooks </summary>
 	public static readonly DiagnosticDescriptor OnValidateSkippedByInsteadOfHooks = new(
 		id: "VO1013",

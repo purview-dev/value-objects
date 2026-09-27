@@ -297,9 +297,6 @@ static class ScalarValueObjectModelBuilder
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
 			zodSchema.HasSchema,
 			zodSchema.SchemaClassName,
-			zodSchema.DeclareRefinementHook,
-			zodSchema.InvokeRefinementHook,
-			zodSchema.RefinementHookIsReadOnly,
 			isEFReferenced,
 			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
 			ValueObjectSymbolInspector.ToTypeName(efProviderType),
@@ -316,7 +313,7 @@ static class ScalarValueObjectModelBuilder
 	/// <summary>
 	/// Resolves whether the value object gets an Entity Framework Core key value generator, reporting the
 	/// cases where the option was requested but cannot be honoured: a scalar whose underlying value is not
-	/// a <see cref="System.Guid"/>, or one whose Entity Framework converter is disabled.
+	/// a <see cref="Guid"/>, or one whose Entity Framework converter is disabled.
 	/// </summary>
 	static bool ResolveEFValueGeneration(
 		INamedTypeSymbol typeSymbol,

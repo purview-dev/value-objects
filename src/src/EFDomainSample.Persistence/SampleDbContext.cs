@@ -4,7 +4,7 @@ using Purview.ValueObjects.EFDomainSample.Domain;
 namespace Purview.ValueObjects.EFDomainSample.Persistence;
 
 /// <summary>A tenant as it is stored: its identifier is a value object and its key is a column.</summary>
-public sealed class TenantRecord
+sealed class TenantRecord
 {
 	public TenantId Id { get; set; }
 
@@ -14,7 +14,7 @@ public sealed class TenantRecord
 }
 
 /// <summary>A customer as it is stored: every value object converted to its primitive column.</summary>
-public sealed class CustomerRecord
+sealed class CustomerRecord
 {
 	public CustomerId Id { get; set; }
 
@@ -31,7 +31,7 @@ public sealed class CustomerRecord
 /// The context for the sample. The domain project does not reference Entity Framework Core, so the
 /// generated registry lives here and maps the domain value objects inline.
 /// </summary>
-public sealed class SampleDbContext(DbContextOptions<SampleDbContext> options) : DbContext(options)
+sealed class SampleDbContext(DbContextOptions<SampleDbContext> options) : DbContext(options)
 {
 	public DbSet<TenantRecord> Tenants => Set<TenantRecord>();
 

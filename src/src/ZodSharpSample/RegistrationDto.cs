@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ZodSharp;
-using ZodSharp.Core;
+using ZodSharp.Schemas;
 
 namespace Purview.ValueObjects.ZodSharpSample;
 
@@ -8,8 +8,12 @@ namespace Purview.ValueObjects.ZodSharpSample;
 /// A plain DTO validated by the source-generated <c>RegistrationDtoSchema</c> /
 /// <c>RegistrationDtoSchemaValidator</c>. Values are mapped to value objects after validation.
 /// </summary>
-[ZodSchema(RefinementMethodName = nameof(ValidateRegistration))]
-sealed class RegistrationDto
+/// <remarks>
+/// <c>partial</c> is required so the ZodSharp generator can declare the <c>OnZodValidate</c> refinement hook
+/// on this type.
+/// </remarks>
+[ZodSchema]
+sealed partial class RegistrationDto
 {
 	[Required]
 	[StringLength(100, MinimumLength = 2)]
@@ -23,12 +27,12 @@ sealed class RegistrationDto
 	public string Email { get; init; } = string.Empty;
 
 	/// <summary>
-	/// A custom sync refinement method, wired up via <c>RefinementMethodName</c>. The generator
-	/// discovers this instance method and runs the returned errors after the DataAnnotations rules.
+	/// A custom refinement, declared by the ZodSharp generator and implemented here. The issues it adds are
+	/// merged with the DataAnnotations issues by every schema entry point.
 	/// </summary>
-	public IEnumerable<ValidationError> ValidateRegistration()
+	partial void OnZodValidate(RefineCtx<RegistrationDto> context)
 	{
-		if (Name.StartsWith('x'))
-			yield return new ValidationError("name", "Name cannot start with 'x'.", [nameof(Name)]);
+		if (context.Value.Name.StartsWith('x'))
+			context.AddIssue("name", "Name cannot start with 'x'.", [nameof(Name)]);
 	}
 }
