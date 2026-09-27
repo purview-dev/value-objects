@@ -15,6 +15,9 @@ dotnet run --project src/src/ZodSharpSample
   has its generated `Create` wired to the ZodSharp-generated schema. `EmailAddress.Create("not-an-email")`
   throws a `ZodException`, and `PhoneNumber` uses `ZodSchemaMode.InsteadOfHooks` so the schema is the
   sole validation gate.
+- **Zod refinement hooks** — `CorporateEmail` implements the generated `OnZodValidate(RefineCtx<T>)` hook to
+  add a rule ZodSharp's DataAnnotations cannot express; the generated `Create` merges the hook's issues with
+  the schema's own, while `Hydrate` stays replay-safe.
 - **Generated validators on value objects** — `EmailAddressSchema.Validate/Parse` and
   `CurrencyCodeSchema.Validate` validate the value object directly; `ApplyRefine` composes extra
   rules such as "only example.com addresses allowed".

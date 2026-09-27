@@ -91,6 +91,27 @@ public sealed class ScalarAttribute(string propertyName = "Value") : Attribute
 	public bool GenerateEFComparer { get; init; } = true;
 
 	/// <summary>
+	/// Gets or sets whether an Entity Framework Core value generator should be generated for this
+	/// Guid-backed scalar value object.
+	/// </summary>
+	/// <value>Defaults to <see langword="false"/>.</value>
+	/// <remarks>
+	/// <para>
+	/// When enabled, the generator emits a <c>ValueGenerator</c> that assigns a time-ordered
+	/// (UUIDv7) identifier when an entity's key is left at <see cref="Guid.Empty"/>, and publishes
+	/// it through the generated <c>ValueObjectKeyValueGeneratorConvention</c> so it applies to key
+	/// properties without per-entity configuration. A value supplied by domain code is never
+	/// overwritten, and an explicit <c>ValueGeneratedNever()</c> in an entity configuration wins.
+	/// </para>
+	/// <para>
+	/// Entity Framework members are emitted only when the consuming project references
+	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored. Value generation is
+	/// supported for Guid-backed scalars only.
+	/// </para>
+	/// </remarks>
+	public bool GenerateEFValueGenerator { get; init; }
+
+	/// <summary>
 	/// Gets or sets the deserialization mode used by the generated JSON converter.
 	/// </summary>
 	/// <value>Defaults to <see cref="ValueObjectDeserializationMode.Hydrate"/>.</value>

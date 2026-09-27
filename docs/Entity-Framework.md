@@ -22,6 +22,11 @@ For the examples below, also add a provider such as SQLite:
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite
 ```
 
+The generated integration is compiled and tested against EF Core **7, 9, and 10** (EF Core 7 needs `net8.0`),
+so version-specific API differences are resolved by the generator rather than surfacing in your build. EF Core
+7 has no complex-type mapping, which is the one feature difference: a complex value object reports `VO1019`
+there. See [Notes](#notes) for the full version matrix.
+
 ## Automatic mapping
 
 Add one call in `OnModelCreating`. The generated `ConfigureValueObjects` extension is emitted into your project
@@ -181,7 +186,172 @@ var orders = await db.Orders
 > undocumented Entity Framework Core implementation detail: if it ever changes, compiled models silently fall
 > back to the built-in converter, and only raw-primitive comparisons are affected.
 
-## Manual control
+## Keys, foreign keys, and indexes
+
+A value object key needs no special handling: the generated converter maps the value object to its
+primitive column, so a key or foreign key typed as a value object persists as that primitive. Convention
+then makes `{Type}Id` the primary key, exactly as it would for a `Guid` or `string`.
+
+```csharp
+sealed class Customer
+{
+    public CustomerId Id { get; set; }          // primary key, stored as uniqueidentifier
+    public TenantId TenantId { get; set; }      // foreign key to Tenant.Id
+    public Tenant Tenant { get; set; } = default!;
+}
+
+sealed class Tenant
+{
+    public TenantId Id { get; set; }
+    public TenantKey Key { get; set; }          // a scalar value object stored as a single column
+}
+```
+
+Column facets are configured on the value object property and apply to the converted column, so keep
+configuring them the way you would on a primitive:
+
+```csharp
+public sealed class TenantConfiguration : IEntityTypeConfiguration<TenantEntity>
+{
+    public void Configure(EntityTypeBuilder<TenantEntity> builder)
+    {
+        builder.Property(entity => entity.Id).ValueGeneratedNever();       // when the domain owns the key
+        builder.Property(entity => entity.Key).HasMaxLength(100).IsRequired();
+        builder.HasIndex(entity => new { entity.TenantId, entity.Key }).IsUnique();
+    }
+}
+```
+
+Because the converter is expression-based, indexes, unique constraints, and comparisons over value object
+properties behave like their primitive equivalents — including in composite indexes and `HasQueryFilter`.
+
+## Generating key values
+
+A Guid-backed scalar value object can generate its own key values. Opt in per type, or once for the whole
+assembly:
+
+```csharp
+[Scalar(GenerateEFValueGenerator = true)]
+public readonly partial record struct CustomerId
+{
+    public Guid Value { get; }
+}
+
+// or: [assembly: ValueObjectDefaults(GenerateEFValueGenerator = true)]
+```
+
+The generator then emits an `EF.ValueGeneratorFactory` on the value object and registers every opted-in
+type in the generated `ValueObjectKeyValueGeneratorConvention`. Register that convention from
+`ConfigureConventions` — one line, and no per-entity configuration:
+
+```csharp
+protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+{
+    base.ConfigureConventions(configurationBuilder);
+    configurationBuilder.UseValueObjectKeyGenerators();
+}
+
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.ConfigureValueObjects();
+}
+```
+
+What this gives you:
+
+- An **unset** key (still `Guid.Empty`) is assigned a time-ordered identifier when the entity is added, so
+  keys stay unique without a database round trip and sort by creation time in stores that compare identifiers
+  byte by byte.
+- A key the **domain already set** is never touched: Entity Framework Core only invokes a generator while
+  the property holds its CLR default.
+- The convention runs at the lowest configuration source, so an entity configuration that owns its keys —
+  `ValueGeneratedNever()`, an explicitly configured generator, or a store-generated default — always wins.
+
+The generated identifier is a time-ordered UUID created without a database round trip, using only base
+Entity Framework Core APIs, so the convention holds for every provider. Which bytes carry the timestamp
+depends on the store, and you choose that with the registration overload.
+
+### Key ordering
+
+Where a store compares the identifier's sixteen bytes in order — PostgreSQL, SQLite, MySQL, and non-clustered
+SQL Server keys — version 7 ordering is what you want. SQL Server's `uniqueidentifier` compares the **trailing
+six bytes first**, so plain version 7 values are effectively random there and a clustered key fragments. Pass
+the ordering the store needs:
+
+```csharp
+// Default: version 7, ascending in plain byte order.
+configurationBuilder.UseValueObjectKeyGenerators();
+
+// SQL Server: the timestamp moves into the trailing six bytes, which SQL Server compares first.
+configurationBuilder.UseValueObjectKeyGenerators(ValueObjectKeyOrdering.SqlServer);
+```
+
+| Ordering | Timestamp location | Ascends by creation time in | Well-formed version 7 UUID |
+| --- | --- | --- | --- |
+| `ValueObjectKeyOrdering.UuidV7` (default) | bytes 0-5 | PostgreSQL, SQLite, MySQL, and non-clustered SQL Server keys | Yes |
+| `ValueObjectKeyOrdering.SqlServer` | bytes 10-15 | SQL Server's `uniqueidentifier` ordering | No — a version 4 UUID |
+
+Both orderings produce unique identifiers in process, keep the domain's own value when it set one, and start
+from a random value so nothing leaks about the sequence.
+
+The generated `ValueObjectSequentialGuid` helper is **public** in the `Microsoft.EntityFrameworkCore`
+namespace, so application code — including code in another assembly — can mint the identifier it wants an
+entity to carry, before the round trip that would otherwise assign one:
+
+```csharp
+// The same value the convention would have generated, created where the domain needs it.
+var customerId = CustomerId.Create(ValueObjectSequentialGuid.NewGuid());
+var customer = Customer.Create(customerId, tenantId, email, "Contoso");
+```
+
+Because Entity Framework Core only invokes a generator while the property still holds its CLR default, the key
+the application set is persisted as-is. The helper exposes:
+
+| Member | Purpose |
+| --- | --- |
+| `NewGuid()` / `NewGuid(DateTimeOffset)` | Creates a version 7 identifier, from now or a given creation time. |
+| `NewSqlServerGuid()` / `NewSqlServerGuid(DateTimeOffset)` | Creates a SQL Server-ordered identifier. |
+| `TryGetTimestamp(Guid, out DateTimeOffset)` | Reads the creation time out of a version 7 identifier; false for any other shape. |
+| `TryGetSqlServerTimestamp(Guid, out DateTimeOffset)` | Reads the creation time out of a SQL Server-ordered identifier. |
+| `MinSqlServerGuidFor(DateTimeOffset)` / `MaxSqlServerGuidFor(DateTimeOffset)` | Inclusive bounds for a creation time, so `id >= MinSqlServerGuidFor(t) && id <= MaxSqlServerGuidFor(t)` is an index seek. |
+
+Value generation is supported for **Guid-backed** scalars only, and requires the Entity Framework
+converter. Requesting it anywhere else reports `VO1021`. A value object declared in an assembly that does
+not reference Entity Framework Core still gets a generator: the consuming project emits it alongside the
+inline converters.
+
+## Query filters and translated predicates
+
+Tenant and soft-delete filters compare value objects directly, because each converted property keeps a
+translatable converter:
+
+```csharp
+modelBuilder.Entity<Invoice>().HasQueryFilter(invoice => invoice.TenantId == currentTenant.TenantId);
+```
+
+The same applies to raw primitives — a filter or predicate may compare the value object to the underlying
+value, because `Guid.Empty`, `"USD"`, or an enum member converts implicitly:
+
+```csharp
+modelBuilder.Entity<Tenant>().HasQueryFilter(tenant => tenant.Id == Platform.SystemTenantId);
+```
+
+## Schema and migrations
+
+- A scalar value object is a **single column** of its provider primitive, so `dotnet ef migrations add`
+  sees the primitive: renaming the value object's property does not change the schema, and changing the
+  underlying type is a column type change you review like any other.
+- A complex value object mapped as a complex type is a **set of columns** named after its members, and one
+  mapped with `EFMapping = Json` is a **single JSON column**. Moving a value object between those shapes is
+  a schema change: add a migration and consider the data path (a JSON column usually needs a data migration
+  to reshape existing values).
+- Multi-provider repositories keep one migration set per provider. The generated converters and the key
+  generator convention are provider-independent, so the same model works for SQL Server, PostgreSQL, and
+  SQLite; only the primitive column types differ.
+- Design-time factories (`IDesignTimeDbContextFactory<TContext>`) and model-cache keys that depend on
+  runtime state (for example a query filter built from the current tenant) must be applied consistently,
+  because a cached model is reused for every context instance created the same way.
+
 
 The generator exposes per value object a nested static `EF` class. Use it for per-property configuration instead
 of (or alongside) the automatic registry:
@@ -253,14 +423,44 @@ value-object provider assemblies referenced by EF consumers:
   `Microsoft.EntityFrameworkCore`.
 - `VO1010` — a scalar value object wraps an underlying type EF Core cannot map natively, so automatic
   conversion is skipped (map the property manually, or store it as JSON).
+- `VO1016` — a value object member has a setter. Value objects must be immutable; declare the member
+  get-only or init-only.
+- `VO1017` — a complex value object maps to a JSON column while JSON converter generation is disabled, so
+  the column content would be produced by reflection serialization and can differ from the value object's
+  own JSON contract.
+- `VO1018` — a complex value object maps as an Entity Framework Core complex type but a member cannot be
+  converted by the generated mapping (a collection, or a type that is neither a mappable primitive, a
+  string, an enum, nor a value object with Entity Framework support). Map it manually or use
+  `EFMapping = Json`.
+- `VO1019` — a complex value object maps as a complex type but the project's Entity Framework Core version
+  is older than 8, so no Entity Framework mapping is generated. Use `EFMapping = Json` or configure the
+  property manually.
+- `VO1021` — `GenerateEFValueGenerator` was requested for a value object that is not Guid-backed, or whose
+  Entity Framework converter is disabled; no value generator is emitted.
 
 ## Notes
 
 - Only `[Scalar]`/`[ValueObject]` types are given a conversion; a plain `enum` property keeps Entity Framework
   Core's own enum mapping untouched.
-- EF Core 8+ is required for complex type mapping; on older EF references, complex value objects fall back to
-  no automatic mapping (use `EntityFrameworkMapping.Json` or configure manually).
+- EF Core 8+ is required for **complex type mapping**. An EF Core 7 reference set reports `VO1019` and leaves
+  complex value objects unmapped; use `EFMapping = Json` (a value converter, so it works on every version) or
+  configure the property manually. The complex-type block in the registry and the compiled-model members the
+  generated converters expose (`JsonReaderWriter`) are EF Core 8+ only as well. Everything else the generator
+  emits — converters, the key value generator, the convention, and `ValueObjectSequentialGuid` — works on
+  EF Core 7 and later.
+- A generated key value generator is typed as the **value object**, not as its provider value, because Entity
+  Framework Core assigns what a generator returns straight to the property. Application code that mints keys
+  before `SaveChanges` calls the generated `ValueObjectSequentialGuid` helper, which is public in the
+  `Microsoft.EntityFrameworkCore` namespace and produces the same values the convention would assign.
+- The generated code is compiled against EF Core 7, 9, and 10 in
+  `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, so version-specific API shifts (for example
+  `ValueGeneratorFactory.Create`'s second parameter changing to `ITypeBase`) are caught by the build rather
+  than by a consumer.
 - Value objects are immutable; EF tracks them by value like any struct/record. The generator emits a
   parameterless constructor for `[ValueObject]` types to support EF Core materialization.
+- **Materialization is a replay path.** Entity Framework Core rebuilds a value object with `Hydrate(...)`,
+  so neither `OnValidate` nor a ZodSharp schema runs when a row is read — the same guarantee as
+  `ValueObjectDeserializationMode.Hydrate`. `ValueObjectDeserializationMode.Strict` applies to the JSON wire
+  format, not to the database: validate before persisting, or enforce the invariant in the schema.
 - See `src/src/Sample` for a runnable EF Core (SQLite) example, and
   `src/tests/ValueObjects.IntegrationTests/Serialization/EntityFrameworkIntegrationTests.cs` for integration tests.

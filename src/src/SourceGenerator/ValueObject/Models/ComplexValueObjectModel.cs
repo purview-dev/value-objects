@@ -34,6 +34,9 @@ sealed record class ComplexValueObjectModel(
 	EquatableArray<string> ExistingRelationalOperators,
 	bool HasZodSchemaValidation,
 	string? ZodSchemaClassName,
+	bool DeclareZodRefinementHook,
+	bool InvokeZodRefinementHook,
+	bool ZodRefinementHookIsReadOnly,
 	bool IsEFReferenced,
 	bool IsEF8Referenced
 );

@@ -9,6 +9,10 @@ Console.WriteLine("== Generator-integrated validation (Create calls the schema) 
 GeneratorIntegratedValidation();
 
 Console.WriteLine();
+Console.WriteLine("== Zod refinement hook (OnZodValidate) ==");
+RefinementHookValidation();
+
+Console.WriteLine();
 Console.WriteLine("== Schema-first validation (hand-built schemas) ==");
 SchemaFirstValidation();
 
@@ -91,6 +95,28 @@ static void GeneratorIntegratedValidation()
 
 	var phone = PhoneNumber.Create("+15551234567");
 	Console.WriteLine($"PhoneNumber.Create('+15551234567') -> '{phone.Value}'");
+}
+
+static void RefinementHookValidation()
+{
+	// The value object owns rules ZodSharp's DataAnnotations cannot express. The generated Create invokes
+	// the OnZodValidate hook and reports the issues it collects as a ZodException, merged with the schema's.
+	var corporate = CorporateEmail.Create("  Demo@Contoso.COM ");
+	Console.WriteLine($"CorporateEmail.Create('  Demo@Contoso.COM  ') -> '{corporate.Value}'");
+
+	try
+	{
+		CorporateEmail.Create("demo@gmail.com");
+		Console.WriteLine("CorporateEmail.Create('demo@gmail.com') -> no exception");
+	}
+	catch (ZodException ex)
+	{
+		Console.WriteLine($"CorporateEmail.Create('demo@gmail.com') -> {FormatErrors(ex.Errors)}");
+	}
+
+	// Hydrate is replay-safe: the refinement hook is not re-run.
+	var replayed = CorporateEmail.Hydrate("demo@gmail.com");
+	Console.WriteLine($"CorporateEmail.Hydrate('demo@gmail.com') -> '{replayed.Value}'");
 }
 
 static void SchemaFirstValidation()

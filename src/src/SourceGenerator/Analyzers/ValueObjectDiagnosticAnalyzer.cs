@@ -17,6 +17,15 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.StrictDeserializationRequiresCreate,
 			DiagnosticLibrary.EFMappingRequiresEntityFramework,
 			DiagnosticLibrary.EFAutoConversionSkipped,
+			DiagnosticLibrary.ZodRefinementHookNotInvoked,
+			DiagnosticLibrary.ZodRefinementNameShadowed,
+			DiagnosticLibrary.OnValidateSkippedByInsteadOfHooks,
+			DiagnosticLibrary.ZodSchemaNameInvalid,
+			DiagnosticLibrary.EFValueGenerationUnavailable,
+			DiagnosticLibrary.ValueObjectMemberIsMutable,
+			DiagnosticLibrary.EFJsonMappingRequiresJsonConverter,
+			DiagnosticLibrary.EFComplexMappingUnsupportedMember,
+			DiagnosticLibrary.EFComplexTypeRequiresEntityFramework8,
 		];
 
 	public override void Initialize(AnalysisContext context)

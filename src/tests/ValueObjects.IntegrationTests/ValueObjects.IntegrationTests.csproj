@@ -1,4 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- The ZodSharp fixtures deliberately exercise configurations the analyzer warns about - most
+		     notably a documented-but-unreachable OnValidate body under ZodSchemaMode.InsteadOfHooks
+		     (VO1013). That rule is covered by the analyzer unit tests, so it is opted out here rather
+		     than weakening the fixtures. -->
+		<NoWarn>$(NoWarn);VO1013</NoWarn>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Purview.ZodSharp" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" />

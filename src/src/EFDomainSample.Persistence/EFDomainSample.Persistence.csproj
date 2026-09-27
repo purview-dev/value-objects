@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
+		<ProjectReference Include="..\EFDomainSample.Domain\EFDomainSample.Domain.csproj" />
+		<!-- The persistence assembly discovers the domain value objects from their attributes and generates
+		     the Entity Framework members and the key value generator convention into this assembly. -->
+		<ProjectReference
+			Include="..\SourceGenerator\SourceGenerator.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference
+			Include="..\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+	</ItemGroup>
+</Project>

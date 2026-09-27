@@ -31,6 +31,40 @@ public sealed class ZodSchemaIntegrationTests
 	}
 
 	[Test]
+	public async Task ZodRefinementEmail_GivenHookIssue_CreateThrowsWithHookCode()
+	{
+		// Act
+		var created = ZodRefinementEmail.Create("demo@example.com");
+
+		// Assert
+		await Assert.That(created.Value).IsEqualTo("demo@example.com");
+
+		var exception = await Assert
+			.That(() => ZodRefinementEmail.Create("demo@example.invalid"))
+			.Throws<ZodException>();
+		await Assert.That(exception!.Errors.Any(error => error.Code == "invalid_domain")).IsTrue();
+
+		// Hydrate stays replay-safe: the refinement hook is not re-run.
+		await Assert.That(ZodRefinementEmail.Hydrate("demo@example.invalid").Value).IsEqualTo("demo@example.invalid");
+	}
+
+	[Test]
+	public async Task ZodRefinementMoney_GivenHookIssue_CreateThrowsWithHookCode()
+	{
+		// Act
+		var created = ZodRefinementMoney.Create(10m, "EUR");
+
+		// Assert
+		await Assert.That(created.Amount).IsEqualTo(10m);
+
+		var exception = await Assert.That(() => ZodRefinementMoney.Create(0m, "EUR")).Throws<ZodException>();
+		await Assert.That(exception!.Errors.Any(error => error.Code == "invalid_amount")).IsTrue();
+
+		// Hydrate stays replay-safe: the refinement hook is not re-run.
+		await Assert.That(ZodRefinementMoney.Hydrate(0m, "EUR").Amount).IsEqualTo(0m);
+	}
+
+	[Test]
 	public async Task ZodInsteadOfHooksEmail_GivenInsteadOfHooksMode_DoesNotRunOnValidate()
 	{
 		// Act

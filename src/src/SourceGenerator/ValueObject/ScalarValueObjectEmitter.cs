@@ -112,6 +112,16 @@ static partial class ScalarValueObjectEmitter
 				new("OnValidate") { IsStatic = true, Parameters = [new("value", model.ScalarTypeReference)] }
 			);
 		}
+
+		if (model.DeclareZodRefinementHook)
+		{
+			ValueObjectEmitterHelpers.ZodRefinement.EmitHookDeclaration(
+				writer,
+				ValueObjectEmitterHelpers.ZodRefinement.RefineContext(ValueObjectType(model)),
+				model.ZodRefinementHookIsReadOnly,
+				$"the {model.TypeModel.Name} value object"
+			);
+		}
 	}
 
 	static void EmitFactories(CodeWriter writer, ScalarValueObjectModel model)
@@ -138,10 +148,11 @@ static partial class ScalarValueObjectEmitter
 							"instance",
 							new ObjectCreationOptions(valueObjectType, [new MethodCallArgumentOptions("value")])
 						);
-						body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-						body.IfBlock(
-							"!result.IsSuccess",
-							ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
+						ValueObjectEmitterHelpers.ZodRefinement.EmitCreateValidation(
+							body,
+							schemaReference,
+							ValueObjectEmitterHelpers.ZodRefinement.RefineContext(valueObjectType),
+							model.InvokeZodRefinementHook
 						);
 
 						if (model.Options.ZodSchemaMode != ValueObjectSymbolInspector.InsteadOfHooksModeName)

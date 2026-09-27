@@ -12,6 +12,7 @@ readonly partial record struct ScalarAttributeData(
 	[Property(DefaultValue = true)] bool GenerateEmpty,
 	[Property(DefaultValue = true)] bool GenerateEFConverter,
 	[Property(DefaultValue = true)] bool GenerateEFComparer,
+	[Property(DefaultValue = false)] bool GenerateEFValueGenerator,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
@@ -48,6 +49,7 @@ readonly partial record struct ValueObjectDefaultsAttributeData(
 		string EFMapping,
 	[Property(DefaultValue = true)] bool GenerateEFConverter,
 	[Property(DefaultValue = true)] bool GenerateEFComparer,
+	[Property(DefaultValue = false)] bool GenerateEFValueGenerator,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]

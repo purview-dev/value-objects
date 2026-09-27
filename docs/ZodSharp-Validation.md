@@ -112,6 +112,11 @@ public readonly partial record struct PhoneNumber
 
 The `[ZodSchema]` attribute also exposes generator options that tune the emitted schema:
 
+- `SchemaName` — overrides the generated schema class name (default `{TypeName}Schema`); the ZodSharp DI
+  adapter becomes `{SchemaName}Validator`. The value object generator resolves the same name for its
+  generated `Create`, so a custom name works — as long as it is a valid C# identifier. ZodSharp applies
+  any non-empty value verbatim (including whitespace), so an unusable name is reported as `VO1015`
+  rather than silently falling back to the default.
 - `RefinementMethodName` — names a synchronous instance refinement method (default `Validate`) that the
   generator runs after the DataAnnotations rules.
 - `CustomValidationMethodName` — names a static async method that the generated validator's
@@ -119,9 +124,72 @@ The `[ZodSchema]` attribute also exposes generator options that tune the emitted
 - `GenerateParseMethod` / `GenerateValidateMethod` / `EnableComposition` — toggle the emitted `Parse`,
   `Validate`, and composition (`ApplyAnd`/`ApplyOr`/`ApplyRefine`) members.
 
-> Note: `SchemaName` on `[ZodSchema]` is reserved by the attribute today but is not yet applied by the
-> ZodSharp generator — the generated schema class is always named `{TypeName}Schema`. Use the default
-> name when combining `[Scalar]`/`[ValueObject]` with `[ZodSchema]`.
+### Zod-compatible refinement hooks on value objects
+
+A value object annotated with `[ZodSchema]` also gets an optional partial hook for rules that DataAnnotations
+cannot express (cross-member invariants, allowed domains, state checks). Implement
+`OnZodValidate(RefineCtx<T>)` and add issues with the ZodSharp context:
+
+```csharp
+[Scalar]
+[ZodSchema]
+public readonly partial record struct CorporateEmail
+{
+    [EmailAddress]
+    public string Value { get; }
+
+    static partial void OnNormalize(ref string value) => value = value?.Trim().ToLowerInvariant()!;
+
+    partial void OnZodValidate(global::ZodSharp.Schemas.RefineCtx<CorporateEmail> context)
+    {
+        if (!context.Value.Value.EndsWith("@contoso.com", StringComparison.Ordinal))
+            context.AddIssue("invalid_domain", "Corporate emails must use the contoso.com domain.", [nameof(Value)]);
+    }
+}
+```
+
+```csharp
+CorporateEmail.Create("demo@gmail.com");   // throws ZodException carrying 'invalid_domain'
+CorporateEmail.Hydrate("demo@gmail.com");  // replay-safe: the hook does not run
+```
+
+- The generated `Create` constructs the instance, runs the schema, then runs the hook and merges both
+  issue sets into a single `ZodException`. `ValueObjectDeserializationMode.Strict` (which deserializes
+  through `Create`) therefore picks the hook up automatically, while the default `Hydrate` mode does not.
+- The hook is declared by the generator exactly like `OnNormalize`/`OnValidate`, so the IDE offers the
+  implementation with the correct signature. Nothing is emitted for a value object that never implements it.
+- Declare your own ZodSharp refinement (`Validate`, or the name given by
+  `[ZodSchema(RefinementMethodName = "...")]`) instead when you want ZodSharp to own the wiring: the
+  generator then steps aside, and `{Type}Schema.Validate(instance)` reports your refinement's issues
+  alongside the DataAnnotations rules. ZodSharp binds refinements by looking for a **method** with that
+  name, so a member of any other kind suppresses the generated hook without adding a refinement — that
+  is what `VO1012` reports, and an implemented hook that stepping aside leaves unused is reported as
+  `VO1011`.
+- Why a hook rather than a generated `Validate()`: the ZodSharp generator runs before the value-object
+  generator and resolves refinements from the compilation it is handed, which contains only your source.
+  A refinement emitted by the value-object generator would therefore never be observed by the generated
+  `{Type}Schema`. The hook keeps the behaviour independent of generator ordering; the trade-off is that
+  `{Type}Schema.Validate(instance)` itself reports the DataAnnotations rules only for hook-based value
+  objects, so validate through `Create` (or the strict deserialization path) when the hook must gate a value.
+- The hook is independent of `ZodSchemaMode`: `InsteadOfHooks` only skips the value object's own
+  `OnValidate` hook, never the Zod refinement hook.
+
+### ZodSharp integration diagnostics
+
+The value-object analyzer reports the integration states that would otherwise pass silently:
+
+| Rule | Severity | Reported when |
+| --- | --- | --- |
+| `VO1011` | Warning | The value object implements `OnZodValidate` but a member already owns the refinement name, so the generated `Create` never invokes the hook. |
+| `VO1012` | Warning | A member shadows the refinement name without being a method ZodSharp can bind, so no Zod refinement runs and the generated hook is suppressed. |
+| `VO1013` | Warning | `OnValidate` is implemented while `ZodSchemaMode.InsteadOfHooks` is set, making that implementation unreachable in the generated `Create`. |
+| `VO1015` | Error | `[ZodSchema(SchemaName = "...")]` is not a valid C# identifier, which ZodSharp applies verbatim and this generator cannot reference. Generation is skipped for that type. |
+
+`VO1013` is expected for a value object that deliberately delegates all validation to the schema. Opt out
+with `<NoWarn>$(NoWarn);VO1013</NoWarn>` in the consuming project (see
+`src/tests/ValueObjects.IntegrationTests/ValueObjects.IntegrationTests.csproj`); a `#pragma warning disable`
+does not suppress this rule in this configuration, so keep the `OnValidate` body only where the unreachable
+hook documents the intent.
 
 ## 3. Schema-first validation
 

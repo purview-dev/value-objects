@@ -184,8 +184,14 @@ static class ScalarValueObjectModelBuilder
 
 		var hintName = ValueObjectSymbolInspector.BuildHintName(typeSymbol, "ScalarValueObject");
 
-		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
-		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+		var zodSchema = ValueObjectSymbolInspector.ResolveZodSchemaIntegration(typeSymbol);
+		ValueObjectSymbolInspector.CollectZodSchemaDiagnostics(
+			typeSymbol,
+			zodSchema,
+			scalarOptions.ZodSchemaMode,
+			onValidateImplemented: ValueObjectSymbolInspector.HasHookImplementation(typeSymbol, "OnValidate", 1),
+			diagnosticsList
+		);
 
 		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
 		if (
@@ -234,6 +240,15 @@ static class ScalarValueObjectModelBuilder
 			scalarProperty.Type
 		);
 
+		var efValueGeneratorEnabled = ResolveEFValueGeneration(
+			typeSymbol,
+			scalarProperty.Type,
+			scalarOptions,
+			isEFReferenced,
+			diagnosticsList
+		);
+		ValueObjectSymbolInspector.CollectMutableMemberDiagnostics(typeSymbol, [scalarProperty], diagnosticsList);
+
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
 			scalarOptions,
@@ -280,16 +295,56 @@ static class ScalarValueObjectModelBuilder
 			SymbolEqualityComparer.Default.Equals(scalarProperty.Type, typeSymbol),
 			BuildExistingRelationalOperators(typeSymbol, typeName, typeName),
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
-			hasZodSchemaValidation,
-			zodSchemaClassName,
+			zodSchema.HasSchema,
+			zodSchema.SchemaClassName,
+			zodSchema.DeclareRefinementHook,
+			zodSchema.InvokeRefinementHook,
+			zodSchema.RefinementHookIsReadOnly,
 			isEFReferenced,
 			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
 			ValueObjectSymbolInspector.ToTypeName(efProviderType),
 			TypeReference.Create(efProviderType),
-			efHydrateCastTypeName
+			efHydrateCastTypeName,
+			efValueGeneratorEnabled,
+			// Complex-type mapping and the compiled-model converter members need Entity Framework Core 8.
+			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
+	}
+
+	/// <summary>
+	/// Resolves whether the value object gets an Entity Framework Core key value generator, reporting the
+	/// cases where the option was requested but cannot be honoured: a scalar whose underlying value is not
+	/// a <see cref="System.Guid"/>, or one whose Entity Framework converter is disabled.
+	/// </summary>
+	static bool ResolveEFValueGeneration(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol scalarType,
+		ScalarAttributeData options,
+		bool isEFReferenced,
+		List<ReportableDiagnostic> diagnostics
+	)
+	{
+		if (!isEFReferenced || !options.GenerateEFValueGenerator)
+			return false;
+
+		var isGuidProvider = ValueObjectSymbolInspector.IsGuidProviderType(scalarType);
+		var enabled = isGuidProvider && options.GenerateEFConverter;
+		if (!enabled)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFValueGenerationUnavailable,
+					isBlocking: false,
+					typeSymbol.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					isGuidProvider ? "the Entity Framework converter is disabled" : "its underlying value is not a Guid"
+				)
+			);
+		}
+
+		return enabled;
 	}
 
 	static EquatableArray<string> BuildExistingRelationalOperators(

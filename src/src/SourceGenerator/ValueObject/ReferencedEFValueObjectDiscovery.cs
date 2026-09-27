@@ -114,7 +114,11 @@ static class ReferencedEFValueObjectDiscovery
 					ScalarPropertyName: null,
 					EFProviderTypeName: null,
 					EFHydrateCastTypeName: null,
-					HasEFMembers: true
+					HasEFMembers: true,
+					// The declaring assembly owns the generator; the consumer only references it, so the
+					// option is read from that assembly's attribute and the emitted member is verified.
+					GenerateEFValueGenerator: HasEFMember(type, TypeLibrary.EFValueGeneratorFactoryMemberName)
+						&& IsValueGenerationEnabled(type, scalarMarker.TypeArguments[1])
 				)
 			);
 			return;
@@ -179,7 +183,10 @@ static class ReferencedEFValueObjectDiscovery
 					scalarProperty.Name,
 					ValueObjectSymbolInspector.ToTypeName(efProviderType),
 					efHydrateCastTypeName,
-					HasEFMembers: false
+					HasEFMembers: false,
+					GenerateEFValueGenerator: options.GenerateEFValueGenerator
+						&& options.GenerateEFConverter
+						&& ValueObjectSymbolInspector.IsGuidProviderType(scalarProperty.Type)
 				)
 			);
 			return;
@@ -221,6 +228,26 @@ static class ReferencedEFValueObjectDiscovery
 			);
 			return;
 		}
+	}
+
+	/// <summary>
+	/// True when a referenced value object opted into Entity Framework Core key value generation. The
+	/// option is carried by the declaring assembly's <c>[Scalar]</c>/<c>[ValueObjectDefaults]</c>
+	/// attributes, and generation is only meaningful for a Guid-backed scalar with a converter.
+	/// </summary>
+	static bool IsValueGenerationEnabled(INamedTypeSymbol type, ITypeSymbol providerType)
+	{
+		if (!ValueObjectSymbolInspector.IsGuidProviderType(providerType))
+			return false;
+
+		var attributes = type.GetAttributes();
+		var options = ValueObjectDefaultsHelper.Apply(
+			ScalarAttributeData.FromAttributeData(attributes),
+			ValueObjectDefaultsAttributeData.FromAttributeData(type.ContainingAssembly.GetAttributes()),
+			attributes
+		);
+
+		return options.GenerateEFValueGenerator && options.GenerateEFConverter;
 	}
 
 	static INamedTypeSymbol? FindMarkerInterface(INamedTypeSymbol type, string markerName)

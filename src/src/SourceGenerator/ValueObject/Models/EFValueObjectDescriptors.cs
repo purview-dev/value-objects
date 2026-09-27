@@ -20,7 +20,8 @@ readonly record struct EFScalarDescriptor(
 	string? ScalarPropertyName,
 	string? EFProviderTypeName,
 	string? EFHydrateCastTypeName,
-	bool HasEFMembers
+	bool HasEFMembers,
+	bool GenerateEFValueGenerator
 );
 
 /// <summary>

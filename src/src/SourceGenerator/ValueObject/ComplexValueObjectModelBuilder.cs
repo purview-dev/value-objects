@@ -145,10 +145,29 @@ static class ComplexValueObjectModelBuilder
 
 		var hintName = ValueObjectSymbolInspector.BuildHintName(typeSymbol, "ComplexValueObject");
 
-		var hasZodSchemaValidation = ValueObjectSymbolInspector.HasZodSchemaAttribute(typeSymbol);
-		var zodSchemaClassName = ValueObjectSymbolInspector.GetZodSchemaClassName(typeSymbol);
+		var zodSchema = ValueObjectSymbolInspector.ResolveZodSchemaIntegration(typeSymbol);
+		ValueObjectSymbolInspector.CollectZodSchemaDiagnostics(
+			typeSymbol,
+			zodSchema,
+			valueObjectOptions.ZodSchemaMode,
+			onValidateImplemented: ValueObjectSymbolInspector.HasHookImplementation(
+				typeSymbol,
+				"OnValidate",
+				properties.Length
+			),
+			diagnosticsList
+		);
+		ValueObjectSymbolInspector.CollectMutableMemberDiagnostics(typeSymbol, properties, diagnosticsList);
 
 		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
+		CollectEFMappingDiagnostics(
+			typeSymbol,
+			properties,
+			valueObjectOptions,
+			compilation,
+			isEFReferenced,
+			diagnosticsList
+		);
 		if (
 			!isEFReferenced
 			&& (
@@ -215,13 +234,88 @@ static class ComplexValueObjectModelBuilder
 				typeModel.Value.FullyQualifiedName,
 				typeModel.Value.FullyQualifiedName
 			),
-			hasZodSchemaValidation,
-			zodSchemaClassName,
+			zodSchema.HasSchema,
+			zodSchema.SchemaClassName,
+			zodSchema.DeclareRefinementHook,
+			zodSchema.InvokeRefinementHook,
+			zodSchema.RefinementHookIsReadOnly,
 			isEFReferenced,
 			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
+	}
+
+	/// <summary>
+	/// Reports the Entity Framework Core mapping states for this complex value object that would otherwise
+	/// be silent: a JSON column without the JSON converter, a complex-type mapping that the referenced
+	/// Entity Framework Core version cannot honour, and members the generated complex mapping cannot
+	/// convert (including collections).
+	/// </summary>
+	static void CollectEFMappingDiagnostics(
+		INamedTypeSymbol typeSymbol,
+		IPropertySymbol[] properties,
+		ValueObjectAttributeData options,
+		Compilation compilation,
+		bool isEFReferenced,
+		List<ReportableDiagnostic> diagnostics
+	)
+	{
+		if (!isEFReferenced)
+			return;
+
+		var location = typeSymbol.Locations.FirstOrDefault(static candidate => candidate.IsInSource);
+		var isJsonMapping =
+			options.EFMapping is not null && ValueObjectSymbolInspector.IsEFMappingJson(options.EFMapping);
+		if (isJsonMapping && !options.GenerateJsonConverter)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFJsonMappingRequiresJsonConverter,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
+
+		var isComplexMapping =
+			options.EFMapping is null || ValueObjectSymbolInspector.IsEFMappingComplexType(options.EFMapping);
+		if (!isComplexMapping)
+			return;
+
+		if (!ValueObjectSymbolInspector.IsEF8Referenced(compilation))
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFComplexTypeRequiresEntityFramework8,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+			return;
+		}
+
+		foreach (var property in properties)
+		{
+			if (ValueObjectSymbolInspector.IsSupportedComplexMember(property.Type))
+				continue;
+
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFComplexMappingUnsupportedMember,
+					isBlocking: false,
+					property.Locations.FirstOrDefault(static candidate => candidate.IsInSource) ?? location,
+					typeSymbol.Name,
+					property.Name,
+					property.Type.ToDisplayString(),
+					ValueObjectSymbolInspector.IsCollectionMember(property.Type)
+						? " because Entity Framework Core complex types do not map collections"
+						: string.Empty
+				)
+			);
+		}
 	}
 
 	static EquatableArray<string> BuildExistingRelationalOperators(

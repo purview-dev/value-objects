@@ -47,6 +47,251 @@ static class ValueObjectEmitterHelpers
 		return $"global::Microsoft.EntityFrameworkCore.Storage.Json.{singleton}";
 	}
 
+	/// <summary>
+	/// ZodSharp refinement emission shared by the scalar and complex value object emitters.
+	/// </summary>
+	/// <remarks>
+	/// The ZodSharp schema generator runs before the value object generator, so a refinement emitted here is
+	/// invisible to it (ZodSharp resolves the refinement from the compilation it is handed, which contains only
+	/// user source). Refinement rules therefore flow through the generated <c>Create</c> path: the
+	/// <see cref="TypeLibrary.ZodRefinementHookName"/> hook the user implements is invoked with a ZodSharp
+	/// <c>RefineCtx&lt;T&gt;</c> and the issues it collects are reported as a <c>ZodException</c>, merged with
+	/// the schema's own issues.
+	/// </remarks>
+	public static class ZodRefinement
+	{
+		/// <summary>The type of the hook parameter and of the generated refinement context.</summary>
+		public static TypeReference RefineContext(TypeReference valueObjectType) =>
+			new(
+				new TypeIdentity(TypeLibrary.ZodRefineContextName, TypeLibrary.ZodSharpSchemasNamespace, 1).MakeGeneric(
+					valueObjectType
+				)
+			);
+
+		/// <summary>The ZodSharp issue type (<c>global::ZodSharp.Core.ValidationError</c>).</summary>
+		public static TypeReference ValidationError =>
+			new(new TypeIdentity(TypeLibrary.ZodValidationErrorName, TypeLibrary.ZodSharpCoreNamespace));
+
+		/// <summary>The merged-issue list type (<c>List&lt;ValidationError&gt;</c>).</summary>
+		static TypeReference ValidationErrors =>
+			new(PurviewTypeLibrary.System.Collections.Generic.List.MakeGeneric(ValidationError));
+
+		/// <summary>
+		/// Declares the optional partial hook a value object implements to contribute Zod-compatible
+		/// refinement issues. A value object that never implements it simply contributes no extra issues.
+		/// </summary>
+		public static void EmitHookDeclaration(
+			CodeWriter writer,
+			TypeReference refineContextType,
+			bool isReadOnly,
+			string schemaDescription
+		)
+		{
+			writer.XmlSummary(
+				"Optional ZodSharp refinement hook. Implement this partial method to add Zod-compatible",
+				$"validation rules to {schemaDescription}.",
+				$"Issues added to {XmlCommentWriter.XmlParamRef("context")} are reported by the generated",
+				$"{XmlCommentWriter.XmlInlineCode("Create")} path and by strict deserialization; the",
+				$"{XmlCommentWriter.XmlInlineCode("Hydrate")} path remains replay-safe."
+			);
+			writer.XmlParam("context", "The refinement context carrying the value under validation and its issues.");
+
+			writer.PartialMethod(
+				new(TypeLibrary.ZodRefinementHookName)
+				{
+					IsReadOnly = isReadOnly,
+					Parameters = [new("context", refineContextType)],
+				}
+			);
+		}
+
+		/// <summary>
+		/// Emits the generated <c>Create</c> validation step: the ZodSharp schema is always consulted, and when
+		/// the value object supplies refinement rules the hook runs too, so both sets of issues surface as one
+		/// <c>ZodException</c>.
+		/// </summary>
+		public static void EmitCreateValidation(
+			CodeWriter body,
+			string schemaReference,
+			TypeReference refineContextType,
+			bool invokeRefinementHook
+		)
+		{
+			body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
+
+			if (!invokeRefinementHook)
+			{
+				body.IfBlock(
+					"!result.IsSuccess",
+					ifBody => ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(result.Errors)")
+				);
+				return;
+			}
+
+			body.Assignment(
+				"var",
+				"context",
+				$"new {refineContextType}(instance, {TypeLibrary.ZodEmptyPathExpression})"
+			);
+			body.MethodCall($"instance.{TypeLibrary.ZodRefinementHookName}", "context");
+			body.IfBlock(
+				"!result.IsSuccess || context.HasIssues",
+				ifBody =>
+				{
+					ifBody.Assignment("var", "errors", $"new {ValidationErrors}(result.Errors)");
+					ifBody.MethodCall("errors.AddRange", "context.Issues");
+					ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(errors)");
+				}
+			);
+		}
+	}
+
+	/// <summary>
+	/// Emits the Entity Framework Core key value generator pair for one Guid-backed scalar value object:
+	/// a <c>ValueGenerator&lt;TSelf&gt;</c> that hydrates a time-ordered identifier, and the
+	/// <c>ValueGeneratorFactory</c> Entity Framework Core instantiates once per property.
+	/// </summary>
+	/// <remarks>
+	/// The generator must be typed as the value object, not as its provider value: Entity Framework Core
+	/// assigns what a generator returns straight to the property, so a <c>Guid</c>-producing generator
+	/// throws <see cref="System.InvalidCastException"/> on a converted value object property.
+	/// </remarks>
+	/// <summary>Describes the default UUIDv7 ordering strategy in generated documentation.</summary>
+	public const string EFUuidV7StrategyDescription = "a time-ordered (UUIDv7) identifier";
+
+	/// <summary>Describes the SQL Server ordering strategy in generated documentation.</summary>
+	public const string EFSqlServerStrategyDescription =
+		"an identifier whose bytes ascend in SQL Server's uniqueidentifier ordering";
+
+	/// <summary>
+	/// Emits the per-value-object <c>EF</c> key value generator and its factory for one ordering strategy.
+	/// </summary>
+	/// <param name="writer">The writer receiving the types.</param>
+	/// <param name="valueObjectTypeName">The fully qualified value object type name.</param>
+	/// <param name="generatorClassName">The nested generator class name.</param>
+	/// <param name="factoryClassName">The nested factory class name.</param>
+	/// <param name="sequentialGuidExpression">
+	/// The call appended to <see cref="TypeLibrary.EFSequentialGuidFullTypeName"/>, for example
+	/// <c>.NewGuid()</c> or <c>.NewSqlServerGuid()</c>.
+	/// </param>
+	/// <param name="strategyDescription">
+	/// A sentence fragment describing the generated value, used in the generator's XML documentation.
+	/// </param>
+	/// <param name="isEF8Referenced">
+	/// True when the consuming project references Entity Framework Core 8 or later. Version 8 changed the
+	/// second parameter of <c>ValueGeneratorFactory.Create</c> from <c>IEntityType</c> to <c>ITypeBase</c>,
+	/// so the emitted override must match the reference set.
+	/// </param>
+	/// <param name="accessibility">The accessibility of the emitted types.</param>
+	public static void EmitEFValueGeneratorStrategy(
+		CodeWriter writer,
+		string valueObjectTypeName,
+		string generatorClassName,
+		string factoryClassName,
+		string sequentialGuidExpression,
+		string strategyDescription,
+		bool isEF8Referenced,
+		TypeDeclarationAccessibility accessibility
+	)
+	{
+		TypeReference generatorType = new(
+			new TypeIdentity($"{TypeLibrary.EFValueGeneratorFullTypeName}<{valueObjectTypeName}>", null)
+		);
+		TypeReference factoryType = new(new TypeIdentity(TypeLibrary.EFValueGeneratorFactoryFullTypeName, null));
+		TypeReference propertyType = new(new TypeIdentity(TypeLibrary.EFIPropertyFullTypeName, null));
+		TypeReference typeBaseType = new(
+			new TypeIdentity(
+				isEF8Referenced ? TypeLibrary.EFITypeBaseFullTypeName : TypeLibrary.EFIEntityTypeFullTypeName,
+				null
+			)
+		);
+		TypeReference entityEntryType = new(new TypeIdentity(TypeLibrary.EFEntityEntryFullTypeName, null));
+		TypeReference valueObjectType = new(new TypeIdentity(valueObjectTypeName, null));
+
+		writer
+			.XmlSummary(
+				"Creates the Entity Framework Core key value generator for this value object.",
+				$"Use it on a property, or register {TypeLibrary.EFKeyValueGeneratorConventionClassName} through",
+				$"{TypeLibrary.EFValueObjectExtensionsClassName}.UseValueObjectKeyGenerators() to apply it to every",
+				"key property of this type."
+			)
+			.Class(
+				new TypeDeclarationOptions(factoryClassName)
+				{
+					Accessibility = accessibility,
+					IsSealed = true,
+					IsPartial = false,
+					BaseType = factoryType,
+				},
+				factoryBody =>
+					factoryBody
+						.XmlSummary("Creates the generator Entity Framework Core owns for the property's lifetime.")
+						.Method(
+							// The class may be internal, but the members it overrides are public.
+							new MethodDeclarationOptions("Create", generatorType, TypeDeclarationAccessibility.Public)
+							{
+								IsOverride = true,
+								Parameters =
+								[
+									new("property", propertyType),
+									new(isEF8Referenced ? "typeBase" : "entityType", typeBaseType),
+								],
+							},
+							method => method.Return($"new {generatorClassName}()")
+						)
+			);
+
+		writer
+			.XmlSummary(
+				$"Assigns {strategyDescription} to an unset key of this value object.",
+				"Entity Framework Core only invokes a generator while the property still holds its CLR default, so a",
+				"value supplied by domain code is never overwritten."
+			)
+			.Class(
+				new TypeDeclarationOptions(generatorClassName)
+				{
+					Accessibility = accessibility,
+					IsSealed = true,
+					IsPartial = false,
+					BaseType = generatorType,
+				},
+				generatorBody =>
+				{
+					generatorBody
+						.XmlSummary("False: the generated identifier is the permanent key value.")
+						.Property(
+							new PropertyDeclarationOptions(
+								"GeneratesTemporaryValues",
+								PurviewTypeLibrary.System.Boolean,
+								TypeDeclarationAccessibility.Public
+							)
+							{
+								IsOverride = true,
+								ExpressionBody = "false",
+							}
+						);
+
+					generatorBody
+						.XmlSummary(
+							"Creates the identifier.",
+							"Hydration is the persistence path and never re-runs validation: the generated value is well",
+							"formed by construction."
+						)
+						.Method(
+							new MethodDeclarationOptions("Next", valueObjectType, TypeDeclarationAccessibility.Public)
+							{
+								IsOverride = true,
+								Parameters = [new("entry", entityEntryType)],
+							},
+							method =>
+								method.Return(
+									$"{valueObjectTypeName}.Hydrate({TypeLibrary.EFSequentialGuidFullTypeName}{sequentialGuidExpression})"
+								)
+						);
+				}
+			);
+	}
+
 	public static void EmitBinaryOperator(
 		CodeWriter writer,
 		TypeReference leftType,

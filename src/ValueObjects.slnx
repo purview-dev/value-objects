@@ -18,12 +18,15 @@
 		<Project Path="src/Sample/Sample.csproj" />
 		<Project Path="src/ZodSharpSample/ZodSharpSample.csproj" />
 		<Project Path="src/ZodSharp.AspNetCoreSample/ZodSharp.AspNetCoreSample.csproj" />
+		<Project Path="src/EFDomainSample.Domain/EFDomainSample.Domain.csproj" />
+		<Project Path="src/EFDomainSample.Persistence/EFDomainSample.Persistence.csproj" />
 	</Folder>
 	<Folder Name="/tests/">
 		<Project Path="tests/SourceGenerator.UnitTests/SourceGenerator.UnitTests.csproj" />
 		<Project Path="tests/SharedTestingInfra/SharedTestingInfra.csproj" />
 		<Project Path="tests/SourceGenerator.IntegrationTests/SourceGenerator.IntegrationTests.csproj" />
 		<Project Path="tests/ValueObjects.IntegrationTests/ValueObjects.IntegrationTests.csproj" />
+		<Project Path="tests/ValueObjects.EFCompatibility.IntegrationTests/ValueObjects.EFCompatibility.IntegrationTests.csproj" />
 		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
 	</Folder>
 </Solution>

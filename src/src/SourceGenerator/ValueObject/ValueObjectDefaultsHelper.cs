@@ -60,6 +60,11 @@ static class ValueObjectDefaultsHelper
 				assemblyDefaults.GenerateEFComparer,
 				"GenerateEFComparer"
 			),
+			GenerateEFValueGenerator = MergeBool(
+				typeOptions.GenerateEFValueGenerator,
+				assemblyDefaults.GenerateEFValueGenerator,
+				"GenerateEFValueGenerator"
+			),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,
 				assemblyDefaults.DeserializationMode,

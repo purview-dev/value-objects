@@ -9,7 +9,8 @@ static partial class ScalarValueObjectEmitter
 
 		var emitConverter = model.Options.GenerateEFConverter;
 		var emitComparer = model.Options.GenerateEFComparer;
-		if (!emitConverter && !emitComparer)
+		var emitValueGenerator = model.EFValueGeneratorEnabled;
+		if (!emitConverter && !emitComparer && !emitValueGenerator)
 			return;
 
 		var valueObjectType = ValueObjectType(model);
@@ -25,7 +26,8 @@ static partial class ScalarValueObjectEmitter
 				model.EFHydrateCastTypeName is null ? null : model.EFProviderTypeName
 			),
 			ValueObjectEFConverterEmitter.FromProviderExpression(model.TypeName, model.EFHydrateCastTypeName),
-			ValueObjectEmitterHelpers.EFJsonReaderWriterType(model.EFProviderTypeName)
+			ValueObjectEmitterHelpers.EFJsonReaderWriterType(model.EFProviderTypeName),
+			model.IsEF8Referenced
 		);
 		writer
 			.XmlSummary(
@@ -86,6 +88,30 @@ static partial class ScalarValueObjectEmitter
 									Initializer = "new((a, b) => a == b, vo => vo.GetHashCode(), vo => vo)",
 								}
 							);
+					}
+
+					if (emitValueGenerator)
+					{
+						ValueObjectEmitterHelpers.EmitEFValueGeneratorStrategy(
+							body,
+							model.TypeName,
+							TypeLibrary.EFValueGeneratorMemberName,
+							TypeLibrary.EFValueGeneratorFactoryMemberName,
+							TypeLibrary.EFSequentialGuidUuidV7Expression,
+							ValueObjectEmitterHelpers.EFUuidV7StrategyDescription,
+							model.IsEF8Referenced,
+							TypeDeclarationAccessibility.Public
+						);
+						ValueObjectEmitterHelpers.EmitEFValueGeneratorStrategy(
+							body,
+							model.TypeName,
+							TypeLibrary.EFValueGeneratorSqlServerMemberName,
+							TypeLibrary.EFValueGeneratorSqlServerFactoryMemberName,
+							TypeLibrary.EFSequentialGuidSqlServerExpression,
+							ValueObjectEmitterHelpers.EFSqlServerStrategyDescription,
+							model.IsEF8Referenced,
+							TypeDeclarationAccessibility.Public
+						);
 					}
 				}
 			);

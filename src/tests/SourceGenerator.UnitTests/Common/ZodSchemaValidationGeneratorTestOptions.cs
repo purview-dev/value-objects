@@ -19,7 +19,10 @@ public sealed record ZodSchemaValidationGeneratorTestOptions : ValueObjectsGener
 	{
 		AdditionalGeneratorTypes = [.. AdditionalGeneratorTypes, ZodSharpSourceGenerators.Generator];
 		ExcludeGeneratedSourceHintNames = [.. ExcludeGeneratedSourceHintNames, "ZodSchemaAttribute.g.cs"];
-		AnalyzerTypes = [ZodSharpSourceGenerators.Analyzer];
+		// Both analyzers run, mirroring a consumer project: the ZodSharp analyzer reports its own
+		// diagnostics and the value-object analyzer reports the ZodSharp integration diagnostics
+		// (VO1011-VO1015) the generator only acts on.
+		AnalyzerTypes = [.. AnalyzerTypes, ZodSharpSourceGenerators.Analyzer];
 		AdditionalAssemblyTypes = [.. AdditionalAssemblyTypes, typeof(RequiredAttribute)];
 		// The loaded generator carries its own framework copy, so it validates its own CodeWriter
 		// scopes and never writes to this harness's log sink.

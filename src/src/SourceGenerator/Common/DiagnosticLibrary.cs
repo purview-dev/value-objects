@@ -103,4 +103,94 @@ static class DiagnosticLibrary
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true
 	);
+
+	/// <summary>VO1011: Zod refinement hook declared but never invoked </summary>
+	public static readonly DiagnosticDescriptor ZodRefinementHookNotInvoked = new(
+		id: "VO1011",
+		title: "Zod refinement hook is not invoked",
+		messageFormat: "Value object '{0}' implements '{2}' but the generated Create does not invoke it because '{1}' is already declared; the issues the hook adds are never reported",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1012: ZodSharp refinement name shadowed by a non-method member </summary>
+	public static readonly DiagnosticDescriptor ZodRefinementNameShadowed = new(
+		id: "VO1012",
+		title: "ZodSharp refinement name is shadowed",
+		messageFormat: "Value object '{0}' declares a member named '{1}' that ZodSharp cannot bind as a refinement; no Zod refinement method exists, so no Zod rules run and the generated refinement hook is suppressed",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1013: OnValidate is skipped by ZodSchemaMode.InsteadOfHooks </summary>
+	public static readonly DiagnosticDescriptor OnValidateSkippedByInsteadOfHooks = new(
+		id: "VO1013",
+		title: "OnValidate is not invoked by ZodSchemaMode.InsteadOfHooks",
+		messageFormat: "Value object '{0}' implements 'OnValidate' but ZodSchemaMode.InsteadOfHooks means the generated Create does not invoke it",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1016: Value object members must be immutable </summary>
+	public static readonly DiagnosticDescriptor ValueObjectMemberIsMutable = new(
+		id: "VO1016",
+		title: "Value object member is mutable",
+		messageFormat: "Value object '{0}' member '{1}' has a setter; value objects must be immutable, so declare the member get-only or init-only",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1017: A JSON column mapping needs the JSON converter </summary>
+	public static readonly DiagnosticDescriptor EFJsonMappingRequiresJsonConverter = new(
+		id: "VO1017",
+		title: "Entity Framework JSON mapping requires the JSON converter",
+		messageFormat: "Value object '{0}' maps to a JSON column but its JSON converter generation is disabled; the column content is produced by reflection serialization, which can differ from the value object's own JSON contract",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1018: A complex mapping cannot convert a member </summary>
+	public static readonly DiagnosticDescriptor EFComplexMappingUnsupportedMember = new(
+		id: "VO1018",
+		title: "Entity Framework complex mapping cannot convert this member",
+		messageFormat: "Value object '{0}' maps as an Entity Framework Core complex type but member '{1}' of type '{2}' cannot be converted{3}",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1019: Complex type mapping requires Entity Framework Core 8 </summary>
+	public static readonly DiagnosticDescriptor EFComplexTypeRequiresEntityFramework8 = new(
+		id: "VO1019",
+		title: "Entity Framework complex type mapping requires Entity Framework Core 8 or later",
+		messageFormat: "Value object '{0}' maps as an Entity Framework Core complex type, which requires Entity Framework Core 8 or later; no Entity Framework mapping will be generated for it",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1021: Entity Framework value generation is unavailable </summary>
+	public static readonly DiagnosticDescriptor EFValueGenerationUnavailable = new(
+		id: "VO1021",
+		title: "Entity Framework value generation is not available for this value object",
+		messageFormat: "Value object '{0}' requests Entity Framework key value generation but {1}; no value generator will be emitted",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1015: ZodSchema SchemaName is not a valid identifier </summary>
+	public static readonly DiagnosticDescriptor ZodSchemaNameInvalid = new(
+		id: "VO1015",
+		title: "ZodSharp schema name is not a valid identifier",
+		messageFormat: "Value object '{0}' sets [ZodSchema(SchemaName = \"{1}\")], which is not a valid C# identifier; the ZodSharp-generated schema class and the value object generator must agree on the same name",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
 }

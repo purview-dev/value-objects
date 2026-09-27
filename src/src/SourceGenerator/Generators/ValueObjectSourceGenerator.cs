@@ -132,6 +132,12 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 
 		var combinedDescriptors = scalarDescriptors.Combine(complexDescriptors).Combine(referencedDescriptors);
 
+		// Complex-type mapping and the compiled-model converter members need Entity Framework Core 8, so
+		// the emitted registry omits them below that and still compiles.
+		var isEF8Referenced = context.CompilationProvider.Select(
+			static (compilation, _) => ValueObjectSymbolInspector.IsEF8Referenced(compilation)
+		);
+
 		var anyEFValueObject = combinedDescriptors.Select(
 			static (pair, _) =>
 				pair.Left.Left.Any(static descriptor => descriptor is not null)
@@ -142,14 +148,16 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		var registryInput = anyEFValueObject
 			.Combine(efDisabled.Combine(registryDisabled))
 			.Combine(combinedDescriptors)
-			.Combine(generationContext);
+			.Combine(generationContext)
+			.Combine(isEF8Referenced);
 
 		context.RegisterSourceOutput(
 			registryInput,
 			static (spc, tuple) =>
 			{
-				var (left, generationContext) = tuple;
-				var (anyEF, combined) = left;
+				var (left, isEF8Referenced) = tuple;
+				var (leftInner, generationContext) = left;
+				var (anyEF, combined) = leftInner;
 				var (anyValueObject, efOptions) = anyEF;
 				var (efDisabled, registryDisabled) = efOptions;
 				if (generationContext.Settings.IsSourceGeneratorDisabled)
@@ -179,7 +187,7 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 					return;
 
 				var writer = generationContext.CreateCodeWriter();
-				ValueObjectEFRegistryEmitter.Emit(writer, scalars, complex);
+				ValueObjectEFRegistryEmitter.Emit(writer, scalars, complex, isEF8Referenced);
 				spc.AddSource($"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs", writer);
 			}
 		);
@@ -200,7 +208,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			ScalarPropertyName: null,
 			EFProviderTypeName: null,
 			EFHydrateCastTypeName: null,
-			HasEFMembers: true
+			HasEFMembers: true,
+			GenerateEFValueGenerator: model.EFValueGeneratorEnabled
 		);
 	}
 

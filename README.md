@@ -101,10 +101,32 @@ var byRawGuid = await db.Customers.Where(c => c.Id == customerId).ToListAsync();
 var bigOrders = await db.Orders.Where(o => o.Total.Amount > 100m).ToListAsync();
 ```
 
-See [Entity Framework](docs/Entity-Framework.md) for the full guide (automatic + manual mapping, assembly
-defaults, and the three opt-out levels).
+Keys, foreign keys, and generated key values:
 
-See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples and `docs/` for guidance.
+```csharp
+[Scalar(GenerateEFValueGenerator = true)]
+public readonly partial record struct CustomerId
+{
+    public Guid Value { get; }
+}
+
+protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+{
+    configurationBuilder.UseValueObjectKeyGenerators();   // generated into your project
+}
+```
+
+An unset key receives a time-ordered (version 7) identifier on save, a key the domain set is never
+overwritten, and an entity configuration such as `ValueGeneratedNever()` always wins. Where the store compares
+identifiers differently — notably a clustered SQL Server key — pass the ordering:
+`UseValueObjectKeyGenerators(ValueObjectKeyOrdering.SqlServer)`. See
+[Entity Framework](docs/Entity-Framework.md#key-ordering) for the ordering table.
+
+See [Entity Framework](docs/Entity-Framework.md) for the full guide (automatic + manual mapping, keys and
+indexes, generated key values, query filters, schema/migrations, assembly defaults, and the opt-out levels).
+
+See the `src/src/Sample`, `src/src/EFDomainSample.Persistence` (domain + persistence split), and
+`src/src/ZodSharpSample` projects for end-to-end examples and `docs/` for guidance.
 
 ## Validation with ZodSharp
 
@@ -113,6 +135,7 @@ Zod. Three patterns are supported:
 
 - **Generator-integrated** – a value object annotated with both `[Scalar]`/`[ValueObject]` and `[ZodSchema]` has
   its generated `Create` wired to the ZodSharp-generated schema (`Create` throws `ZodException` on invalid input).
+  Implement the generated `OnZodValidate(RefineCtx<T>)` hook to add your own Zod-compatible rules;
   `ZodSchemaMode.InsteadOfHooks` opts out of the `OnValidate` hook.
 - **Generated validators** – annotate a value object or DTO with `[ZodSchema]` + DataAnnotations; a source
   generator emits a zero-allocation `{Type}Schema` validator (`EmailAddressSchema.Validate(email)`).
@@ -159,6 +182,8 @@ Set `DisableValueObjectsSourceGenerator` to `true` in your project:
 ## Repository
 
 - `src/src/ValueObjects` – runtime contracts and the `ScalarJsonConverterFactory`.
+- `src/src/EFDomainSample.Domain` / `src/src/EFDomainSample.Persistence` – a domain project without Entity
+  Framework and the persistence project that maps its value objects.
 - `src/src/SourceGenerator` – incremental source generator + analyzer.
 - `src/src/SourceGenerator.Refactorings` – code fix for the "must be partial" diagnostic.
 - `src/tests` – unit and source-generator tests.

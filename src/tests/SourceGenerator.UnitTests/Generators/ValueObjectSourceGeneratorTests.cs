@@ -1383,4 +1383,43 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 
 		return null;
 	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenInvalidZodSchemaName_AnalyzerReportsAndGeneratorSkips(
+		CancellationToken cancellationToken
+	)
+	{
+		// ZodSharp applies any non-empty SchemaName verbatim, so a name that is not a valid identifier
+		// must be an error here rather than a silent fall back to "{TypeName}Schema". The stubbed
+		// [ZodSchema] attribute keeps this independent of the ZodSharp generator, which emits the
+		// configured name as a class name and therefore cannot compile the same source.
+		const string source = """
+			namespace ZodSharp
+			{
+				[System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
+				public sealed class ZodSchemaAttribute : System.Attribute
+				{
+					public string? SchemaName { get; init; }
+				}
+			}
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				[ZodSharp.ZodSchema(SchemaName = "Not A Name")]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
+		await Assert
+			.That(result.AllSyntaxTrees.Length)
+			.IsEqualTo(ValueObjectsGeneratorTestOptions.ValueObjectExpectedFileCount);
+		await Assert.That(result.Generated().HasRecord("EmailAddress", "Testing")).IsFalse();
+	}
 }

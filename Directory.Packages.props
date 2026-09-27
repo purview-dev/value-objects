@@ -6,8 +6,8 @@
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.68.17</TUnitVersion>
-		<PurviewSGFVersion>1.0.0-prerelease.52</PurviewSGFVersion>
-		<PurviewZodSharpVersion>2.0.0-prerelease.23</PurviewZodSharpVersion>
+		<PurviewSGFVersion>1.0.0-prerelease.53</PurviewSGFVersion>
+		<PurviewZodSharpVersion>2.0.0-prerelease.26</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />
@@ -29,5 +29,10 @@
 	<ItemGroup Label="Entity Framework (test/sample only)">
 		<PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
 		<PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+		<!-- Entity Framework Core 7's SQLite provider resolves SQLitePCLRaw 2.1.4, which has a published
+		     advisory (GHSA-2m69-gcr7-jv3q). Central transitive pinning moves every consumer onto the
+		     patched version that the newer providers already use. -->
+		<PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+		<PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
 	</ItemGroup>
 </Project>

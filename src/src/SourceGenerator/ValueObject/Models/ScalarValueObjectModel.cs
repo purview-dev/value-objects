@@ -48,9 +48,14 @@ sealed record class ScalarValueObjectModel(
 	EquatableArray<string> ExistingScalarRelationalOperators,
 	bool HasZodSchemaValidation,
 	string? ZodSchemaClassName,
+	bool DeclareZodRefinementHook,
+	bool InvokeZodRefinementHook,
+	bool ZodRefinementHookIsReadOnly,
 	bool IsEFReferenced,
 	bool EFProviderMappable,
 	string EFProviderTypeName,
 	TypeReference EFProviderTypeReference,
-	string? EFHydrateCastTypeName
+	string? EFHydrateCastTypeName,
+	bool EFValueGeneratorEnabled,
+	bool IsEF8Referenced
 );

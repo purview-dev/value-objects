@@ -27,6 +27,7 @@ static partial class ComplexValueObjectEmitter
 		EmitOnNormalizeDeclaration(writer, model);
 		EmitCreateFactory(writer, model);
 		EmitOnValidateDeclaration(writer, model);
+		EmitZodRefinementHook(writer, model);
 		EmitHydrateFactory(writer, model);
 		EmitEmpty(writer, model);
 		EmitConstructor(writer, model);
@@ -152,11 +153,11 @@ static partial class ComplexValueObjectEmitter
 
 				if (model.HasZodSchemaValidation)
 				{
-					var schemaReference = GetZodSchemaReference(model);
-					body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-					body.IfBlock(
-						"!result.IsSuccess",
-						ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
+					ValueObjectEmitterHelpers.ZodRefinement.EmitCreateValidation(
+						body,
+						GetZodSchemaReference(model),
+						ValueObjectEmitterHelpers.ZodRefinement.RefineContext(ValueObjectType(model)),
+						model.InvokeZodRefinementHook
 					);
 				}
 
@@ -209,6 +210,22 @@ static partial class ComplexValueObjectEmitter
 					)),
 				],
 			}
+		);
+	}
+
+	/// <summary>
+	/// Declares the optional partial Zod refinement hook for a <c>[ZodSchema]</c> complex value object.
+	/// </summary>
+	static void EmitZodRefinementHook(CodeWriter writer, ComplexValueObjectModel model)
+	{
+		if (!model.DeclareZodRefinementHook)
+			return;
+
+		ValueObjectEmitterHelpers.ZodRefinement.EmitHookDeclaration(
+			writer,
+			ValueObjectEmitterHelpers.ZodRefinement.RefineContext(ValueObjectType(model)),
+			model.ZodRefinementHookIsReadOnly,
+			$"the {model.TypeModel.Name} value object"
 		);
 	}
 
