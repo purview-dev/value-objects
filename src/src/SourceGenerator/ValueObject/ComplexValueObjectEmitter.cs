@@ -152,12 +152,7 @@ static partial class ComplexValueObjectEmitter
 
 				if (model.HasZodSchemaValidation)
 				{
-					var schemaReference = GetZodSchemaReference(model);
-					body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-					body.IfBlock(
-						"!result.IsSuccess",
-						ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
-					);
+					ValueObjectEmitterHelpers.ZodRefinement.EmitCreateValidation(body, GetZodSchemaReference(model));
 				}
 
 				if (

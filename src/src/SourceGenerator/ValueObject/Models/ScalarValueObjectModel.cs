@@ -52,5 +52,7 @@ sealed record class ScalarValueObjectModel(
 	bool EFProviderMappable,
 	string EFProviderTypeName,
 	TypeReference EFProviderTypeReference,
-	string? EFHydrateCastTypeName
+	string? EFHydrateCastTypeName,
+	bool EFValueGeneratorEnabled,
+	bool IsEF8Referenced
 );

@@ -182,8 +182,10 @@ See `ZodSharp-Validation.md` and the `src/src/ZodSharpSample` project.
 
 ## Next steps
 
-- `Entity-Framework.md` – mapping value objects to EF Core: automatic `ConfigureValueObjects()`, manual
-  control, and query patterns (no `.Value` needed).
-- `Value-Object-Design.md` – where validation lives and the `Create`/`Hydrate` split.
+- `Entity-Framework.md` – mapping value objects to EF Core: automatic `ConfigureValueObjects()`, keys,
+  generated key values, query filters, manual control, and schema/migration notes.
+- `Value-Object-Design.md` – where validation lives, the `Create`/`Hydrate` split, and how value objects sit
+  in a domain model next to entities.
 - `ZodSharp-Validation.md` – validating value objects with Purview.ZodSharp.
-- The `src/src/Sample` and `src/src/ZodSharpSample` projects for runnable examples.
+- The `src/src/Sample`, `src/src/EFDomainSample.Persistence` (domain + persistence split), and
+  `src/src/ZodSharpSample` projects for runnable examples.

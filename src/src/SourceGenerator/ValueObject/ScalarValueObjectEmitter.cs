@@ -138,11 +138,7 @@ static partial class ScalarValueObjectEmitter
 							"instance",
 							new ObjectCreationOptions(valueObjectType, [new MethodCallArgumentOptions("value")])
 						);
-						body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-						body.IfBlock(
-							"!result.IsSuccess",
-							ifBody => ifBody.Throw("new global::ZodSharp.Core.ZodException(result.Errors)")
-						);
+						ValueObjectEmitterHelpers.ZodRefinement.EmitCreateValidation(body, schemaReference);
 
 						if (model.Options.ZodSchemaMode != ValueObjectSymbolInspector.InsteadOfHooksModeName)
 							body.MethodCall("OnValidate", "value");

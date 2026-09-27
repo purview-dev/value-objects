@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ValueObjects\ValueObjects.csproj" />
+		<!-- In-repo consumers reference the analyzers directly; NuGet consumers get them from the
+		     analyzers/dotnet/cs folder of the Purview.ValueObjects package. -->
+		<ProjectReference
+			Include="..\SourceGenerator\SourceGenerator.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+		<ProjectReference
+			Include="..\SourceGenerator.Refactorings\SourceGenerator.Refactorings.csproj"
+			PrivateAssets="all"
+			ReferenceOutputAssembly="false"
+			OutputItemType="Analyzer"
+		/>
+	</ItemGroup>
+</Project>

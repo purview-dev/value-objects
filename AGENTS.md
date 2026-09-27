@@ -21,7 +21,7 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `src/src/ValueObjects` | Runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, `ScalarJsonConverterFactory`) |
 | `src/src/SourceGenerator` | Roslyn incremental generator and analyzer metadata |
 | `src/src/SourceGenerator.Refactorings` | Code fixes (add `partial` modifier) |
-| `src/tests` | Unit and source-generator tests |
+| `src/tests` | Unit and source-generator tests, plus the multi-framework Entity Framework Core compatibility project |
 | `samples` | Runnable examples |
 | `docs` | User-facing guidance |
 | `Directory.Packages.props` | Centrally managed NuGet versions |
@@ -81,6 +81,11 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 - Use `--treenode-filter` for test filtering, not `dotnet test --filter`.
 - Unit tests should cover domain logic, contracts, failure behavior, and regressions without external
   infrastructure.
+- Entity Framework Core version differences are covered by
+  `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, which targets `net8.0` with EF Core 7, `net9.0`
+  with EF Core 9, and `net10.0` with EF Core 10. Add version-dependent behavior there (and, where a synthetic
+  reference set is enough, to `SourceGenerator.IntegrationTests`) rather than weakening generated output gated
+  on `IsEF8Referenced`.
 - Source-generator tests assert generated code and diagnostics using the existing testing framework
   (`Purview.SourceGeneratorFramework.Testing.TUnit`).
 

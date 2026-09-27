@@ -22,7 +22,8 @@ static partial class ComplexValueObjectEmitter
 			"global::System.String",
 			"vo => global::System.Text.Json.JsonSerializer.Serialize(vo)",
 			$"v => global::System.Text.Json.JsonSerializer.Deserialize<{model.TypeModel.FullyQualifiedName}>(v)!",
-			ValueObjectEmitterHelpers.EFJsonReaderWriterType("global::System.String")
+			ValueObjectEmitterHelpers.EFJsonReaderWriterType("global::System.String"),
+			model.IsEF8Referenced
 		);
 
 		writer

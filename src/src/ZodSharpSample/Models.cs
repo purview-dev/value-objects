@@ -66,6 +66,28 @@ readonly partial record struct PhoneNumber
 	public string Value { get; }
 }
 
+/// <summary>
+/// A scalar value object that adds Zod-compatible refinement rules by implementing the generated
+/// <c>OnZodValidate</c> hook. The generated <c>Create</c> runs the hook and reports the issues it collects
+/// as a <c>ZodException</c>, merged with the schema's own issues. <c>Hydrate</c> never runs the hook.
+/// </summary>
+[Scalar]
+[ZodSchema]
+readonly partial record struct CorporateEmail
+{
+	[EmailAddress]
+	public string Value { get; }
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase")]
+	static partial void OnNormalize(ref string value) => value = value?.Trim().ToLowerInvariant()!;
+
+	partial void OnZodValidate(ZodSharp.Schemas.RefineCtx<CorporateEmail> context)
+	{
+		if (!context.Value.Value.EndsWith("@contoso.com", StringComparison.Ordinal))
+			context.AddIssue("invalid_domain", "Corporate emails must use the contoso.com domain.", [nameof(Value)]);
+	}
+}
+
 enum OrderStatusKind
 {
 	Pending,

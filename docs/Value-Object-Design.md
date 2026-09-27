@@ -65,3 +65,74 @@ public static OrderStatus Create(OrderStatusCode value, in ValueObjectContext<Or
 Primitive scalar values are the most query-friendly shape for database filters. Scalar values that wrap complex CLR
 types preserve invariants and serialization, but deep predicates through `.Value` may not translate to SQL in all
 providers. If you need deep filtering, expose a separately mapped mirror property derived from canonical state.
+
+## Value objects in a domain model
+
+Value objects carry identity and invariants; entities and aggregates carry lifecycle. The two compose, and
+the split that keeps the dependency graph clean is:
+
+| Project | References | Contains |
+| --- | --- | --- |
+| Domain (e.g. `MyApp.Core`) | `Purview.ValueObjects`, `Purview.ZodSharp` | Value objects, entities/aggregates, domain services. **No Entity Framework.** |
+| Persistence (e.g. `MyApp.Persistence`) | Entity Framework Core, the domain project | `DbContext`, entity POCOs, `ConfigureValueObjects()`, migrations |
+
+A domain project that does not reference Entity Framework gets no `EF` members and no marker interfaces.
+That is intentional: the consuming project discovers its value objects from their attributes and generates
+the converters **into the persistence assembly**, so no Entity Framework code leaks into the domain.
+
+```csharp
+// Domain project — no Entity Framework reference.
+[Scalar]
+public readonly partial record struct CustomerId
+{
+    public Guid Value { get; }
+}
+
+public sealed class Customer
+{
+    Customer(CustomerId id, EmailAddress email) => (Id, Email) = (id, email);
+
+    public CustomerId Id { get; }
+
+    public EmailAddress Email { get; private set; }
+
+    public static Customer Create(CustomerId id, EmailAddress email) => new(id, email);
+}
+```
+
+**Typed identifiers.** Every identity is a scalar value object, so a `CustomerId` can never be passed where
+an `OrderId` is expected. Where the identifier is generated for you, opt the type into Entity Framework key
+value generation (see `Entity-Framework.md`) and keep the domain free of identifier plumbing; where the
+domain owns the identifier, create it in the factory and keep `ValueGeneratedNever()` on the entity. Which
+bytes the generated identifier orders by is a store concern, so the ordering is chosen where the convention is
+registered — in the persistence project, not on the value object.
+
+**Entities next to value objects.** Entities are ordinary classes with a private constructor and a static
+factory that validates, and they hold value objects rather than primitives. An entity's `Create` is a
+command boundary; its mutation methods enforce the invariants that span members.
+
+## Choosing a persistence shape
+
+| Shape | Use when | Notes |
+| --- | --- | --- |
+| Scalar value object → single column (default) | The value wraps one primitive (ids, codes, emails). | Query-friendly: predicates compare the value object directly. |
+| `[ValueObject]` → EF complex type (default) | A small, fixed group of members that belongs to one row. | One column per member; nested scalars convert; not a key. |
+| `[ValueObject(EFMapping = Json)]` | The group is wide, optional, or does not need to be queried by member. | One JSON column; content follows the value object's JSON contract. |
+| Flat columns on the entity | The members participate in keys, unique constraints, or frequent predicates. | Map them individually and compose the value object in a mapper. |
+
+Identity that spans two or more members (for example "provider connection + external id") is awkward as a
+complex type: complex types cannot be keys. Either flatten the members into the entity and put a unique
+index over them, or store the value object as a JSON column and index the derived columns you actually
+query.
+
+## Failure contract
+
+| Path | Behavior |
+| --- | --- |
+| `Create(...)` | Throws on invalid input: the hook's exception, or a `ZodException` when a ZodSharp schema is generated for the type. |
+| `TryCreate(...)` | Returns `false` instead of throwing. |
+| `Hydrate(...)` | Never validates. Persistence, replay, and deserialization use this path. |
+
+A ZodSharp `ZodException` carries one or more `ValidationError` entries with a code and a path, so the same
+error codes you use in hooks (`ErrorFactory`-style constants) flow to an ASP.NET Core Problem Details
+response when `Purview.ZodSharp.AspNetCore` is registered. See `ZodSharp-Validation.md`.

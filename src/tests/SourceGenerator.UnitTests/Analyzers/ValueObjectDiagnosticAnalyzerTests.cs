@@ -173,6 +173,157 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 		await Assert.That(result).HasNoDiagnostics();
 	}
 
+	[Test]
+	public async Task Generate_GivenMutableScalarMember_ReportsValueObjectMemberIsMutable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Scalar]
+				public partial record struct EmailAddress
+				{
+					public string Value { get; set; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectMemberIsMutable);
+	}
+
+	[Test]
+	public async Task Generate_GivenInitOnlyScalarMember_DoesNotReportValueObjectMemberIsMutable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Scalar]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; init; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ValueObjectMemberIsMutable);
+	}
+
+	/// <summary>
+	/// The <c>[ZodSchema]</c> attribute is emitted into the consuming compilation by the ZodSharp
+	/// generator, so a stub with the same shape keeps the ZodSharp diagnostics tests self-contained.
+	/// </summary>
+	const string ZodSchemaAttributeStub = """
+		namespace ZodSharp
+		{
+			[System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
+			public sealed class ZodSchemaAttribute : System.Attribute
+			{
+				public string? SchemaName { get; init; }
+			}
+		}
+		""";
+
+	[Test]
+	public async Task Generate_GivenInsteadOfHooksWithImplementedOnValidate_ReportsOnValidateSkipped(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source =
+			ZodSchemaAttributeStub
+			+ """
+
+				namespace Testing
+				{
+					[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
+					[ZodSharp.ZodSchema]
+					public readonly partial record struct EmailAddress
+					{
+						public string Value { get; }
+
+						static partial void OnValidate(string value);
+
+						static partial void OnValidate(string value)
+						{
+							throw new System.ArgumentException("OnValidate must not run.", nameof(value));
+						}
+					}
+				}
+				""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.OnValidateSkippedByInsteadOfHooks);
+	}
+
+	[Test]
+	public async Task Generate_GivenInvalidZodSchemaName_ReportsZodSchemaNameInvalid(
+		CancellationToken cancellationToken
+	)
+	{
+		// ZodSharp applies any non-empty SchemaName, so a name the value object generator cannot
+		// reference must be reported instead of silently falling back to "{TypeName}Schema".
+		const string source =
+			ZodSchemaAttributeStub
+			+ """
+
+				namespace Testing
+				{
+					[Scalar]
+					[ZodSharp.ZodSchema(SchemaName = "Not A Name")]
+					public readonly partial record struct EmailAddress
+					{
+						public string Value { get; }
+					}
+				}
+				""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
+	}
+
+	[Test]
+	public async Task Generate_GivenWellFormedZodIntegration_ReportsNoZodDiagnostics(
+		CancellationToken cancellationToken
+	)
+	{
+		// Implements the generated hook, declares no member that shadows the refinement name, keeps the
+		// default InAdditionToHooks mode, and uses a valid custom schema name.
+		const string source =
+			ZodSchemaAttributeStub
+			+ """
+
+				namespace Testing
+				{
+					[Scalar]
+					[ZodSharp.ZodSchema(SchemaName = "CorporateEmailSchema")]
+					public readonly partial record struct CorporateEmail
+					{
+						public string Value { get; }
+
+						partial void OnZodValidate(object context);
+
+						partial void OnZodValidate(object context)
+						{
+							_ = context;
+						}
+					}
+				}
+				""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.OnValidateSkippedByInsteadOfHooks);
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
+	}
+
 	protected override AnalyzerTestOptions OnBeforeRun(
 		IEnumerable<string> sources,
 		AnalyzerTestOptions options,

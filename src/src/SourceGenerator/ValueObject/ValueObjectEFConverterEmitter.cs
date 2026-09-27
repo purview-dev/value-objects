@@ -92,6 +92,14 @@ static class ValueObjectEFConverterEmitter
 			);
 	}
 
+	/// <summary>
+	/// True when the compiled-model members should be emitted: Entity Framework Core 8 or later is
+	/// referenced (it introduced <c>JsonValueReaderWriter</c>) and the converter's provider type has a
+	/// matching reader/writer.
+	/// </summary>
+	static bool EmitsCompiledModelMembers(EFConverterDefinition definition) =>
+		definition.IsEF8Referenced && definition.JsonReaderWriterTypeName is not null;
+
 	static void EmitConstructors(CodeWriter body, EFConverterDefinition definition, TypeReference jsonValueReaderWriter)
 	{
 		var baseCall = $"base({definition.ToProviderExpression}, {definition.FromProviderExpression})";
@@ -105,7 +113,7 @@ static class ValueObjectEFConverterEmitter
 				_ => { }
 			);
 
-		if (definition.JsonReaderWriterTypeName is null)
+		if (!EmitsCompiledModelMembers(definition))
 			return;
 
 		body.XmlSummary(
@@ -129,7 +137,7 @@ static class ValueObjectEFConverterEmitter
 		TypeReference jsonValueReaderWriter
 	)
 	{
-		if (definition.JsonReaderWriterTypeName is null)
+		if (!EmitsCompiledModelMembers(definition))
 			return;
 
 		body.XmlSummary(
@@ -233,7 +241,9 @@ static class ValueObjectEFConverterEmitter
 				{
 					method.IfBlock(
 						$"value is {valueObjectTypeName} model",
-						branch => branch.Return("ConvertToProviderTyped(model)")
+						// The object-level base call is used rather than the EF Core 8 typed overload, so the
+						// generated converter compiles against every supported version.
+						branch => branch.Return("base.ConvertToProvider(model)")
 					);
 					method.IfBlock("value is null", branch => branch.Return("null"));
 					method.Assignment("var", "providerType", providerTypeExpression);
@@ -266,7 +276,7 @@ static class ValueObjectEFConverterEmitter
 					method.Assignment("var", "providerType", providerTypeExpression);
 					method.IfBlock(
 						"value.GetType() == providerType",
-						branch => branch.Return($"ConvertFromProviderTyped(({providerTypeName})value)")
+						branch => branch.Return("base.ConvertFromProvider(value)")
 					);
 					method.IfBlock($"value is {valueObjectTypeName} model", branch => branch.Return("model"));
 					method.Return("base.ConvertFromProvider(value)");
@@ -289,6 +299,11 @@ static class ValueObjectEFConverterEmitter
 /// The JSON value reader/writer type whose <c>Instance</c> is exposed for Entity Framework Core's
 /// compiled-model generator, or <see langword="null"/> to omit the compiled-model members.
 /// </param>
+/// <param name="IsEF8Referenced">
+/// True when the consuming project references Entity Framework Core 8 or later.
+/// <c>JsonValueReaderWriter</c> is an Entity Framework Core 8 type, so below that the compiled-model
+/// members are omitted and the generated converter still compiles.
+/// </param>
 readonly record struct EFConverterDefinition(
 	string ClassName,
 	TypeDeclarationAccessibility Accessibility,
@@ -297,5 +312,6 @@ readonly record struct EFConverterDefinition(
 	string ProviderTypeName,
 	string ToProviderExpression,
 	string FromProviderExpression,
-	string? JsonReaderWriterTypeName
+	string? JsonReaderWriterTypeName,
+	bool IsEF8Referenced
 );

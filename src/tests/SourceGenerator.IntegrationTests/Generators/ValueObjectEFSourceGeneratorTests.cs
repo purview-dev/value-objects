@@ -991,6 +991,34 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(query.HasClass("ValueObjectConverter", "Testing")).IsTrue();
 	}
 
+	async Task<MetadataReference> EmitStubAsync(string source, CancellationToken cancellationToken)
+	{
+		// Compiles a stub assembly against the same reference set the test framework uses, so the stub only
+		// adds the types it declares.
+		var probe = await GenerateAsync(
+			"namespace Probe { }",
+			ValueObjectsEFGeneratorTestOptions.Default,
+			cancellationToken
+		);
+		var tree = CSharpSyntaxTree.ParseText(
+			source,
+			new CSharpParseOptions(LanguageVersion.Latest),
+			cancellationToken: cancellationToken
+		);
+		var compilation = CSharpCompilation.Create(
+			"EntityFrameworkCore7Stub",
+			[tree],
+			probe.CompilationResult.Compilation.References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+		);
+
+		using MemoryStream stream = new();
+		var emitResult = compilation.Emit(stream, cancellationToken: cancellationToken);
+		await Assert.That(emitResult.Success).IsTrue();
+
+		return MetadataReference.CreateFromImage(stream.ToArray());
+	}
+
 	async Task<MetadataReference> EmitSharedReferenceAsync(string source, CancellationToken cancellationToken)
 	{
 		// A value object provider assembly should not emit its own registry; consumers map its types.
@@ -1060,6 +1088,437 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		{
 			AdditionalReferences = [.. ValueObjectsEFGeneratorTestOptions.Default.AdditionalReferences, reference],
 		};
+
+	[Test]
+	public async Task ScalarGeneration_GivenGenerateEFValueGenerator_EmitsGeneratorAndRegistersConvention(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(GenerateEFValueGenerator = true)]
+				public readonly partial record struct TenantId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		var generated = result.Generated();
+
+		// The value object's EF class carries the generator pair.
+		var tenantIdText = generated.GetRecord("TenantId", "Testing").Node.ToString();
+		await Assert.That(tenantIdText).Contains("ValueGeneratorFactory");
+		await Assert.That(tenantIdText).Contains("ValueGenerator");
+		await Assert
+			.That(tenantIdText)
+			.Contains("Hydrate(global::Microsoft.EntityFrameworkCore.ValueObjectSequentialGuid.NewGuid())");
+
+		// The registry registers the convention, which maps the value object to its factory.
+		var registryText = generated
+			.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore")
+			.Node.ToString();
+		await Assert.That(registryText).Contains("UseValueObjectKeyGenerators");
+
+		var conventionText = generated
+			.GetClass("ValueObjectKeyValueGeneratorConvention", "Microsoft.EntityFrameworkCore")
+			.Node.ToString();
+		await Assert
+			.That(Normalize(conventionText))
+			.Contains("typeof(global::Testing.TenantId.EF.ValueGeneratorFactory)");
+		await Assert
+			.That(generated.GetClass("ValueObjectSequentialGuid", "Microsoft.EntityFrameworkCore").Node)
+			.IsNotNull();
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenGenerateEFValueGenerator_EmitsBothOrderingStrategies(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(GenerateEFValueGenerator = true)]
+				public readonly partial record struct TenantId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		var generated = result.Generated();
+
+		// The value object's EF class carries a generator pair per ordering strategy.
+		var tenantIdText = generated.GetRecord("TenantId", "Testing").Node.ToString();
+		await Assert.That(tenantIdText).Contains("ValueGeneratorFactory");
+		await Assert.That(tenantIdText).Contains("SqlServerValueGeneratorFactory");
+		await Assert
+			.That(tenantIdText)
+			.Contains("Hydrate(global::Microsoft.EntityFrameworkCore.ValueObjectSequentialGuid.NewGuid())");
+		await Assert
+			.That(tenantIdText)
+			.Contains("Hydrate(global::Microsoft.EntityFrameworkCore.ValueObjectSequentialGuid.NewSqlServerGuid())");
+
+		// The registry selects a strategy through the emitted enum, and the default overloads onto it.
+		await Assert.That(generated.HasEnum("ValueObjectKeyOrdering", "Microsoft.EntityFrameworkCore")).IsTrue();
+
+		var enumText = Normalize(
+			generated.GetEnum("ValueObjectKeyOrdering", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(enumText).Contains("UuidV7=0,");
+		await Assert.That(enumText).Contains("SqlServer=1,");
+
+		var registry = Normalize(
+			generated.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("UseValueObjectKeyGenerators(ValueObjectKeyOrdering.UuidV7)");
+
+		// The helper exposes the SQL Server strategy, its readers, and its range bounds.
+		var helper = Normalize(
+			generated.GetClass("ValueObjectSequentialGuid", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(helper).Contains("NewSqlServerGuid()=>NewSqlServerGuid(");
+		await Assert.That(helper).Contains("TryGetSqlServerTimestamp");
+		await Assert.That(helper).Contains("MinSqlServerGuidFor");
+		await Assert.That(helper).Contains("MaxSqlServerGuidFor");
+
+		// The convention chooses its factory table when it is constructed.
+		var convention = Normalize(
+			generated
+				.GetClass("ValueObjectKeyValueGeneratorConvention", "Microsoft.EntityFrameworkCore")
+				.Node.ToString()
+		);
+		await Assert.That(convention).Contains("typeof(global::Testing.TenantId.EF.SqlServerValueGeneratorFactory)");
+		await Assert.That(convention).Contains("?SqlServerFactories:Factories");
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenGenerateEFValueGenerator_ExposesTheIdentifierHelperPublicly(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(GenerateEFValueGenerator = true)]
+				public readonly partial record struct TenantId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		// The helper is public so application code in another assembly can mint the key a value object should
+		// be saved with, before the round trip that would otherwise have generated it.
+		var helper = result.CompilationResult.Compilation.GetTypeByMetadataName(
+			"Microsoft.EntityFrameworkCore.ValueObjectSequentialGuid"
+		);
+
+		await Assert.That(helper).IsNotNull();
+		await Assert.That(helper!.DeclaredAccessibility).IsEqualTo(Accessibility.Public);
+
+		string[] methodNames =
+		[
+			"NewGuid",
+			"NewSqlServerGuid",
+			"TryGetTimestamp",
+			"TryGetSqlServerTimestamp",
+			"MinSqlServerGuidFor",
+			"MaxSqlServerGuidFor",
+		];
+		foreach (var methodName in methodNames)
+		{
+			var method = helper.GetMembers(methodName).OfType<IMethodSymbol>().FirstOrDefault();
+
+			await Assert.That(method).IsNotNull();
+			await Assert.That(method!.DeclaredAccessibility).IsEqualTo(Accessibility.Public);
+			await Assert.That(method.IsStatic).IsTrue();
+		}
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenAssemblyDefaultGenerateEFValueGenerator_EmitsGenerator(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(GenerateEFValueGenerator = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct TenantId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert
+			.That(result.Generated().GetRecord("TenantId", "Testing").Node.ToString())
+			.Contains("ValueGeneratorFactory");
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenGenerateEFValueGeneratorOnNonGuidScalar_ReportsValueGenerationUnavailable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(GenerateEFValueGenerator = true)]
+				public readonly partial record struct CurrencyCode
+				{
+					public string Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic("VO1021");
+		await Assert
+			.That(result.Generated().GetRecord("CurrencyCode", "Testing").Node.ToString())
+			.DoesNotContain("ValueGeneratorFactory");
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenGenerateEFValueGeneratorWithoutConverter_ReportsValueGenerationUnavailable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(GenerateEFValueGenerator = true, GenerateEFConverter = false)]
+				public readonly partial record struct TenantId
+				{
+					public System.Guid Value { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic("VO1021");
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenJsonMappingWithoutJsonConverter_ReportsJsonMappingRequiresJsonConverter(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(
+					EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json,
+					GenerateJsonConverter = false
+				)]
+				public readonly partial record struct Audit
+				{
+					public System.DateTimeOffset OccurredAt { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic("VO1017");
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenCollectionMember_ReportsUnsupportedComplexMappingMember(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Audit
+				{
+					public System.Collections.Generic.IReadOnlyList<string> Entries { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic("VO1018");
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenMemberEntityFrameworkCannotConvert_ReportsUnsupportedComplexMappingMember(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public readonly record struct PartialDate(int Year, int Month);
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Audit
+				{
+					public PartialDate When { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic("VO1018");
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenSupportedMembers_DoesNotReportUnsupportedComplexMappingMember(
+		CancellationToken cancellationToken
+	)
+	{
+		// Entity Framework Core 8+ is referenced by the test project, so the complex-type mapping is
+		// honoured and every member converts: a value object, a primitive, a string, and an enum.
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CurrencyCode
+				{
+					public string Value { get; }
+				}
+
+				public enum Kind
+				{
+					One,
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+
+					public CurrencyCode Currency { get; }
+
+					public Kind Kind { get; }
+
+					public System.DateTimeOffset? RecordedAt { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic("VO1018");
+		await Assert.That(result).HasNoErrorDiagnostics();
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenEntityFrameworkBelow8_ReportsEntityFramework8Requirement(
+		CancellationToken cancellationToken
+	)
+	{
+		// Declaring Microsoft.EntityFrameworkCore.Metadata.IComplexType in a second assembly makes the
+		// EF Core 8 type ambiguous, which is how the compilation resolves an EF Core 7 reference set. The
+		// complex-type mapping needs the EF Core 8 API, so the generator reports VO1019 and leaves it out.
+		var ef7Stub = await EmitStubAsync(
+			"""
+			namespace Microsoft.EntityFrameworkCore.Metadata
+			{
+				public interface IComplexType
+				{
+				}
+			}
+			""",
+			cancellationToken
+		);
+
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CurrencyCode
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+
+					public CurrencyCode Currency { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject(
+					EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json
+				)]
+				public readonly partial record struct AuditStamp
+				{
+					public System.DateTimeOffset RecordedAt { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, WithSharedReference(ef7Stub), cancellationToken);
+
+		// The complex-type mapping needs the Entity Framework Core 8 API, so the generator reports VO1019
+		// and the reference set describes what is missing.
+		await Assert.That(result).HasDiagnostic("VO1019");
+
+		// The generated registry must not reach for EF Core 8 APIs the reference set lacks: the mapping
+		// list, the complex-property block, and the compiled-model JSON reader/writer.
+		var generated = result.Generated();
+		var registry = Normalize(
+			generated.GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).DoesNotContain("complexTypeMappings");
+		await Assert.That(registry).DoesNotContain("ComplexProperty");
+		await Assert.That(registry).DoesNotContain("JsonReaderWriter");
+
+		// A JSON-mapped value object still receives its converter, minus the compiled-model member.
+		var auditStamp = Normalize(generated.GetRecord("AuditStamp", "Testing").Node.ToString());
+		await Assert.That(auditStamp).Contains("ValueConverter<global::Testing.AuditStamp,global::System.String>");
+		await Assert.That(auditStamp).DoesNotContain("JsonReaderWriter");
+
+		await Assert.That(result).HasNoErrorDiagnostics();
+	}
+
+	[Test]
+	public async Task ComplexGeneration_GivenJsonMappingAndEntityFramework8_ExposesCompiledModelReaderWriter(
+		CancellationToken cancellationToken
+	)
+	{
+		// The counterpart of the Entity Framework Core 7 case: with EF Core 8 or later referenced the
+		// generated converter exposes the reader/writer a compiled model rebuilds it from.
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(
+					EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json
+				)]
+				public readonly partial record struct AuditStamp
+				{
+					public System.DateTimeOffset RecordedAt { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+
+		var auditStamp = Normalize(result.Generated().GetRecord("AuditStamp", "Testing").Node.ToString());
+		await Assert.That(auditStamp).Contains("JsonReaderWriter");
+		await Assert.That(auditStamp).Contains("JsonValueReaderWriter");
+		await Assert.That(result).HasNoErrorDiagnostics();
+	}
 
 	static string Normalize(string source) => string.Concat(source.Where(static c => !char.IsWhiteSpace(c)));
 
