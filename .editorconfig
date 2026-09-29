@@ -2638,7 +2638,7 @@ trim_trailing_whitespace = false
 
 # If it's a settings, model, dto, etc file, ignore the 'properties' cannot have arrays
 # and other annoying rules - the following section is duplicated
-[**/*{ValueObjects,Settings,Options,Model,Models,DTO,Entity,Response,Request}.{cs,vb},]
+[**/*{ValueObjects,Settings,Options,Model,Models,DTO,Entity,Response,Request}{.Nav,}.{cs,vb}]
 dotnet_diagnostic.CA1002.severity = none
 dotnet_diagnostic.CA1024.severity = none
 dotnet_diagnostic.CA1056.severity = none
