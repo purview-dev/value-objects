@@ -11,6 +11,11 @@ namespace Purview.ValueObjects.SourceGenerator.Refactorings;
 /// Manual code-fix harness. The framework's code-fix test base does not run the source generators,
 /// but the aggregate/value-object attributes used by the analyzers are emitted by those generators,
 /// so this harness runs them before analyzing.
+/// <para>
+/// The generic overloads construct the in-repo components. The instance overloads accept components
+/// supplied by the caller, which lets a test drive the packaged, merged analyzer artifact that
+/// consumers and Visual Studio actually load; see <see cref="PackagedAnalyzerComponents"/>.
+/// </para>
 /// </summary>
 public static class CodeFixTestHarness
 {
@@ -20,7 +25,14 @@ public static class CodeFixTestHarness
 	)
 		where TAnalyzer : DiagnosticAnalyzer, new()
 		where TCodeFix : CodeFixProvider, new() =>
-		ApplyAsync<TAnalyzer, TCodeFix>(source, fixAll: false, cancellationToken);
+		RunAsync(
+			source,
+			new Generators.ValueObjectSourceGenerator(),
+			new TAnalyzer(),
+			new TCodeFix(),
+			fixAll: false,
+			cancellationToken
+		);
 
 	public static Task<HarnessResult> ApplyFixAllAsync<TAnalyzer, TCodeFix>(
 		string source,
@@ -28,25 +40,52 @@ public static class CodeFixTestHarness
 	)
 		where TAnalyzer : DiagnosticAnalyzer, new()
 		where TCodeFix : CodeFixProvider, new() =>
-		ApplyAsync<TAnalyzer, TCodeFix>(source, fixAll: true, cancellationToken);
+		RunAsync(
+			source,
+			new Generators.ValueObjectSourceGenerator(),
+			new TAnalyzer(),
+			new TCodeFix(),
+			fixAll: true,
+			cancellationToken
+		);
 
-	static async Task<HarnessResult> ApplyAsync<TAnalyzer, TCodeFix>(
+	/// <summary>
+	/// Applies the first registered code fix using components supplied by the caller, so a test can drive
+	/// a packaged (merged, self-contained) analyzer artifact instead of the in-repo build output.
+	/// </summary>
+	public static Task<HarnessResult> ApplyAsync(
 		string source,
+		IIncrementalGenerator generator,
+		DiagnosticAnalyzer analyzer,
+		CodeFixProvider provider,
+		CancellationToken cancellationToken
+	) => RunAsync(source, generator, analyzer, provider, fixAll: false, cancellationToken);
+
+	/// <summary>Applies every registered code fix using components supplied by the caller.</summary>
+	public static Task<HarnessResult> ApplyFixAllAsync(
+		string source,
+		IIncrementalGenerator generator,
+		DiagnosticAnalyzer analyzer,
+		CodeFixProvider provider,
+		CancellationToken cancellationToken
+	) => RunAsync(source, generator, analyzer, provider, fixAll: true, cancellationToken);
+
+	static async Task<HarnessResult> RunAsync(
+		string source,
+		IIncrementalGenerator generator,
+		DiagnosticAnalyzer analyzer,
+		CodeFixProvider provider,
 		bool fixAll,
 		CancellationToken cancellationToken
 	)
-		where TAnalyzer : DiagnosticAnalyzer, new()
-		where TCodeFix : CodeFixProvider, new()
 	{
-		var (updatedCompilation, originalTree) = CreateCompilation(source);
+		var (updatedCompilation, originalTree) = CreateCompilation(source, generator);
 
-		TAnalyzer analyzer = new();
 		var analyzerDiagnosticsAll = await updatedCompilation
 			.WithAnalyzers([analyzer])
 			.GetAnalyzerDiagnosticsAsync(cancellationToken);
 		var analyzerDiagnostics = analyzerDiagnosticsAll.ToArray();
 
-		TCodeFix provider = new();
 		var applicable = analyzerDiagnostics
 			.Where(diagnostic => provider.FixableDiagnosticIds.Contains(diagnostic.Id, StringComparer.Ordinal))
 			.ToArray();
@@ -100,7 +139,10 @@ public static class CodeFixTestHarness
 		);
 	}
 
-	static (Compilation Compilation, SyntaxTree OriginalTree) CreateCompilation(string source)
+	static (Compilation Compilation, SyntaxTree OriginalTree) CreateCompilation(
+		string source,
+		IIncrementalGenerator generator
+	)
 	{
 		CSharpParseOptions parseOptions = new(LanguageVersion.Latest);
 		var tree = CSharpSyntaxTree.ParseText(source, parseOptions, path: "Test.cs");
@@ -115,9 +157,7 @@ public static class CodeFixTestHarness
 		);
 
 		// The value-object attributes are emitted by the source generator.
-		GeneratorDriver driver = CSharpGeneratorDriver.Create([
-			new Generators.ValueObjectSourceGenerator().AsSourceGenerator(),
-		]);
+		GeneratorDriver driver = CSharpGeneratorDriver.Create([generator.AsSourceGenerator()]);
 		driver.RunGeneratorsAndUpdateCompilation(compilation, out var updatedCompilation, out _);
 
 		return (updatedCompilation, tree);

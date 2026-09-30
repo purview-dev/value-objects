@@ -8,7 +8,8 @@ This guide walks through modeling DTOs and domain values with `Purview.ValueObje
 dotnet add package Purview.ValueObjects
 ```
 
-The package includes the runtime contracts, the source generator, and the diagnostic analyzer.
+The package includes the runtime contracts, the source generator, the diagnostic analyzer, and code fixes for
+the analyzer's diagnostics (for example `VO1001` offers **Add 'partial' modifier**).
 
 ## 2. Scalar value objects
 
