@@ -28,7 +28,8 @@ dotnet add package Purview.ValueObjects
 ```
 
 The package ships the runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, ...), the source generator,
-and the diagnostic analyzer. There is no dependency on any event-sourcing library.
+the diagnostic analyzer, and code fixes for the analyzer's diagnostics (for example `VO1001` offers
+**Add 'partial' modifier**). There is no dependency on any event-sourcing library.
 
 ## Quick start
 
@@ -185,6 +186,9 @@ Set `DisableValueObjectsSourceGenerator` to `true` in your project:
 - `src/src/EFDomainSample.Domain` / `src/src/EFDomainSample.Persistence` – a domain project without Entity
   Framework and the persistence project that maps its value objects.
 - `src/src/SourceGenerator` – incremental source generator + analyzer.
-- `src/src/SourceGenerator.Refactorings` – code fix for the "must be partial" diagnostic.
+- `src/src/SourceGenerator.Refactorings` – code fixes for the generator's diagnostics (the "must be partial"
+  fix). It consumes the generator's diagnostic identities through **public** members only: the shipped analyzer
+  is the merged, self-contained artifact the `Purview.SourceGeneratorFramework` merge pass produces, and that
+  pass strips every `InternalsVisibleTo` declaration.
 - `src/tests` – unit and source-generator tests.
 - `docs` – design and usage guidance.

@@ -1,6 +1,19 @@
 namespace Purview.ValueObjects.SourceGenerator.Common;
 
-static class DiagnosticLibrary
+/// <summary>
+/// The diagnostics this component produces.
+/// <para>
+/// The type is public because the identities are shared with the code-fix component
+/// (<c>Purview.ValueObjects.SourceGenerator.Refactorings</c>). Consumers receive the merged,
+/// self-contained analyzer that the Purview.SourceGeneratorFramework merge pass produces, and that
+/// pass strips every <c>InternalsVisibleTo</c> declaration from the artifact. Reaching these members
+/// through internals therefore compiles against the unmerged build output and then fails with a
+/// <see cref="System.FieldAccessException"/> in the IDE, as soon as Roslyn reads a fixable
+/// diagnostic id from the shipped analyzer. Public members are the only cross-component contract a
+/// merged artifact preserves.
+/// </para>
+/// </summary>
+public static class DiagnosticLibrary
 {
 	const string ValueObjectCategory = "ValueObjects";
 

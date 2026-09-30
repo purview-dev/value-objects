@@ -10,7 +10,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- Requires the source-generator/analyzer assembly for its shared diagnostic descriptors. -->
+		<!-- Requires the source-generator/analyzer assembly for its shared diagnostic identifiers. Those
+		     identifiers must be public: the shipped analyzer is a merged, self-contained artifact whose
+		     InternalsVisibleTo declarations are stripped, so internals would throw FieldAccessException
+		     at runtime in the IDE. -->
 		<ProjectReference Include="..\SourceGenerator\SourceGenerator.csproj" />
 	</ItemGroup>
 </Project>

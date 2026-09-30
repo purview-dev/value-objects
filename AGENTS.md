@@ -63,6 +63,12 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 - Generated output must be stable for identical input.
 - Diagnostics are public developer experience: preserve IDs and meanings, choose accurate locations and severity,
   and update `AnalyzerReleases.*.md` for newly introduced or changed diagnostics.
+- Cross-component contracts must go through **public** members. The artifact that consumers (and Visual Studio)
+  load is the merged, self-contained assembly the `Purview.SourceGeneratorFramework` merge pass produces, and
+  that pass strips every `InternalsVisibleTo` declaration. A component that reads another component's internals
+  (for example a code fix reading a diagnostic descriptor) therefore compiles against the unmerged build output
+  and throws `FieldAccessException` at runtime in the IDE. Do not add `InternalsVisibleTo` between Roslyn
+  components; expose the shared identity publicly (see `DiagnosticLibrary`).
 - Source-generator changes normally require tests in `src/tests/SourceGenerator.UnitTests`.
 
 ## Runtime project rules

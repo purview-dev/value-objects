@@ -21,9 +21,9 @@
 		<Using Include="Purview.ValueObjects.SourceGenerator.Common" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<!-- The code-fix assembly shares the diagnostic descriptors and type library without
-		     acquiring any Workspaces dependency in this assembly. -->
-		<InternalsVisibleTo Include="Purview.ValueObjects.SourceGenerator.Refactorings" />
-	</ItemGroup>
+	<!-- The code-fix assembly (SourceGenerator.Refactorings) consumes the diagnostic identities produced
+	     here through public members, never through internals. Do not add an InternalsVisibleTo for it:
+	     consumers receive the merged, self-contained analyzer the Purview.SourceGeneratorFramework merge
+	     pass produces, and that pass strips every InternalsVisibleTo declaration, so internal coupling
+	     compiles against the unmerged build output and then fails with FieldAccessException in the IDE. -->
 </Project>
