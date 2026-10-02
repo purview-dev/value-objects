@@ -148,6 +148,53 @@ public sealed class EntityFrameworkCompatibilityTests
 	}
 #endif
 
+	/// <summary>
+	/// A value object column declared by a base type that is not an entity type is mapped on the entity type
+	/// that owns the row. The registry used to configure the property through its declaring type, which added
+	/// that type - and its own value object conversion - to the model while the registry was enumerating the
+	/// model, so creating a model for an entity with an inherited value object column threw
+	/// <c>InvalidOperationException</c>.
+	/// </summary>
+	[Test]
+	public async Task InheritedValueObjectColumn_GivenBaseTypeOutsideTheModel_IsMappedThroughTheEntityType()
+	{
+		// Arrange
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		// Act - creating the model is the operation that used to throw.
+		var property = context
+			.Model.FindEntityType(typeof(CompatibilityInheritedEntity))!
+			.FindProperty(nameof(CompatibilityAuditedEntity.LastChangeCode));
+		var baseEntityType = context.Model.FindEntityType(typeof(CompatibilityAuditedEntity));
+
+		// Assert - the base type is not an entity type, and the inherited column keeps its conversion.
+		await Assert.That(baseEntityType).IsNull();
+		await Assert.That(property).IsNotNull();
+		await Assert.That(property!.GetTypeMapping().Converter?.ProviderClrType).IsEqualTo(typeof(string));
+	}
+
+	[Test]
+	public async Task InheritedValueObjectColumn_GivenRowWithInheritedValue_RoundTrips()
+	{
+		// Arrange
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+		await context.Database.EnsureCreatedAsync();
+
+		CompatibilityInheritedEntity entity = new() { LastChangeCode = CompatibilityCode.Create("INHERITED") };
+		context.InheritedEntities.Add(entity);
+
+		// Act
+		await context.SaveChangesAsync();
+		var generated = entity.Id;
+		context.ChangeTracker.Clear();
+		var found = await context.InheritedEntities.SingleAsync(row => row.Id == generated);
+
+		// Assert
+		await Assert.That(found.LastChangeCode).IsEqualTo(CompatibilityCode.Create("INHERITED"));
+	}
+
 	static System.Reflection.PropertyInfo? CompiledModelReaderWriter(object converter) =>
 		converter.GetType().GetProperty("JsonReaderWriter");
 

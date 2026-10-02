@@ -452,6 +452,57 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(registryText).Contains(".Property(");
 	}
 
+	/// <summary>
+	/// The registry configures a property through the entity type that owns it rather than the property's
+	/// declaring type. An inherited property is declared by a base type that is usually not an entity type at
+	/// all, and asking the model builder for that base type adds an entity type to the model while the
+	/// registry is still enumerating it, which throws <c>InvalidOperationException</c> at model creation.
+	/// </summary>
+	[Test]
+	public async Task EFRegistry_GivenInheritedScalarValueObjectProperty_MapsThroughTheOwningEntityType(
+		CancellationToken cancellationToken
+	)
+	{
+		// Arrange — the value object column is declared by a base type that is not part of the model.
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct UserId
+				{
+					public System.Guid Value { get; }
+				}
+
+				public abstract class AuditedEntity
+				{
+					public UserId CreatedById { get; set; }
+				}
+
+				public sealed class Order : AuditedEntity
+				{
+					public System.Guid Id { get; set; }
+				}
+			}
+			""";
+
+		// Act
+		var result = await GenerateAsync(
+			source,
+			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var registryText = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+
+		// Assert — the conversion is declared on the entity type being configured, and the entity types are
+		// snapshotted so configuring a property cannot invalidate the enumeration.
+		await Assert.That(registryText).Contains("modelBuilder.Entity(entityType.ClrType!).Property(");
+		await Assert.That(registryText).DoesNotContain(".DeclaringType");
+		await Assert.That(registryText).Contains("GetEntityTypes().ToList()");
+	}
+
 	[Test]
 	public async Task EFRegistry_IncludesComplexTypeAndJsonMappings(CancellationToken cancellationToken)
 	{

@@ -6,6 +6,13 @@
 
 	<Import Sdk="Purview.BuildSdk" Project="Sdk.props" />
 
+	<ItemGroup>
+		<NamespaceRemoveSuffix Remove="SourceGenerator" />
+		<NamespaceRemoveSuffix Remove="CodeFixes" />
+		<NamespaceRemoveSuffix Remove="Analyzers" />
+		<NamespaceRemoveSuffix Remove="Persistence" />
+	</ItemGroup>
+
 	<PropertyGroup Label="Purview site URL metadata">
 		<PurviewHomepage>https://purview.dev/</PurviewHomepage>
 		<PurviewProjectUrl>$(PurviewHomepage)projects/value-objects/</PurviewProjectUrl>

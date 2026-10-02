@@ -21,15 +21,15 @@ public static class ZodSharpSourceGenerators
 	const string GeneratorTypeName = "ZodSharp.SourceGenerators.ZodSchemaGenerator";
 	const string AnalyzerTypeName = "ZodSharp.SourceGenerators.ZodSchemaAnalyzer";
 
-	static readonly Lazy<Type> s_generator = new(() => Resolve(GeneratorTypeName));
+	static readonly Lazy<Type> GeneratorFactory = new(() => Resolve(GeneratorTypeName));
 
-	static readonly Lazy<Type> s_analyzer = new(() => Resolve(AnalyzerTypeName));
+	static readonly Lazy<Type> AnalyzerFactory = new(() => Resolve(AnalyzerTypeName));
 
 	/// <summary>Gets the ZodSharp schema source generator type.</summary>
-	public static Type Generator => s_generator.Value;
+	public static Type Generator => GeneratorFactory.Value;
 
 	/// <summary>Gets the ZodSharp schema diagnostic analyzer type.</summary>
-	public static Type Analyzer => s_analyzer.Value;
+	public static Type Analyzer => AnalyzerFactory.Value;
 
 	static Type Resolve(string typeName)
 	{

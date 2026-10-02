@@ -85,6 +85,24 @@ sealed class CompatibilityEntity
 }
 
 /// <summary>
+/// A base type that declares a scalar value object column while not being an entity type itself. Entities that
+/// derive from it inherit the property, so the generated registry has to map it through the entity type that
+/// owns the row rather than through the property's declaring type.
+/// </summary>
+abstract class CompatibilityAuditedEntity
+{
+	/// <summary>Gets or sets the code of the last change applied to the row.</summary>
+	public CompatibilityCode LastChangeCode { get; set; }
+}
+
+/// <summary>An entity whose mapped value object column is inherited from a base type that is not in the model.</summary>
+sealed class CompatibilityInheritedEntity : CompatibilityAuditedEntity
+{
+	/// <summary>Gets or sets the generated key.</summary>
+	public CompatibilityId Id { get; set; }
+}
+
+/// <summary>
 /// The context under test. It maps the value objects through the generated registry and registers the
 /// generated key value generator convention, exactly as an application would.
 /// </summary>
@@ -92,6 +110,9 @@ sealed class CompatibilityDbContext(DbContextOptions<CompatibilityDbContext> opt
 {
 	/// <summary>Gets the entity set.</summary>
 	public DbSet<CompatibilityEntity> Entities => Set<CompatibilityEntity>();
+
+	/// <summary>Gets the entity set whose value object column is inherited.</summary>
+	public DbSet<CompatibilityInheritedEntity> InheritedEntities => Set<CompatibilityInheritedEntity>();
 
 	protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
 	{
