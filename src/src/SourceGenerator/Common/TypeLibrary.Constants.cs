@@ -8,6 +8,8 @@ public static partial class TypeLibrary
 	// {Member}FullName constants (those are only available in a later pass) and are kept as literals.
 	// The TypeLibrary also exposes generated *FullName constants (via [TypeRef(generateFullNameConst: true)])
 	// which the generator's runtime logic uses instead of hard-coded type names.
+	public const string ValueObjectsNamespace = "Purview.ValueObjects";
+
 	public const string SerializationNamespace = "Purview.ValueObjects.Serialization";
 
 	public const string ValueObjectAttributeFullTypeName = SerializationNamespace + ".ValueObjectAttribute";
@@ -50,6 +52,24 @@ public static partial class TypeLibrary
 
 	/// <summary>The empty base path passed to a generated <c>RefineCtx&lt;T&gt;</c>.</summary>
 	public const string ZodEmptyPathExpression = "global::System.Collections.Immutable.ImmutableArray<string>.Empty";
+
+	/// <summary>The ZodSharp rule contract the scalar rule adapter forwards to.</summary>
+	public const string ZodValidationRuleName = "IValidationRule";
+
+	/// <summary>
+	/// The metadata name used to detect a Purview.ZodSharp runtime reference: the adapter can only compile
+	/// when the rule interface is available.
+	/// </summary>
+	public const string ZodValidationRuleMetadataName = ZodSharpCoreNamespace + "." + ZodValidationRuleName + "`1";
+
+	/// <summary>The scalar rule adapter emitted into consumer compilations that reference ZodSharp.</summary>
+	public const string ScalarRuleAdapterName = "ScalarRuleAdapter";
+
+	/// <summary>The adapter's metadata name, used to skip emission when a consumer declares its own.</summary>
+	public const string ScalarRuleAdapterMetadataName = ValueObjectsNamespace + "." + ScalarRuleAdapterName + "`3";
+
+	/// <summary>The hint name the adapter source is registered under.</summary>
+	public const string ScalarRuleAdapterHintName = ScalarRuleAdapterName + ".g.cs";
 
 	public const string EFValueObjectEFNamespace = "Microsoft.EntityFrameworkCore";
 

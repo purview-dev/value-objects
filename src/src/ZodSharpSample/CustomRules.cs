@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.CodeAnalysis;
 using Purview.ValueObjects.Serialization;
 using ZodSharp;
 using ZodSharp.Core;
@@ -47,30 +46,14 @@ sealed class NonEmptyAttribute : ValidationAttribute
 }
 
 /// <summary>
-/// Turns an existing rule written against a scalar's underlying value into a rule that validates the scalar
-/// value object as a unit. It is how a normal rule (for example <see cref="NonSentinelRule{T}"/>) is reused
-/// for a scalar without re-authoring it against <see cref="IScalarValueObject{TSelf, TValue}"/>.
-/// </summary>
-[SuppressMessage(
-	"Design",
-	"CA1005:Avoid excessive parameters on generic types",
-	Justification = "The three type parameters are the scalar, its underlying value, and the adapted rule; all three are required."
-)]
-#pragma warning disable ZODSGEN042 // This is a composition adapter, not a rule with its own error identity.
-readonly record struct ScalarRuleAdapter<TSelf, TValue, TRule>(TRule Rule) : IValidationRule<TSelf>
-	where TSelf : IScalarValueObject<TSelf, TValue>
-	where TRule : IValidationRule<TValue>
-{
-	public bool IsValid(in TSelf value) => Rule.IsValid(value.Value);
-
-	public string GetErrorMessage(in TSelf value) => Rule.GetErrorMessage(value.Value);
-}
-#pragma warning restore ZODSGEN042
-
-/// <summary>
 /// The scalar-aware member of the non-sentinel rule family: it adapts <see cref="NonSentinelRule{T}"/> for a
 /// Guid-backed scalar value object and owns the reported error identity.
 /// </summary>
+/// <remarks>
+/// The <see cref="Purview.ValueObjects.ScalarRuleAdapter{TSelf, TValue, TRule}"/> it composes is emitted into
+/// this project by the value-object generator, which runs because the project references both
+/// <c>Purview.ValueObjects</c> and <c>Purview.ZodSharp</c>.
+/// </remarks>
 readonly record struct NonSentinelScalarRule<TSelf>(string? Message = null) : IValidationRule<TSelf>, IZodRule
 	where TSelf : IScalarValueObject<TSelf, Guid>
 {

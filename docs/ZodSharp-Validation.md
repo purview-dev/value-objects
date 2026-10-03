@@ -231,12 +231,14 @@ forwards `result.Errors` (`ImmutableArray<ValidationError>`) into a `ZodExceptio
 
 A rule written against the underlying value (for example `NonSentinelRule<Guid>`) validates that value, not
 the value object: closing it with the scalar type (`NonSentinelRule<AssetId>`) compiles but always passes,
-because the sentinel check only knows the primitive. Either put the attribute on the `Value` member, or adapt
-the rule with a `ScalarRuleAdapter` and expose it as a scalar rule family member:
+because the sentinel check only knows the primitive.
+
+The value-object generator emits `ScalarRuleAdapter<TSelf, TValue, TRule>` into every project that references
+both `Purview.ValueObjects` and `Purview.ZodSharp`. It turns such a rule into one that validates the value
+object as a unit:
 
 ```csharp
-// Turns any IValidationRule<TValue> into an IValidationRule<TSelf> for a scalar value object.
-public readonly record struct ScalarRuleAdapter<TSelf, TValue, TRule>(TRule Rule) : IValidationRule<TSelf>
+internal readonly record struct ScalarRuleAdapter<TSelf, TValue, TRule>(TRule Rule) : IValidationRule<TSelf>
     where TSelf : IScalarValueObject<TSelf, TValue>
     where TRule : IValidationRule<TValue>
 {
@@ -244,7 +246,33 @@ public readonly record struct ScalarRuleAdapter<TSelf, TValue, TRule>(TRule Rule
 
     public string GetErrorMessage(in TSelf value) => Rule.GetErrorMessage(value.Value);
 }
+```
 
+Do not declare it yourself. A project that already declares its own copy (the guidance before the generator
+emitted it) is detected and the generated copy is skipped, so both keep compiling.
+
+ZodSharp applies the adapter automatically when a rule is applied to a `[Scalar]` type, so the common case
+needs no extra code:
+
+```csharp
+[Scalar]
+[ZodSchema]
+[NonSentinel(Message = "AssetId must not be empty.")]   // [ZodRule(typeof(NonSentinelRule<>))]
+public readonly partial record struct AssetId
+{
+    public Guid Value { get; init; }
+}
+```
+
+The generator closes `NonSentinelRule<>` with the underlying `Guid` and wraps it in
+`ScalarRuleAdapter<AssetId, Guid, NonSentinelRule<Guid>>`, so the rule runs against the value object with an
+empty path. See ZodSharp's [Custom Rules](https://purview.dev/docs/zodsharp/custom-rules/) for the release
+that introduced the automatic adaptation.
+
+When a rule must see the value object itself, expose it as a scalar rule family member and let the adapter do
+the wiring:
+
+```csharp
 // The scalar-aware family member. The attribute name encodes the rule name, so [NonSentinelScalar] maps to it.
 public readonly record struct NonSentinelScalarRule<TSelf>(string? Message = null)
     : IValidationRule<TSelf>, IZodRule
@@ -266,11 +294,8 @@ public readonly record struct NonSentinelScalarRule<TSelf>(string? Message = nul
 public sealed class NonSentinelScalarAttribute : ValidationAttribute { }
 ```
 
-`ScalarRuleAdapter` has three type parameters, so it cannot be referenced directly from `[ZodRule]` (which
-addresses a non-generic rule or an arity-1 generic). Compose it inside a named family member as above, or
-construct it directly for programmatic use. Copy `ScalarRuleAdapter` into a rules library that references both
-`Purview.ValueObjects` and `Purview.ZodSharp` — a source generator cannot read another generator's output, so
-the adapter cannot be shipped as a generator-emitted type that a rules library sees.
+The adapter is `internal`, so it is only usable from source in the project that references both packages. A
+rules library is the natural home for a composed family member, and it gets its own generated copy.
 
 ### ZodSharp integration diagnostics
 

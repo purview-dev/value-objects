@@ -60,6 +60,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (spc, tuple) => EmitComplexResult(spc, tuple.Left, tuple.Right.Left, tuple.Right.Right)
 		);
 
+		RegisterZodSharpScalarRuleAdapterOutput(context, generationContext);
+
 		RegisterEFRegistryOutput(
 			context,
 			scalarCandidates,
@@ -104,6 +106,32 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		var writer = generationContext.CreateCodeWriter();
 		ComplexValueObjectEmitter.Emit(writer, result.Value, emitEF: !efDisabled);
 		context.AddSource(result.Value.HintName, writer);
+	}
+
+	static void RegisterZodSharpScalarRuleAdapterOutput(
+		IncrementalGeneratorInitializationContext context,
+		IncrementalValueProvider<GeneratorContext> generationContext
+	)
+	{
+		// The adapter only compiles when the ZodSharp runtime is referenced, and it is skipped when the
+		// consumer declares its own so the copied adapters the earlier guidance produced keep working.
+		var adapterState = context.CompilationProvider.Select(
+			static (compilation, _) => ZodSharpScalarRuleAdapterEmitter.ResolveState(compilation)
+		);
+
+		context.RegisterSourceOutput(
+			adapterState.Combine(generationContext),
+			static (spc, tuple) =>
+			{
+				var (state, generationContext) = tuple;
+				if (generationContext.Settings.IsSourceGeneratorDisabled || !state.ShouldEmit)
+					return;
+
+				var writer = generationContext.CreateCodeWriter();
+				ZodSharpScalarRuleAdapterEmitter.Emit(writer);
+				spc.AddSource(TypeLibrary.ScalarRuleAdapterHintName, writer);
+			}
+		);
 	}
 
 	static void RegisterEFRegistryOutput(

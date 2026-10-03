@@ -71,4 +71,9 @@ static partial class TypeLibrarySpec
 
 	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
 	static readonly TypeIdentity IComplexType = default;
+
+	// The ZodSharp runtime rule contract. Only referenced by the scalar rule adapter, which is emitted
+	// when the consuming project references Purview.ZodSharp, so the name is resolved as text elsewhere.
+	[TypeRef("ZodSharp.Core", arity: 1)]
+	static readonly TypeIdentity IValidationRule = default;
 }
