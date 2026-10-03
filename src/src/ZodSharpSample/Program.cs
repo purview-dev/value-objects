@@ -13,6 +13,10 @@ Console.WriteLine("== Zod refinement hook (OnZodValidate) ==");
 RefinementHookValidation();
 
 Console.WriteLine();
+Console.WriteLine("== Type-level custom rules on scalars ==");
+CustomRuleValidation();
+
+Console.WriteLine();
 Console.WriteLine("== Schema-first validation (hand-built schemas) ==");
 SchemaFirstValidation();
 
@@ -117,6 +121,43 @@ static void RefinementHookValidation()
 	// Hydrate is replay-safe: the refinement hook is not re-run.
 	var replayed = CorporateEmail.Hydrate("demo@gmail.com");
 	Console.WriteLine($"CorporateEmail.Hydrate('demo@gmail.com') -> '{replayed.Value}'");
+}
+
+static void CustomRuleValidation()
+{
+	// A type-level [ZodRule]-mapped attribute closes the generic rule with the scalar type, so the rule sees
+	// the value object as a unit. Create runs it through the ZodSharp schema; the rule owns the code and
+	// origin, so one attribute serves many scalars with a per-scalar code.
+	var assetId = AssetId.Create(Guid.NewGuid());
+	Console.WriteLine($"AssetId.Create(guid) -> '{assetId.Value}'");
+
+	try
+	{
+		AssetId.Create(Guid.Empty);
+		Console.WriteLine("AssetId.Create(Guid.Empty) -> no exception");
+	}
+	catch (ZodException ex)
+	{
+		Console.WriteLine($"AssetId.Create(Guid.Empty) -> {FormatErrors(ex.Errors)}");
+	}
+
+	// Hydrate is replay-safe: type-level rules are not re-run.
+	Console.WriteLine($"AssetId.Hydrate(Guid.Empty) -> '{AssetId.Hydrate(Guid.Empty).Value}'");
+
+	// A rule written for the underlying value (NonSentinelRule<Guid>) is reused for a scalar through the
+	// scalar rule family member that composes ScalarRuleAdapter.
+	var tenantId = TenantId.Create(Guid.NewGuid());
+	Console.WriteLine($"TenantId.Create(guid) -> '{tenantId.Value}'");
+
+	try
+	{
+		TenantId.Create(Guid.Empty);
+		Console.WriteLine("TenantId.Create(Guid.Empty) -> no exception");
+	}
+	catch (ZodException ex)
+	{
+		Console.WriteLine($"TenantId.Create(Guid.Empty) -> {FormatErrors(ex.Errors)}");
+	}
 }
 
 static void SchemaFirstValidation()

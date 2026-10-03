@@ -34,6 +34,7 @@ domain-appropriate exceptions. Keep validation pure and deterministic; it must n
 | Cross-field invariants | `partial void OnValidate(...)` in a `[ValueObject]` |
 | Owner/state-machine transitions | contextual `Create(TValue, in ValueObjectContext<TOwner>)` |
 | External schema rules / DTO validation | Purview.ZodSharp schemas (see `ZodSharp-Validation.md`) |
+| Per-scalar custom rules (ZodSharp) | `[ZodRule]`-mapped attribute closed with the value object (see `ZodSharp-Validation.md`) |
 
 Use the value object hooks for invariants that must hold for every construction path. Use ZodSharp when you need
 schema-driven validation (DataAnnotations-based `[ZodSchema]` validators, hand-built `Z.*` schemas, or DTO
@@ -133,6 +134,7 @@ query.
 | `TryCreate(...)` | Returns `false` instead of throwing. |
 | `Hydrate(...)` | Never validates. Persistence, replay, and deserialization use this path. |
 
-A ZodSharp `ZodException` carries one or more `ValidationError` entries with a code and a path, so the same
-error codes you use in hooks (`ErrorFactory`-style constants) flow to an ASP.NET Core Problem Details
-response when `Purview.ZodSharp.AspNetCore` is registered. See `ZodSharp-Validation.md`.
+A ZodSharp `ZodException` carries one or more `ValidationError` entries with a code, message, path, and an
+optional structured origin, so the same error codes you use in hooks (`ErrorFactory`-style constants) — or
+that a custom `[ZodRule]`-mapped rule reports — flow to an ASP.NET Core Problem Details response when
+`Purview.ZodSharp.AspNetCore` is registered. See `ZodSharp-Validation.md`.

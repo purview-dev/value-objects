@@ -1,4 +1,5 @@
 using ZodSharp.Core;
+using ZodSharp.Rules;
 
 namespace Purview.ValueObjects.Serialization;
 
@@ -72,5 +73,53 @@ public sealed class ZodSchemaIntegrationTests
 
 		// Assert
 		await Assert.That(created.Value).IsEqualTo("anything");
+	}
+
+	[Test]
+	public async Task AssetId_GivenTypeLevelCustomRule_ReportsRuleCodeAndOriginThroughCreate()
+	{
+		// Act
+		var created = AssetId.Create(Guid.NewGuid());
+
+		// Assert
+		await Assert.That(created.Value).IsNotEqualTo(Guid.Empty);
+
+		var exception = await Assert.That(() => AssetId.Create(Guid.Empty)).Throws<ZodException>();
+		var error = exception!.Errors.Single(candidate => candidate.Code == "invalid_asset_id");
+		await Assert.That(error.Message).IsEqualTo("AssetId must not be empty.");
+		// A type-level rule validates the value object as a unit, so it owns the structured origin and
+		// reports an empty path.
+		await Assert.That(error.Origin).IsEqualTo("value_object");
+		await Assert.That(error.Path).IsEmpty();
+
+		// Hydrate stays replay-safe: the rule is not re-run.
+		await Assert.That(AssetId.Hydrate(Guid.Empty).Value).IsEqualTo(Guid.Empty);
+	}
+
+	[Test]
+	public async Task TenantId_GivenAdaptedNormalRule_RejectsSentinelValueThroughCreate()
+	{
+		// Act
+		var created = TenantId.Create(Guid.NewGuid());
+
+		// Assert
+		await Assert.That(created.Value).IsNotEqualTo(Guid.Empty);
+
+		var exception = await Assert.That(() => TenantId.Create(Guid.Empty)).Throws<ZodException>();
+		await Assert.That(exception!.Errors.Any(error => error.Code == NonSentinelRule<Guid>.ErrorCode)).IsTrue();
+
+		// Hydrate stays replay-safe: the rule is not re-run.
+		await Assert.That(TenantId.Hydrate(Guid.Empty).Value).IsEqualTo(Guid.Empty);
+	}
+
+	[Test]
+	public async Task ScalarRuleAdapter_GivenUnderlyingRule_ValidatesScalarAsUnit()
+	{
+		// Arrange: the adapter is the seam that turns a normal underlying-value rule into a scalar rule.
+		ScalarRuleAdapter<TenantId, Guid, NonSentinelRule<Guid>> adapter = new(new NonSentinelRule<Guid>());
+
+		// Act & Assert
+		await Assert.That(adapter.IsValid(TenantId.Hydrate(Guid.NewGuid()))).IsTrue();
+		await Assert.That(adapter.IsValid(TenantId.Hydrate(Guid.Empty))).IsFalse();
 	}
 }

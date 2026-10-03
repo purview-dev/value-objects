@@ -132,7 +132,7 @@ See the `src/src/Sample`, `src/src/EFDomainSample.Persistence` (domain + persist
 ## Validation with ZodSharp
 
 Validate value objects with [Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp), a C# port of
-Zod. Three patterns are supported:
+Zod. Several patterns are supported:
 
 - **Generator-integrated** – a value object annotated with both `[Scalar]`/`[ValueObject]` and `[ZodSchema]` has
   its generated `Create` wired to the ZodSharp-generated schema (`Create` throws `ZodException` on invalid input).
@@ -140,6 +140,9 @@ Zod. Three patterns are supported:
   `ZodSchemaMode.InsteadOfHooks` opts out of the `OnValidate` hook.
 - **Generated validators** – annotate a value object or DTO with `[ZodSchema]` + DataAnnotations; a source
   generator emits a zero-allocation `{Type}Schema` validator (`EmailAddressSchema.Validate(email)`).
+- **Custom rules on scalars** – a `[ZodRule]`-mapped attribute closes a rule with the value object, so a rule
+  written against `IScalarValueObject<TSelf, TValue>` validates the scalar as a unit and owns the reported
+  `Code`/`Origin`. Reuse a rule written for the underlying value via `ScalarRuleAdapter`.
 - **Schema-first** – build a schema for the scalar's underlying value (`Z.String().Email()`, `Z.Number()`,
   `Z.Enum<>()`) and construct the value object through its strict `Create` factory.
 

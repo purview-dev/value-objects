@@ -373,4 +373,97 @@ public sealed class ZodSchemaValidationGeneratorTests
 		await Assert.That(acceptsValid).IsTrue();
 		await Assert.That(rejectsInvalid).IsTrue();
 	}
+
+	[Test]
+	public async Task Scalar_GivenTypeLevelCustomRule_ReportsRuleCodeAndOriginThroughCreate(
+		CancellationToken cancellationToken
+	)
+	{
+		// A type-level [ZodRule]-mapped attribute closes the generic rule with the scalar type, so the rule
+		// sees the value object as a unit. The generated Create runs it through the ZodSharp schema, which
+		// reports the rule's own code and origin with an empty path.
+		const string source = """
+			using System;
+			using System.ComponentModel.DataAnnotations;
+			using ZodSharp;
+			using ZodSharp.Core;
+
+			namespace Testing
+			{
+				public readonly record struct NonEmptyRule<TSelf>(string? Code = null, string? Message = null)
+					: IValidationRule<TSelf>, IZodRule
+					where TSelf : Purview.ValueObjects.IScalarValueObject<TSelf, Guid>
+				{
+					public const string ErrorCode = "invalid_value";
+					public const string MessageFormat = "Value must not be empty.";
+
+					public bool IsValid(in TSelf value) => value.Value != Guid.Empty;
+
+					public string GetErrorMessage(in TSelf value) => Message ?? MessageFormat;
+
+					string IValidationRule<TSelf>.Code => Code ?? ErrorCode;
+
+					string? IZodRule.Code => Code;
+
+					string? IZodRule.Origin => "value_object";
+				}
+
+				[ZodRule(typeof(NonEmptyRule<>))]
+				[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+				public sealed class NonEmptyAttribute : ValidationAttribute
+				{
+					public string? Code { get; set; }
+
+					public string? Message { get; set; }
+				}
+
+				[Scalar]
+				[ZodSchema]
+				[NonEmpty(Code = "invalid_asset_id", Message = "AssetId must not be empty.")]
+				public readonly partial record struct AssetId
+				{
+					public Guid Value { get; }
+				}
+
+				public static class Harness
+				{
+					public static bool CreateSucceeds() => AssetId.Create(Guid.NewGuid()).Value != Guid.Empty;
+
+					public static string? CreateReportsOrigin()
+					{
+						try
+						{
+							AssetId.Create(Guid.Empty);
+							return null;
+						}
+						catch (global::ZodSharp.Core.ZodException exception)
+						{
+							foreach (var error in exception.Errors)
+							{
+								if (error.Code == "invalid_asset_id")
+									return error.Origin;
+							}
+
+							return "no-code";
+						}
+					}
+
+					public static bool HydrateIsReplaySafe() => AssetId.Hydrate(Guid.Empty).Value == Guid.Empty;
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly!.GetType("Testing.Harness")!;
+
+		var createSucceeds = (bool)harness.GetMethod("CreateSucceeds")!.Invoke(null, null)!;
+		var origin = (string?)harness.GetMethod("CreateReportsOrigin")!.Invoke(null, null);
+		var hydrateSafe = (bool)harness.GetMethod("HydrateIsReplaySafe")!.Invoke(null, null)!;
+
+		await Assert.That(createSucceeds).IsTrue();
+		await Assert.That(origin).IsEqualTo("value_object");
+		await Assert.That(hydrateSafe).IsTrue();
+	}
 }
