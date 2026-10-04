@@ -18,10 +18,10 @@ dotnet run --project src/src/ZodSharpSample
 - **Zod refinement hooks** — `CorporateEmail` implements the generated `OnZodValidate(RefineCtx<T>)` hook to
   add a rule ZodSharp's DataAnnotations cannot express; the generated `Create` merges the hook's issues with
   the schema's own, while `Hydrate` stays replay-safe.
-- **Type-level custom rules on scalars** — `AssetId` carries a `[ZodRule]`-mapped `[NonEmpty]` attribute whose
-  rule reads the value object as a unit and owns its `Code`/`Origin`. `TenantId` reuses the normal
-  `NonSentinelRule<Guid>` for a scalar through `ScalarRuleAdapter`, and the generated `Create` surfaces the
-  rule's code and message while `Hydrate` stays replay-safe.
+- **Type-level rules on scalars** — `AssetId` and `UserId` use the built-in `[NonSentinel]` attribute that
+  ships with `Purview.ZodSharp`. Its rule is written against the underlying value, so the ZodSharp generator
+  adapts it automatically through `ScalarRuleAdapter`; `Create` surfaces the rule's code and message while
+  `Hydrate` stays replay-safe. One attribute serves every scalar backed by the same primitive.
 - **Generated validators on value objects** — `EmailAddressSchema.Validate/Parse` and
   `CurrencyCodeSchema.Validate` validate the value object directly; `ApplyRefine` composes extra
   rules such as "only example.com addresses allowed".

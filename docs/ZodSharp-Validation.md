@@ -172,49 +172,101 @@ CorporateEmail.Hydrate("demo@gmail.com");  // replay-safe: no validation runs
 ### Custom rules on scalars
 
 ZodSharp rules are first-class, and a scalar value object is validated as a **unit** (its single `Value` *is*
-the value). A `[ZodRule]`-mapped attribute closes an unbound generic rule with the annotated type, so a rule
-constrained to the value-object contract sees the whole value object:
+the value). Purview.ZodSharp ships a validation attribute for every built-in rule in the `ZodSharp.Rules`
+namespace, so the common checks need no hand-written rule or attribute:
+
+| Attribute | Rule | Notes |
+| --- | --- | --- |
+| `[NonSentinel(Message = "…")]` | `NonSentinelRule<T>` | Rejects `Guid.Empty`, the `DateTime`/`DateTimeOffset`/`DateOnly`/`TimeOnly` bounds, and null/empty/whitespace strings. |
+| `[Email]` | `EmailRule` | |
+| `[E164]` | `E164Rule` | |
+| `[UUID(UuidVersion.V4)]` | `UUIDRule` | A rule value without a default becomes a required attribute constructor argument. |
+| `[MinLengthZod(3)]` | `MinLengthRule` | The `Zod` suffix avoids a clash with `System.ComponentModel.DataAnnotations.MinLengthAttribute` (also `[MaxLengthZod]`, `[UrlZod]`, `[PhoneZod]`, `[CreditCardZod]`, `[Base64StringZod]`). |
+
+Each attribute mirrors its rule's constructor: a rule value without a default (the `minLength` of
+`MinLengthRule`, the bound of `MinValueRule<T>`, …) is a **required constructor argument**, while an optional
+value keeps its default. The rule's `message` and `code` stay named properties (`[NonSentinel(Message = "…",
+Code = "…")]`), so an error code or message can be overridden per use.
+
+The same attributes work on a primitive member and on a `[Scalar]` type. On a scalar, an attribute whose rule
+is written against the underlying value is **adapted automatically** (see
+[Reusing a normal rule for a scalar](#reusing-a-normal-rule-for-a-scalar)); on a member it validates the member
+directly.
+
+```csharp
+using ZodSharp;
+using ZodSharp.Rules;
+
+[Scalar]
+[ZodSchema]
+[NonSentinel(Message = "AssetId must not be empty.")]
+public readonly partial record struct AssetId
+{
+    public Guid Value { get; init; }
+}
+```
+
+`AssetId.Create(Guid.Empty)` throws a `ZodException` whose error carries `Code = "invalid_value"` (the rule's
+own `ErrorCode`), no structured `Origin`, and an **empty path** (the rule applies to the value object, not a
+member). Because the rule runs inside the generated schema, `Hydrate` stays replay-safe and the value-objects
+layer needs no extra code.
+
+#### Writing a custom rule attribute
+
+A custom rule is exposed as a `[ZodRule]`-mapped attribute in one of two ways.
+
+**1. Map a hand-authored attribute to the rule.** Declare a `ValidationAttribute` and point it at the rule with
+`[ZodRule(typeof(...))]`; the open generic form serves a primitive member and a scalar:
 
 ```csharp
 using ZodSharp.Core;
 
 // Reads the value object through IScalarValueObject<TSelf, TValue>. Implementing IZodRule lets the rule own
 // its error identity, so one attribute can report a different code per scalar.
-public readonly record struct NonEmptyRule<TSelf>(string? Code = null, string? Message = null)
+public readonly record struct NoWhitespaceRule<TSelf>(string? Message = null)
     : IValidationRule<TSelf>, IZodRule
-    where TSelf : IScalarValueObject<TSelf, Guid>
+    where TSelf : IScalarValueObject<TSelf, string>
 {
-    public bool IsValid(in TSelf value) => value.Value != Guid.Empty;
+    public const string ErrorCode = "invalid_string";
+    public const string MessageFormat = "Value must not contain whitespace.";
 
-    public string GetErrorMessage(in TSelf value) => Message ?? "Value must not be empty.";
+    public bool IsValid(in TSelf value) => !value.Value.Any(char.IsWhiteSpace);
 
-    string? IZodRule.Code => Code;
+    public string GetErrorMessage(in TSelf value) => Message ?? MessageFormat;
+
+    string? IZodRule.Code => ErrorCode;
 
     string? IZodRule.Origin => "value_object";
 }
 
-[ZodRule(typeof(NonEmptyRule<>))]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class NonEmptyAttribute : ValidationAttribute
+[ZodRule(typeof(NoWhitespaceRule<>))]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property)]
+public sealed class NoWhitespaceAttribute : ValidationAttribute
 {
-    public string? Code { get; set; }
     public string? Message { get; set; }
-}
-
-[Scalar]
-[ZodSchema]
-[NonEmpty(Code = "invalid_asset_id", Message = "AssetId must not be empty.")]
-public readonly partial record struct AssetId
-{
-    public Guid Value { get; }
 }
 ```
 
-`AssetId.Create(Guid.Empty)` throws a `ZodException` whose error carries `Code = "invalid_asset_id"`,
-`Origin = "value_object"`, and an **empty path** (the rule applies to the value object, not a member). Because
-the rule runs inside the generated schema, `Hydrate` stays replay-safe and the value-objects layer needs no
-extra code. A rule should expose `public const string ErrorCode` and `public const string MessageFormat`;
-ZodSharp reports `ZODSGEN042` otherwise.
+**2. Let the generator write the attribute.** Mark the rule with the parameterless `[ZodRule]` marker and the
+ZodSharp generator emits a `{RuleName}Attribute` in the rule's namespace (a trailing `Rule` becomes
+`Attribute`; a name that clashes with a `System.ComponentModel.DataAnnotations` attribute gets a `Zod`
+suffix):
+
+```csharp
+[ZodRule] // the generator emits NoWhitespaceAttribute
+public readonly record struct NoWhitespaceRule<TSelf>(string? Message = null)
+    : IValidationRule<TSelf>, IZodRule
+    where TSelf : IScalarValueObject<TSelf, string>
+{
+    // ...
+}
+```
+
+The generator runs over the compilation that declares the rule, so the marker form suits a rule in the same
+project (or in a rules library that references Purview.ZodSharp). A rule that accepts a `code`/`origin`
+constructor parameter must implement `IZodRule`, or ZodSharp reports `ZODSGEN039`. A rule should also expose
+`public const string ErrorCode` and `public const string MessageFormat`; ZodSharp reports `ZODSGEN042`
+otherwise.
 
 The reported `Code`/`Origin` resolve in this order (first match wins):
 
@@ -252,50 +304,29 @@ Do not declare it yourself. A project that already declares its own copy (the gu
 emitted it) is detected and the generated copy is skipped, so both keep compiling.
 
 ZodSharp applies the adapter automatically when a rule is applied to a `[Scalar]` type, so the common case
-needs no extra code:
+needs no extra code. The built-in `[NonSentinel]` is exactly this shape — its rule is written against the
+underlying value and the generator adapts it:
 
 ```csharp
+using ZodSharp;
+using ZodSharp.Rules;
+
 [Scalar]
 [ZodSchema]
-[NonSentinel(Message = "AssetId must not be empty.")]   // [ZodRule(typeof(NonSentinelRule<>))]
-public readonly partial record struct AssetId
+[NonSentinel(Message = "UserId must not be empty.")]
+public readonly partial record struct UserId
 {
     public Guid Value { get; init; }
 }
 ```
 
 The generator closes `NonSentinelRule<>` with the underlying `Guid` and wraps it in
-`ScalarRuleAdapter<AssetId, Guid, NonSentinelRule<Guid>>`, so the rule runs against the value object with an
-empty path. See ZodSharp's [Custom Rules](https://purview.dev/docs/zodsharp/custom-rules/) for the release
-that introduced the automatic adaptation.
-
-When a rule must see the value object itself, expose it as a scalar rule family member and let the adapter do
-the wiring:
-
-```csharp
-// The scalar-aware family member. The attribute name encodes the rule name, so [NonSentinelScalar] maps to it.
-public readonly record struct NonSentinelScalarRule<TSelf>(string? Message = null)
-    : IValidationRule<TSelf>, IZodRule
-    where TSelf : IScalarValueObject<TSelf, Guid>
-{
-    public bool IsValid(in TSelf value) =>
-        new ScalarRuleAdapter<TSelf, Guid, NonSentinelRule<Guid>>(new(Message)).IsValid(value);
-
-    public string GetErrorMessage(in TSelf value) =>
-        new ScalarRuleAdapter<TSelf, Guid, NonSentinelRule<Guid>>(new(Message)).GetErrorMessage(value);
-
-    string? IZodRule.Code => NonSentinelRule<Guid>.ErrorCode;
-
-    string? IZodRule.Origin => "value_object";
-}
-
-[ZodRule(typeof(NonSentinelScalarRule<>))]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class NonSentinelScalarAttribute : ValidationAttribute { }
-```
-
-The adapter is `internal`, so it is only usable from source in the project that references both packages. A
-rules library is the natural home for a composed family member, and it gets its own generated copy.
+`ScalarRuleAdapter<UserId, Guid, NonSentinelRule<Guid>>`, so the rule runs against the value object with an
+empty path and the **wrapped** rule owns the reported `Code` (the built-in rules report no structured
+`Origin`). One attribute serves every scalar backed by the same primitive. The runnable version lives in
+`src/src/ZodSharpSample/NonSentinelModels.cs`. See ZodSharp's
+[Custom Rules](https://purview.dev/docs/zodsharp/custom-rules/) for the rule contract and the shipped
+attributes.
 
 ### ZodSharp integration diagnostics
 
@@ -307,8 +338,9 @@ The value-object analyzer reports the integration states that would otherwise pa
 | `VO1015` | Error | `[ZodSchema(SchemaName = "...")]` is not a valid C# identifier, which ZodSharp applies verbatim and this generator cannot reference. Generation is skipped for that type. |
 
 ZodSharp's own diagnostics cover the refinement hook (`ZODSGEN034`-`ZODSGEN036`) and the rule mapping and
-convention checks (`ZODSGEN030`-`ZODSGEN042`, for example `ZODSGEN042` for a rule that omits `ErrorCode`/
-`MessageFormat`); see ZodSharp's
+convention checks (`ZODSGEN030`-`ZODSGEN043`, for example `ZODSGEN042` for a rule that omits `ErrorCode`/
+`MessageFormat`, or `ZODSGEN043` for a built-in rule that cannot produce a validation attribute); see
+ZodSharp's
 [Source Generator Diagnostics](https://purview.dev/docs/zodsharp/source-generator-diagnostics/) for the full
 list.
 
@@ -552,8 +584,9 @@ Tests that run the value-object generator and the ZodSharp generator together co
 - **Real compile (integration):** `src/tests/ValueObjects.IntegrationTests` declares `[Scalar]` +
   `[ZodSchema]` fixtures and asserts runtime behaviour directly — both generators run in the real
   compiler for that project, so nothing has to be reflected or registered. The fixtures include type-level
-  custom rules (`Serialization/ZodSchemaRuleModels.cs`), so rule `Code`/`Origin` propagation through `Create`
-  is covered end-to-end.
+  custom rules (`Serialization/ZodSchemaRuleModels.cs`), including a rule written against the underlying
+  value that the ZodSharp generator adapts automatically, so rule `Code`/`Origin` and the empty path are
+  covered end-to-end.
 
 The loaded generator carries its own framework implementation, so it keeps its own log sink and
 CodeWriter scope validation: do not assert on its log entries, and leave `ValidateCodeWriterScopes`

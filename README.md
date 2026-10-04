@@ -140,10 +140,10 @@ Zod. Several patterns are supported:
   `ZodSchemaMode.InsteadOfHooks` opts out of the `OnValidate` hook.
 - **Generated validators** – annotate a value object or DTO with `[ZodSchema]` + DataAnnotations; a source
   generator emits a zero-allocation `{Type}Schema` validator (`EmailAddressSchema.Validate(email)`).
-- **Custom rules on scalars** – a `[ZodRule]`-mapped attribute closes a rule with the value object, so a rule
-  written against `IScalarValueObject<TSelf, TValue>` validates the scalar as a unit and owns the reported
-  `Code`/`Origin`. A rule written for the underlying value is adapted automatically via the generator-emitted
-  `ScalarRuleAdapter`.
+- **Custom rules on scalars** – Purview.ZodSharp ships a validation attribute for every built-in rule (for
+  example `[NonSentinel(Message = "…")]`), and a custom `[ZodRule]`-mapped attribute validates the scalar as a
+  unit and owns the reported `Code`/`Origin`. A rule written for the underlying value is adapted automatically
+  via the generator-emitted `ScalarRuleAdapter`.
 - **Schema-first** – build a schema for the scalar's underlying value (`Z.String().Email()`, `Z.Number()`,
   `Z.Enum<>()`) and construct the value object through its strict `Create` factory.
 

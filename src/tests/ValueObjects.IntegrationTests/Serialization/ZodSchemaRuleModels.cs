@@ -1,120 +1,75 @@
-using System.ComponentModel.DataAnnotations;
 using ZodSharp;
-using ZodSharp.Core;
 using ZodSharp.Rules;
 
 namespace Purview.ValueObjects.Serialization;
 
 /// <summary>
-/// A custom rule that validates a scalar value object <em>as a unit</em>. It reads the value object through
-/// its <see cref="IScalarValueObject{TSelf, TValue}"/> contract, so the same rule serves every Guid-backed
-/// scalar. Implementing <see cref="IZodRule"/> lets the rule own the reported error code and origin, which is
-/// how one attribute can produce a different code per annotated scalar.
-/// </summary>
-/// <remarks>
-/// This is the supported shape for a rule that must observe the value object rather than its
-/// <c>Value</c>. A generic rule must have exactly one type parameter, so the underlying value type is pinned
-/// by the constraint: define one rule per primitive
-/// (<c>NonEmptyRule&lt;TSelf&gt; where TSelf : IScalarValueObject&lt;TSelf, Guid&gt;</c>, a <c>long</c>
-/// variant, and so on).
-/// </remarks>
-public readonly record struct NonEmptyRule<TSelf>(string? Code = null, string? Message = null)
-	: IValidationRule<TSelf>,
-		IZodRule
-	where TSelf : IScalarValueObject<TSelf, Guid>
-{
-	public const string ErrorCode = "invalid_value";
-	public const string MessageFormat = "Value must not be empty.";
-
-	public bool IsValid(in TSelf value) => value.Value != Guid.Empty;
-
-	public string GetErrorMessage(in TSelf value) => Message ?? MessageFormat;
-
-	// IValidationRule<T>.Code is the rule's own default; IZodRule.Code is the optional per-use override, so
-	// the generator prefers a code supplied where the attribute is applied and falls back to ErrorCode.
-	string IValidationRule<TSelf>.Code => Code ?? ErrorCode;
-
-	string? IZodRule.Code => Code;
-
-	string? IZodRule.Origin => "value_object";
-}
-
-/// <summary>
-/// Maps <see cref="NonEmptyRule{TSelf}"/> to a type-level DataAnnotations attribute. The ZodSharp generator
-/// closes the open generic with the annotated scalar type, so the rule validates the value object as a unit
-/// and reports an empty path.
-/// </summary>
-[ZodRule(typeof(NonEmptyRule<>))]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class NonEmptyAttribute : ValidationAttribute
-{
-	public string? Code { get; set; }
-
-	public string? Message { get; set; }
-}
-
-/// <summary>
-/// The scalar-aware member of the non-sentinel rule family: it adapts <see cref="NonSentinelRule{T}"/> for a
-/// Guid-backed scalar value object and owns the reported error identity.
-/// </summary>
-/// <remarks>
-/// The <see cref="Purview.ValueObjects.ScalarRuleAdapter{TSelf, TValue, TRule}"/> it composes is emitted into
-/// this project by the value-object generator, which runs because the project references both
-/// <c>Purview.ValueObjects</c> and <c>Purview.ZodSharp</c>.
-/// </remarks>
-public readonly record struct NonSentinelScalarRule<TSelf>(string? Message = null) : IValidationRule<TSelf>, IZodRule
-	where TSelf : IScalarValueObject<TSelf, Guid>
-{
-	public const string ErrorCode = NonSentinelRule<Guid>.ErrorCode;
-	public const string MessageFormat = NonSentinelRule<Guid>.MessageFormat;
-
-	public bool IsValid(in TSelf value) =>
-		new ScalarRuleAdapter<TSelf, Guid, NonSentinelRule<Guid>>(new NonSentinelRule<Guid>(Message)).IsValid(value);
-
-	public string GetErrorMessage(in TSelf value) =>
-		new ScalarRuleAdapter<TSelf, Guid, NonSentinelRule<Guid>>(new NonSentinelRule<Guid>(Message)).GetErrorMessage(
-			value
-		);
-
-	string? IZodRule.Code => NonSentinelRule<Guid>.ErrorCode;
-
-	string? IZodRule.Origin => "value_object";
-}
-
-/// <summary>
-/// Maps <see cref="NonSentinelScalarRule{TSelf}"/> to a type-level attribute. The attribute name encodes the
-/// rule name (<c>NonSentinelScalarAttribute</c> → <c>NonSentinelScalarRule</c>) so the mapping addresses the
-/// whole family.
-/// </summary>
-[ZodRule(typeof(NonSentinelScalarRule<>))]
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class NonSentinelScalarAttribute : ValidationAttribute
-{
-	public string? Message { get; set; }
-}
-
-/// <summary>
-/// A Guid-backed scalar whose validation is driven entirely by a type-level custom rule
-/// (<see cref="NonEmptyAttribute"/>). The generated <c>Create</c> validates the value object through the
-/// ZodSharp-generated schema, which reports the rule's own <c>Code</c> and <c>Origin</c>.
+/// Dual-generator fixtures for type-level rules on scalars: the value-object generator and the
+/// Purview.ZodSharp generator both run over this project. The built-in <c>[NonSentinel]</c> attribute (shipped
+/// in <c>ZodSharp.Rules</c>) is written against the underlying value, so the ZodSharp generator adapts it
+/// automatically through the <see cref="ScalarRuleAdapter{TSelf, TValue, TRule}"/> the
+/// value-object generator emits — no hand-authored rule or attribute is required.
 /// </summary>
 [Scalar]
 [ZodSchema]
-[NonEmpty(Code = "invalid_asset_id", Message = "AssetId must not be empty.")]
+[NonSentinel(Message = "AssetId must not be empty.")]
 public readonly partial record struct AssetId
 {
 	public Guid Value { get; }
 }
 
 /// <summary>
-/// A Guid-backed scalar whose validation reuses the normal <see cref="NonSentinelRule{T}"/> through
-/// <see cref="NonSentinelScalarRule{TSelf}"/>, showing a rule written for an underlying value applied to a
-/// scalar value object as a unit.
+/// A second Guid-backed scalar using the same built-in <see cref="NonSentinelRule{T}"/> attribute, showing one
+/// attribute serving every scalar backed by the same primitive.
 /// </summary>
 [Scalar]
 [ZodSchema]
-[NonSentinelScalar]
-public readonly partial record struct TenantId
+[NonSentinel(Message = "UserId must not be empty.")]
+public readonly partial record struct UserId
 {
 	public Guid Value { get; }
+}
+
+/// <summary>
+/// A third Guid-backed scalar using the same built-in attribute.
+/// </summary>
+[Scalar]
+[ZodSchema]
+[NonSentinel(Message = "ExternalId must not be empty.")]
+public readonly partial record struct ExternalId
+{
+	public Guid Value { get; }
+}
+
+/// <summary>
+/// A Guid-backed scalar that overrides the rule's error code through the attribute, showing the built-in
+/// <see cref="NonSentinelRule{T}"/> <c>code</c> parameter flowing into the reported error.
+/// </summary>
+[Scalar]
+[ZodSchema]
+[NonSentinel(Code = "invalid_correlation_id", Message = "CorrelationId must not be empty.")]
+public readonly partial record struct CorrelationId
+{
+	public Guid Value { get; }
+}
+
+/// <summary>
+/// A <c>[ZodSchema]</c> DTO whose members use the built-in validation attributes that ship in
+/// <c>ZodSharp.Rules</c>: <c>[Email]</c>, <c>[E164]</c>, <c>[UUID]</c>, and <c>[MinLengthZod]</c> (the
+/// DataAnnotations name-collision suffix). The generated <c>ContactDtoSchema</c> validates them.
+/// </summary>
+[ZodSchema]
+public sealed partial class ContactDto
+{
+	[Email]
+	public string Email { get; init; } = string.Empty;
+
+	[E164]
+	public string Phone { get; init; } = string.Empty;
+
+	[UUID(UuidVersion.V4)]
+	public string Id { get; init; } = string.Empty;
+
+	[MinLengthZod(3)]
+	public string Code { get; init; } = string.Empty;
 }
