@@ -182,4 +182,48 @@ public sealed class ZodSharpScalarRuleAdapterGeneratorTests
 		await Assert.That(state.IsZodSharpReferenced).IsTrue();
 		await Assert.That(state.ShouldEmit).IsTrue();
 	}
+
+	[Test]
+	public async Task ResolveState_GivenReferencedCompilationDeclaresTheAdapter_WantsTheAdapter()
+	{
+		// The IDE models a project reference as a compilation reference, so the referenced project's
+		// generated adapter is visible here with syntax references even though it is internal. It cannot be
+		// used by this compilation, so it must not suppress the copy this compilation's generated validators
+		// bind to.
+		const string referencedAdapter = """
+			namespace Purview.ValueObjects
+			{
+				internal readonly record struct ScalarRuleAdapter<TSelf, TValue, TRule>(TRule Rule);
+			}
+			""";
+
+		var referenced = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+			"ReferencedProject",
+			[Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(referencedAdapter)],
+			[Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location)],
+			new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+				Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary
+			)
+		);
+
+		var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+			"Consumer",
+			[Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Consumer { class C { } }")],
+			[
+				Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+				Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(
+					typeof(ZodSharp.Core.IValidationRule<>).Assembly.Location
+				),
+				referenced.ToMetadataReference(),
+			],
+			new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+				Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary
+			)
+		);
+
+		var state = ZodSharpScalarRuleAdapterEmitter.ResolveState(compilation);
+
+		await Assert.That(state.AdapterAlreadyDeclared).IsFalse();
+		await Assert.That(state.ShouldEmit).IsTrue();
+	}
 }

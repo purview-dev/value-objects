@@ -36,8 +36,8 @@ static class ZodSharpScalarRuleAdapterEmitter
 	/// <param name="compilation">The compilation being generated for.</param>
 	/// <remarks>
 	/// Only a declaration in this compilation counts. A referenced assembly that also emitted its own adapter
-	/// declares it <see langword="internal"/>, so it is invisible to this compilation's name lookup and must
-	/// not suppress the local copy.
+	/// declares it <see langword="internal"/>, so it is inaccessible from this compilation and must not
+	/// suppress the local copy: the generated validators bind to the copy this compilation emits.
 	/// </remarks>
 	public static EmissionState ResolveState(Compilation compilation) =>
 		new(
@@ -45,8 +45,14 @@ static class ZodSharpScalarRuleAdapterEmitter
 			AdapterAlreadyDeclared: IsDeclaredInSource(compilation)
 		);
 
+	/// <summary>
+	/// Looks the adapter up in this compilation's own assembly. <c>Compilation.GetTypeByMetadataName</c> also
+	/// searches referenced assemblies and ignores accessibility, and the IDE models a project reference as a
+	/// compilation reference, so a referenced project's generated adapter would otherwise look like a source
+	/// declaration and suppress the copy this compilation's generated validators bind to.
+	/// </summary>
 	static bool IsDeclaredInSource(Compilation compilation) =>
-		compilation.GetTypeByMetadataName(TypeLibrary.ScalarRuleAdapterMetadataName)
+		compilation.Assembly.GetTypeByMetadataName(TypeLibrary.ScalarRuleAdapterMetadataName)
 			is { DeclaringSyntaxReferences.Length: > 0 };
 
 	/// <summary>Emits the adapter.</summary>
