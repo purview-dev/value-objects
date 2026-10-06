@@ -13,6 +13,9 @@ jobs:
     name: Build and test
     uses: purview-dev/build/.github/workflows/purview-build.yml@main
     with:
+      # The shared workflow defaults to the 10.0.x SDK, which cannot build the net11.0 target this
+      # repository gained (NETSDK1045). Keep in sync with `sdk.version` in global.json.
+      dotnet-version: "11.0.100-rc.1.26425.128"
       run-pack: true
       validate-pack: true
     secrets: inherit
