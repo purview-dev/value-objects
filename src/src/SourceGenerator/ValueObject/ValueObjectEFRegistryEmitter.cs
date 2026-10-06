@@ -275,15 +275,78 @@ static class ValueObjectEFRegistryEmitter
 		);
 	}
 
+	/// <summary>
+	/// Emits the predicate deciding which CLR properties the registry may configure.
+	/// </summary>
+	/// <remarks>
+	/// <para>
+	/// The loop below configures a property with <c>modelBuilder.Entity(t).Property(type, name)</c>, which is
+	/// <em>explicit</em> configuration and therefore outranks <c>[NotMapped]</c> and <c>Ignore(...)</c>. The
+	/// predicate used to be "has a non-static getter", so the registry pulled deliberately excluded members
+	/// back into the model — an unasked-for column and migration — and, for a computed setter-less property,
+	/// broke the model outright: Entity Framework Core's own validation fails with "No backing field could be
+	/// found ... and the property does not have a setter", so the whole <c>DbContext</c> would not build.
+	/// </para>
+	/// <para>
+	/// Emitted as a local function rather than inlined so the rule exists once and is readable in the
+	/// generated output.
+	/// </para>
+	/// </remarks>
+	static void EmitMappablePropertyPredicate(CodeWriter writer)
+	{
+		writer.Block(
+			"static bool IsMappableValueObjectProperty("
+				+ "global::Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType, "
+				+ "global::System.Reflection.PropertyInfo property)",
+			body =>
+			{
+				body.Line("// Not readable, or not an instance member: never mapped.")
+					.Line("if (property.GetMethod is null || property.GetMethod.IsStatic)")
+					.Line("\treturn false;")
+					.Line("")
+					.Line("// The author excluded it with [NotMapped].")
+					.Line(
+						"if (global::System.Reflection.CustomAttributeExtensions"
+							+ ".GetCustomAttribute<global::System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>"
+							+ "(property) is not null)"
+					)
+					.Line("\treturn false;")
+					.Line("")
+					.Line("// The author excluded it with modelBuilder.Entity<T>().Ignore(...).")
+					.Line(
+						"if (((global::Microsoft.EntityFrameworkCore.Metadata.IConventionEntityType)entityType)"
+							+ ".FindIgnoredConfigurationSource(property.Name) is not null)"
+					)
+					.Line("\treturn false;")
+					.Line("")
+					.Line("// Computed and setter-less: there is nowhere to materialize into, and configuring it")
+					.Line("// fails Entity Framework Core's field-mapping validation. A get-only auto-property is")
+					.Line("// different - it has a compiler-generated backing field, which EF maps - so the check is")
+					.Line("// for that field rather than merely for a missing setter.")
+					.Line("if (property.SetMethod is null && property.DeclaringType is { } declaringType")
+					.Line(
+						"\t&& declaringType.GetField($\"<{property.Name}>k__BackingField\", "
+							+ "global::System.Reflection.BindingFlags.Instance | "
+							+ "global::System.Reflection.BindingFlags.NonPublic) is null)"
+					)
+					.Line("\treturn false;")
+					.Line("")
+					.Line("return true;");
+			}
+		);
+	}
+
 	static void EmitScalarConversionLoop(CodeWriter writer)
 	{
+		EmitMappablePropertyPredicate(writer);
+
 		// The entity types are snapshotted: configuring a property adds it to the model, and an enumerator
 		// over the live collection throws as soon as the set of entity types changes underneath it.
 		writer.Block(
 			"foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())",
 			entityType =>
 				entityType.Block(
-					"foreach (var property in entityType.ClrType.GetProperties().Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic))",
+					"foreach (var property in entityType.ClrType.GetProperties().Where(p => IsMappableValueObjectProperty(entityType, p)))",
 					property =>
 						property.IfElse(
 							"scalarMappings.TryGetValue(property.PropertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",

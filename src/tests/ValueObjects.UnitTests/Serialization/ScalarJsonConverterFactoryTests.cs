@@ -16,18 +16,34 @@ public sealed class ScalarJsonConverterFactoryTests
 	[Test]
 	public async Task Deserialize_StrictScalarMode_UsesCreate()
 	{
+		// The validation failure surfaces as JsonException, with the factory's own exception as the inner
+		// one. It used to escape as a bare ArgumentException, which ASP.NET Core treats as an unhandled
+		// exception — a 500 rather than a 400, and with no JSON path identifying the offending value.
 		var options = CreateOptions();
-		var threw = false;
-		try
-		{
-			_ = JsonSerializer.Deserialize<StrictEmailAddress>("\"not-an-email\"", options);
-		}
-		catch (ArgumentException)
-		{
-			threw = true;
-		}
 
-		await Assert.That(threw).IsTrue();
+		var exception = Assert.Throws<JsonException>(() =>
+			JsonSerializer.Deserialize<StrictEmailAddress>("\"not-an-email\"", options)
+		);
+
+		await Assert.That(exception).IsNotNull();
+		await Assert.That(exception!.InnerException).IsTypeOf<ArgumentException>();
+	}
+
+	[Test]
+	public async Task Deserialize_StrictScalarMode_FailureCarriesTheJsonPath()
+	{
+		// Arrange — the whole point of reporting JsonException is that System.Text.Json attaches the
+		// position, so a caller can tell which member of the payload was rejected.
+		var options = CreateOptions();
+
+		// Act
+		var exception = Assert.Throws<JsonException>(() =>
+			JsonSerializer.Deserialize<StrictEmailHolder>("""{"Email":"not-an-email"}""", options)
+		);
+
+		// Assert
+		await Assert.That(exception).IsNotNull();
+		await Assert.That(exception!.Path).IsEqualTo("$.Email");
 	}
 
 	[Test]

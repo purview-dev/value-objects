@@ -8,6 +8,21 @@
 		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;</PackageTags>
 	</PropertyGroup>
 
+	<!--
+		Trimming and Native AOT. IsAotCompatible turns on IsTrimmable plus the trim and AOT analyzers, so a
+		regression is a build warning here rather than a runtime failure in a consumer's published app.
+
+		The assembly is clean under both analyzers. The one deliberately reflection-based component,
+		ScalarJsonConverterFactory, declares its requirement with [RequiresUnreferencedCode] and
+		[RequiresDynamicCode] on its constructor, so a host that registers it in a trimmed or AOT build is
+		warned at the opt-in site. That mirrors how the BCL annotates JsonSerializer. Generated scalar value
+		objects do not need the factory: they carry a [JsonConverter] pointing at a generated, reflection-free
+		converter, which is the trim- and AOT-safe default path.
+	-->
+	<PropertyGroup Label="Trimming and Native AOT">
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<ProjectReference
 			Include="..\SourceGenerator\SourceGenerator.csproj"

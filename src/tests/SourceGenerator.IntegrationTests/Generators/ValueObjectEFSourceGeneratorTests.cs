@@ -499,8 +499,14 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		// Assert — the conversion is declared on the entity type being configured, and the entity types are
 		// snapshotted so configuring a property cannot invalidate the enumeration.
 		await Assert.That(registryText).Contains("modelBuilder.Entity(entityType.ClrType!).Property(");
-		await Assert.That(registryText).DoesNotContain(".DeclaringType");
 		await Assert.That(registryText).Contains("GetEntityTypes().ToList()");
+
+		// The inherited property must not be configured against its declaring type: the base type is not
+		// part of the model. Asserted against the configuration call specifically — the mappability
+		// predicate also consults DeclaringType, to locate a compiler-generated backing field, and that is
+		// unrelated to which entity type the conversion is declared on.
+		await Assert.That(registryText).DoesNotContain("modelBuilder.Entity(property.DeclaringType");
+		await Assert.That(registryText).DoesNotContain("Entity(property.DeclaringType!)");
 	}
 
 	[Test]
