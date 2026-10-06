@@ -75,6 +75,14 @@ public class EFNotMappedTests
 		await Assert.That(loaded.Email).IsEqualTo(EmailAddress.Create("someone@example.com"));
 	}
 
+	// The connection's lifetime is deliberately handed to the context, which closes it in its own Dispose
+	// override. An in-memory SQLite database exists only while the connection is open, so it cannot be
+	// disposed here without destroying the schema the test just created.
+	[System.Diagnostics.CodeAnalysis.SuppressMessage(
+		"Reliability",
+		"CA2000:Dispose objects before losing scope",
+		Justification = "Ownership transfers to SelectiveMappingDbContext, which disposes it."
+	)]
 	static SelectiveMappingDbContext CreateContext()
 	{
 		SqliteConnection connection = new("DataSource=:memory:");

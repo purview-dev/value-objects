@@ -17,7 +17,6 @@ These govern the declaration shape a value object must have for the generator to
 | `VO1002` | Error | The value object is nested inside another type. | Move it to its own top-level type. Nesting is not supported. |
 | `VO1003` | Error | The value object is generic. | Remove the type parameters, or declare one concrete value object per closed type. |
 | `VO1004` | Error | A `[Scalar]` type does not declare the configured scalar property. | Declare the property, or set `ScalarAttribute.PropertyName` to the one you have. |
-| `VO1005` | Error | A `[Scalar]` type declares no constructor matching its scalar value. | Add a constructor taking the scalar's underlying type. |
 | `VO1006` | Warning | A `[Scalar]` type is not a `readonly record struct`. | Prefer `readonly record struct` so equality, immutability and allocation behaviour match the contract. |
 | `VO1007` | Warning | `ValueObjectDeserializationMode.Strict` is set but no `Create` overload exists to re-validate through. | Add the `Create` overload, or use the default `Hydrate` mode. |
 | `VO1008` | Error | `[Scalar]` and `[ValueObject]` are both applied to the same type. | Pick one. A scalar wraps a single primitive; a value object composes members. |
@@ -47,9 +46,15 @@ See [Entity Framework integration](Entity-Framework.md) for the mapping model.
 
 ## Retired identifiers
 
-`VO1011`, `VO1012`, `VO1014` and `VO1020` were used during development and withdrawn before release. They are
-**not** reported by any version and are **never reused**, so the numbering is intentionally discontinuous. Treat
-an occurrence of one of these IDs as stale tooling or a stale suppression, and remove it.
+`VO1005`, `VO1011`, `VO1012`, `VO1014` and `VO1020` were used during development and withdrawn before release.
+They are **not** reported by any version and are **never reused**, so the numbering is intentionally
+discontinuous. Treat an occurrence of one of these IDs as stale tooling or a stale suppression, and remove it.
+
+`VO1005` ("scalar constructor is missing") is worth calling out, because it was listed as an `Error` in the
+analyzer catalogue and documented here as requiring you to declare a constructor. It never had a reporting
+site, and the requirement it described was the opposite of how the generator works: when a `[Scalar]` type
+declares no constructor taking the scalar's underlying type, the generator **emits a private one**. You do not
+need to declare it, and nothing ever asked you to.
 
 ## Release tracking
 

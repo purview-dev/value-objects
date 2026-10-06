@@ -112,14 +112,19 @@ been published to NuGet. No stable release has been cut yet; the published line 
 
 - **All nine remaining diagnostics moved from `AnalyzerReleases.Unshipped.md` into
   `AnalyzerReleases.Shipped.md`** under the existing `## Release 1.0.0` heading, so the catalogue records
-  all 17 rules as shipping in the first stable release. The heading was already there for `VO1001`–`VO1008`
+  all 16 rules as shipping in the first stable release. The heading was already there for `VO1001`–`VO1008`
   even though no 1.0.0 was ever tagged, so merging into it is what makes the file accurate.
+- **`VO1005` is retired rather than implemented.** The catalogue listed it as a shipped `Error` and the
+  documentation told you to add a constructor taking the scalar's underlying type, but it was absent from the
+  analyzer's `SupportedDiagnostics` and had no reporting site anywhere — it was declared in the initial commit
+  and never wired up, so it has never fired in any version. Implementing it would have been wrong: a missing
+  constructor is not an error condition. When a `[Scalar]` type declares no constructor matching its scalar
+  value, `ScalarValueObjectEmitter.EmitConstructor` **emits a private one**, which is the documented and
+  tested behaviour. The rule as written contradicted the generator. The id now sits with `VO1011`, `VO1012`,
+  `VO1014` and `VO1020` as retired and never reused, leaving 16 live rules.
 
 ### Still outstanding for a stable 1.0
 
-- `VO1005` (scalar constructor missing) is recorded as a shipped `Error` but is **not** in the analyzer's
-  `SupportedDiagnostics`, so nothing reports it. Either wire it up or record it as a removed rule before the
-  catalogue becomes a 1.0 contract.
 - `Purview.ZodSharp 2.0.1-prerelease.1` is resolvable only from the local feed, not nuget.org. A stable
   `Purview.ValueObjects` cannot be published until a stable `Purview.ZodSharp` is on nuget.org.
 

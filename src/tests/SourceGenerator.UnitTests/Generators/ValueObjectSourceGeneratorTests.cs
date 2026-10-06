@@ -175,7 +175,6 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 		var phoneNumber = query.GetRecord("PhoneNumber", "Testing");
 		var ctor = phoneNumber.GetConstructor(TypeRefs.String);
 		await Assert.That(ctor.Node.Modifiers.ToString()).Contains("private");
-		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ScalarConstructorMissing);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 

@@ -148,9 +148,9 @@ public sealed class ScalarJsonConverterFactory : JsonConverterFactory
 
 		public override TScalarObject Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 		{
-			var scalar = JsonSerializer.Deserialize<TScalar>(ref reader, options);
-			if (scalar is null)
-				throw new JsonException($"Cannot deserialize {typeof(TScalarObject).Name} from null.");
+			var scalar =
+				JsonSerializer.Deserialize<TScalar>(ref reader, options)
+				?? throw new JsonException($"Cannot deserialize {typeof(TScalarObject).Name} from null.");
 
 			try
 			{
