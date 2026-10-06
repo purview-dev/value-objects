@@ -6,7 +6,7 @@
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.68.17</TUnitVersion>
-		<PurviewSGFVersion>1.0.0-prerelease.54</PurviewSGFVersion>
+		<PurviewSGFVersion>1.0.0</PurviewSGFVersion>
 		<PurviewZodSharpVersion>2.0.1-prerelease.1</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
