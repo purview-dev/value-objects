@@ -6,6 +6,13 @@
 
 	<Import Sdk="Purview.BuildSdk" Project="Sdk.props" />
 
+	<ItemGroup>
+		<NamespaceRemoveSuffix Remove="SourceGenerator" />
+		<NamespaceRemoveSuffix Remove="CodeFixes" />
+		<NamespaceRemoveSuffix Remove="Analyzers" />
+		<NamespaceRemoveSuffix Remove="Persistence" />
+	</ItemGroup>
+
 	<PropertyGroup Label="Purview site URL metadata">
 		<PurviewHomepage>https://purview.dev/</PurviewHomepage>
 		<PurviewProjectUrl>$(PurviewHomepage)projects/value-objects/</PurviewProjectUrl>
@@ -15,7 +22,7 @@
 	<PropertyGroup Label="NuGet package metadata">
 		<Authors>Kieron Lanning</Authors>
 		<Company>Purview-Dev</Company>
-		<Copyright>Copyright � $(CurrentYear) Purview-Dev</Copyright>
+		<Copyright>Copyright © $(CurrentYear) Purview-Dev</Copyright>
 		<RepositoryUrl>https://github.com/purview-dev/value-objects.git</RepositoryUrl>
 		<PackageProjectUrl>$(PurviewProjectUrl)</PackageProjectUrl>
 		<RepositoryType>git</RepositoryType>

@@ -1,7 +1,7 @@
 site_name: Purview Value Objects
 site_description: Developer documentation for Purview Value Objects
 repo_url: https://github.com/purview-dev/value-objects
-edit_uri: edit/ef-integration/docs/
+edit_uri: edit/main/docs/
 docs_dir: docs
 
 theme:

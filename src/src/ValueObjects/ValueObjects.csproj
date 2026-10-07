@@ -1,11 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup Label="NuGet Package Values">
 		<IsPackable>true</IsPackable>
-		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-		<TargetFramework></TargetFramework>
+		<!-- Every shipped release plus the newest major. Selected from Purview.BuildSdk's 'All' set rather
+		     than listed here, so a runtime lifecycle change is an SDK bump instead of an edit in this
+		     file. net11.0 is covered by the Entity Framework compatibility matrix in
+		     src/tests/ValueObjects.EFCompatibility.IntegrationTests. -->
+		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
 		<Title>Purview Value Objects</Title>
 		<Description>Source-generated scalar and complex value objects for .NET. Brings F#-style single-case types to C# with Create/Hydrate factories, normalization, validation, equality, comparison, implicit conversions, and JSON serialization for DTOs, Entity Framework, and domain models.</Description>
 		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;</PackageTags>
+	</PropertyGroup>
+
+	<!--
+		Trimming and Native AOT. IsAotCompatible turns on IsTrimmable plus the trim and AOT analyzers, so a
+		regression is a build warning here rather than a runtime failure in a consumer's published app.
+
+		The assembly is clean under both analyzers. The one deliberately reflection-based component,
+		ScalarJsonConverterFactory, declares its requirement with [RequiresUnreferencedCode] and
+		[RequiresDynamicCode] on its constructor, so a host that registers it in a trimmed or AOT build is
+		warned at the opt-in site. That mirrors how the BCL annotates JsonSerializer. Generated scalar value
+		objects do not need the factory: they carry a [JsonConverter] pointing at a generated, reflection-free
+		converter, which is the trim- and AOT-safe default path.
+	-->
+	<PropertyGroup Label="Trimming and Native AOT">
+		<IsAotCompatible>true</IsAotCompatible>
 	</PropertyGroup>
 
 	<ItemGroup>

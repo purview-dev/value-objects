@@ -13,6 +13,10 @@ Console.WriteLine("== Zod refinement hook (OnZodValidate) ==");
 RefinementHookValidation();
 
 Console.WriteLine();
+Console.WriteLine("== Type-level custom rules on scalars ==");
+NonSentinelValidation();
+
+Console.WriteLine();
 Console.WriteLine("== Schema-first validation (hand-built schemas) ==");
 SchemaFirstValidation();
 
@@ -117,6 +121,42 @@ static void RefinementHookValidation()
 	// Hydrate is replay-safe: the refinement hook is not re-run.
 	var replayed = CorporateEmail.Hydrate("demo@gmail.com");
 	Console.WriteLine($"CorporateEmail.Hydrate('demo@gmail.com') -> '{replayed.Value}'");
+}
+
+static void NonSentinelValidation()
+{
+	// The built-in [NonSentinel] attribute ships with Purview.ZodSharp. Its rule is written against the
+	// underlying value, so the ZodSharp generator adapts it to the scalar automatically: Create runs it
+	// through the generated schema and the wrapped rule owns the reported code.
+	var assetId = AssetId.Create(Guid.NewGuid());
+	Console.WriteLine($"AssetId.Create(guid) -> '{assetId.Value}'");
+
+	try
+	{
+		AssetId.Create(Guid.Empty);
+		Console.WriteLine("AssetId.Create(Guid.Empty) -> no exception");
+	}
+	catch (ZodException ex)
+	{
+		Console.WriteLine($"AssetId.Create(Guid.Empty) -> {FormatErrors(ex.Errors)}");
+	}
+
+	// Hydrate is replay-safe: type-level rules are not re-run.
+	Console.WriteLine($"AssetId.Hydrate(Guid.Empty) -> '{AssetId.Hydrate(Guid.Empty).Value}'");
+
+	// The same built-in attribute serves every scalar backed by the same primitive.
+	var userId = UserId.Create(Guid.NewGuid());
+	Console.WriteLine($"UserId.Create(guid) -> '{userId.Value}'");
+
+	try
+	{
+		UserId.Create(Guid.Empty);
+		Console.WriteLine("UserId.Create(Guid.Empty) -> no exception");
+	}
+	catch (ZodException ex)
+	{
+		Console.WriteLine($"UserId.Create(Guid.Empty) -> {FormatErrors(ex.Errors)}");
+	}
 }
 
 static void SchemaFirstValidation()

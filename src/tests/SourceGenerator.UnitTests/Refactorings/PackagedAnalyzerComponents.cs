@@ -123,16 +123,19 @@ public sealed class PackagedAnalyzerComponents : IDisposable
 					StringComparison.OrdinalIgnoreCase
 				)
 			)
-			.OrderByDescending(path => File.GetLastWriteTimeUtc(path))
+			.OrderByDescending(File.GetLastWriteTimeUtc)
 			.ToArray();
 
 		if (candidates.Length == 0)
+		{
 			throw new FileNotFoundException(
 				"The merged, self-contained analyzer artifact was not found under "
 					+ $"'{mergedRoot}'. Building the solution runs the Purview.SourceGeneratorFramework merge pass that produces it.",
 				mergedRoot
 			);
+		}
 
+		// The merge pass produces a single artifact, but the intermediate output can contain multiple
 		return candidates[0];
 	}
 

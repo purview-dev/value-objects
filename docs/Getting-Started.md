@@ -174,6 +174,13 @@ constructed instance through `EmailAddressSchema` — `EmailAddress.Create("not-
 `ZodException`. Use `ZodSchemaMode.InsteadOfHooks` on the attribute to run the schema instead of the
 `OnValidate` hook.
 
+For rules that must observe the value object rather than its `Value`, map a `[ZodRule(typeof(...))]` attribute to
+a rule constrained to the value object. A rule written for the underlying value is adapted automatically (via
+the generator-emitted `ScalarRuleAdapter`) when applied to a `[Scalar]` type. The rule's `Code`/`Origin` flow
+through `Create` unchanged. See
+[Custom rules on scalars](ZodSharp-Validation.md#custom-rules-on-scalars) and
+[Reusing a normal rule for a scalar](ZodSharp-Validation.md#reusing-a-normal-rule-for-a-scalar).
+
 In ASP.NET Core, `Purview.ZodSharp.AspNetCore` converts those `ZodException`s into standard Problem
 Details responses — combine `ValueObjectDeserializationMode.Strict` with
 `AddZodSharpProblemDetails()` + `UseExceptionHandler()` so invalid request bodies return

@@ -25,6 +25,7 @@ static partial class ScalarValueObjectEmitter
 	static void EmitBody(CodeWriter writer, ScalarValueObjectModel model, bool emitEF)
 	{
 		EmitHookDeclarations(writer, model);
+		EmitScalarInterfaceValue(writer, model);
 		EmitFactories(writer, model);
 		EmitEmpty(writer, model);
 		EmitTryCreate(writer, model);
@@ -172,6 +173,31 @@ static partial class ScalarValueObjectEmitter
 			? model.ZodSchemaClassName!
 			: $"global::{model.TypeModel.Namespace}.{model.ZodSchemaClassName}";
 
+	/// <summary>
+	/// Satisfies <c>IScalarValueObject&lt;TSelf, TValue&gt;.Value</c> when the scalar member is named
+	/// something else.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="BuildInterfaces"/> adds <c>IScalarValueObject&lt;TSelf, TValue&gt;</c> to every scalar
+	/// value object, and that interface declares a member named <c>Value</c>. With
+	/// <c>[Scalar("Amount")]</c> the author declares <c>Amount</c> and no <c>Value</c>, so without this
+	/// the generated partial failed to compile with CS0535 — in generated code the consumer cannot edit.
+	/// Forwarding keeps the author's chosen name as the primary accessor while honouring the contract
+	/// the type already advertises; a consumer holding the interface sees <c>Value</c> regardless.
+	/// </remarks>
+	static void EmitScalarInterfaceValue(CodeWriter writer, ScalarValueObjectModel model)
+	{
+		if (string.Equals(model.ScalarPropertyName, "Value", StringComparison.Ordinal))
+			return;
+
+		writer.Property(
+			new("Value", model.ScalarTypeReference, TypeDeclarationAccessibility.Public)
+			{
+				ExpressionBody = model.ScalarPropertyName,
+			}
+		);
+	}
+
 	static void EmitEmpty(CodeWriter writer, ScalarValueObjectModel model)
 	{
 		if (!model.Options.GenerateEmpty || model.EmptyExists)
@@ -219,6 +245,21 @@ static partial class ScalarValueObjectEmitter
 						catchBlock.Return("false");
 					}
 				);
+
+				// A ZodSharp-validated Create throws ZodException, not ArgumentException, so without this
+				// catch TryCreate threw for every [ZodSchema] value object instead of returning false —
+				// the documented "try" contract did not hold for a headline feature.
+				if (model.HasZodSchemaValidation)
+				{
+					body.Block(
+						$"catch (global::{TypeLibrary.ZodExceptionTypeName})",
+						catchBlock =>
+						{
+							catchBlock.Assignment("result", "default!");
+							catchBlock.Return("false");
+						}
+					);
+				}
 			}
 		);
 	}

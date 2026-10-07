@@ -9,3 +9,7 @@ Strongly typed value objects with Entity Framework and ZodSharp validation integ
 - [Value object design](Value-Object-Design.md)
 - [Entity Framework integration](Entity-Framework.md)
 - [ZodSharp validation](ZodSharp-Validation.md)
+
+## Reference
+
+- [Diagnostics](Diagnostics.md) — every `VO1xxx` rule, what triggers it, and how to fix it

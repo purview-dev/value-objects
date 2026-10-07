@@ -70,4 +70,22 @@ types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = Enti
 the value object type directly — no `.Value` required — or the raw underlying value (`c.Email == "..."`,
 `m.Id == guid`). See `docs/Entity-Framework.md` for the full guide.
 
-See the `src/src/Sample` and `src/src/ZodSharpSample` projects for end-to-end examples.
+## Validation with ZodSharp
+
+Validate value objects with [Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp), a C# port of Zod:
+
+- **Generator-integrated** – a `[Scalar]`/`[ValueObject]` type that is also `[ZodSchema]` has its generated
+  `Create` wired to the ZodSharp-generated schema (`Create` throws `ZodException` on invalid input).
+  `ZodSchemaMode.InsteadOfHooks` opts out of the `OnValidate` hook; implement the generated
+  `OnZodValidate(RefineCtx<T>)` hook to add Zod-compatible refinements.
+- **Generated validators** – annotate a type with `[ZodSchema]` + DataAnnotations to get a zero-allocation
+  `{Type}Schema` validator.
+- **Custom rules on scalars** – Purview.ZodSharp ships a validation attribute for every built-in rule (for
+  example `[NonSentinel(Message = "…")]`), and a custom `[ZodRule]`-mapped attribute validates the scalar as a
+  unit and owns the reported `Code`/`Origin`. A rule written for the underlying value is adapted automatically
+  via the generator-emitted `ScalarRuleAdapter`.
+- **Schema-first** – build a schema for the underlying value (`Z.String().Email()`, `Z.Number()`, `Z.Enum<>()`)
+  and construct the value object through its strict `Create` factory.
+
+See `docs/ZodSharp-Validation.md` for the full guide, and the `src/src/ZodSharpSample` /
+`src/src/ZodSharp.AspNetCoreSample` projects for runnable examples.

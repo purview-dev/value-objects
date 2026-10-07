@@ -5,6 +5,7 @@ public record ValueObjectsGeneratorTestOptions : SourceGeneratorTestOptions
 	public static readonly string[] ValueObjectGeneratedTypes =
 	[
 		"EmbeddedAttribute.g.cs",
+		TypeLibrary.ScalarRuleAdapterHintName,
 		$"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs",
 	];
 

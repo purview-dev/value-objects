@@ -807,6 +807,14 @@ static class ValueObjectSymbolInspector
 			is not null;
 
 	/// <summary>
+	/// True when the compilation references the Purview.ZodSharp runtime. This is the only state in which the
+	/// scalar rule adapter can compile: it forwards a rule written against a value object's underlying value,
+	/// which is the <c>ZodSharp.Core.IValidationRule&lt;TValue&gt;</c> contract.
+	/// </summary>
+	public static bool IsZodSharpReferenced(Compilation compilation) =>
+		compilation.GetTypeByMetadataName(TypeLibrary.ZodValidationRuleMetadataName) is not null;
+
+	/// <summary>
 	/// True when the compilation references EF Core 8+, which introduced complex types
 	/// (<c>EntityTypeBuilder.ComplexProperty</c>).
 	/// </summary>

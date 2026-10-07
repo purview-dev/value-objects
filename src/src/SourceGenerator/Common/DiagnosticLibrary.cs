@@ -8,7 +8,7 @@ namespace Purview.ValueObjects.SourceGenerator.Common;
 /// self-contained analyzer that the Purview.SourceGeneratorFramework merge pass produces, and that
 /// pass strips every <c>InternalsVisibleTo</c> declaration from the artifact. Reaching these members
 /// through internals therefore compiles against the unmerged build output and then fails with a
-/// <see cref="System.FieldAccessException"/> in the IDE, as soon as Roslyn reads a fixable
+/// <see cref="FieldAccessException"/> in the IDE, as soon as Roslyn reads a fixable
 /// diagnostic id from the shipped analyzer. Public members are the only cross-component contract a
 /// merged artifact preserves.
 /// </para>
@@ -57,15 +57,11 @@ public static class DiagnosticLibrary
 		isEnabledByDefault: true
 	);
 
-	/// <summary>VO1005: Scalar constructor is missing </summary>
-	public static readonly DiagnosticDescriptor ScalarConstructorMissing = new(
-		id: "VO1005",
-		title: "Scalar constructor is missing",
-		messageFormat: "Scalar value object '{0}' must declare a constructor '{0}({1})' to support generated Create/Hydrate",
-		category: ValueObjectCategory,
-		defaultSeverity: DiagnosticSeverity.Error,
-		isEnabledByDefault: true
-	);
+	// VO1005 ("Scalar constructor is missing") is retired. It was declared in the initial commit and never
+	// had a reporting site, because a missing constructor is not an error condition: when a [Scalar] type
+	// declares no constructor taking the scalar's type, ScalarValueObjectEmitter.EmitConstructor emits a
+	// private one. Requiring the consumer to declare it, as the descriptor's message did, was the opposite
+	// of the generator's behaviour. The id is recorded as retired in docs/Diagnostics.md and never reused.
 
 	/// <summary>VO1006: Scalar value objects should be record structs </summary>
 	public static readonly DiagnosticDescriptor ScalarShouldBeRecordStruct = new(

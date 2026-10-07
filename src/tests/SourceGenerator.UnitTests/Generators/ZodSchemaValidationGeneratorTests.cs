@@ -373,4 +373,144 @@ public sealed class ZodSchemaValidationGeneratorTests
 		await Assert.That(acceptsValid).IsTrue();
 		await Assert.That(rejectsInvalid).IsTrue();
 	}
+
+	[Test]
+	public async Task Scalar_GivenNonSentinelRule_IsAdaptedThroughCreate(CancellationToken cancellationToken)
+	{
+		// The built-in [NonSentinel] attribute (shipped in ZodSharp.Rules) is written against the underlying
+		// value, so the ZodSharp generator closes it with the scalar's value type and wraps it in the
+		// ScalarRuleAdapter the value-object generator emits. The wrapped rule owns the error identity and
+		// reports an empty path.
+		const string source = """
+			using System;
+			using ZodSharp;
+			using ZodSharp.Rules;
+
+			namespace Testing
+			{
+				[Scalar]
+				[ZodSchema]
+				[NonSentinel(Message = "UserId must not be empty.")]
+				public readonly partial record struct UserId
+				{
+					public Guid Value { get; }
+				}
+
+				public static class Harness
+				{
+					public static bool CreateSucceeds() => UserId.Create(Guid.NewGuid()).Value != Guid.Empty;
+
+					public static string? CreateReportsCode()
+					{
+						try
+						{
+							UserId.Create(Guid.Empty);
+							return null;
+						}
+						catch (global::ZodSharp.Core.ZodException exception)
+						{
+							return exception.Errors.Length == 1 ? exception.Errors[0].Code : "unexpected-count";
+						}
+					}
+
+					public static int CreateReportsPathLength()
+					{
+						try
+						{
+							UserId.Create(Guid.Empty);
+							return -1;
+						}
+						catch (global::ZodSharp.Core.ZodException exception)
+						{
+							return exception.Errors[0].Path.Length;
+						}
+					}
+
+					public static bool HydrateIsReplaySafe() => UserId.Hydrate(Guid.Empty).Value == Guid.Empty;
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly!.GetType("Testing.Harness")!;
+
+		var createSucceeds = (bool)harness.GetMethod("CreateSucceeds")!.Invoke(null, null)!;
+		var code = (string?)harness.GetMethod("CreateReportsCode")!.Invoke(null, null);
+		var pathLength = (int)harness.GetMethod("CreateReportsPathLength")!.Invoke(null, null)!;
+		var hydrateSafe = (bool)harness.GetMethod("HydrateIsReplaySafe")!.Invoke(null, null)!;
+
+		await Assert.That(createSucceeds).IsTrue();
+		await Assert.That(code).IsEqualTo("invalid_value");
+		await Assert.That(pathLength).IsEqualTo(0);
+		await Assert.That(hydrateSafe).IsTrue();
+	}
+
+	[Test]
+	public async Task Class_GivenShippedMemberAttributes_ValidatesMembers(CancellationToken cancellationToken)
+	{
+		// [Email], [E164], [UUID], and [MinLengthZod] all ship in ZodSharp.Rules, so a consumer validates a
+		// DTO's members without hand-authoring a single rule attribute.
+		const string source = """
+			using System;
+			using ZodSharp;
+			using ZodSharp.Rules;
+
+			namespace Testing
+			{
+				[ZodSchema]
+				public sealed partial class ContactDto
+				{
+					[Email]
+					public string Email { get; init; } = string.Empty;
+
+					[E164]
+					public string Phone { get; init; } = string.Empty;
+
+					[UUID(UuidVersion.V4)]
+					public string Id { get; init; } = string.Empty;
+
+					[MinLengthZod(3)]
+					public string Code { get; init; } = string.Empty;
+				}
+
+				public static class Harness
+				{
+					public static bool ValidPasses() =>
+						ContactDtoSchema.Validate(
+							new ContactDto
+							{
+								Email = "demo@example.com",
+								Phone = "+14155552671",
+								Id = "123e4567-e89b-42d3-a456-426614174000",
+								Code = "abc",
+							}
+						).IsSuccess;
+
+					public static bool InvalidFails() =>
+						!ContactDtoSchema.Validate(
+							new ContactDto
+							{
+								Email = "not-an-email",
+								Phone = "not-a-phone",
+								Id = "not-a-uuid",
+								Code = "ab",
+							}
+						).IsSuccess;
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly!.GetType("Testing.Harness")!;
+
+		var validPasses = (bool)harness.GetMethod("ValidPasses")!.Invoke(null, null)!;
+		var invalidFails = (bool)harness.GetMethod("InvalidFails")!.Invoke(null, null)!;
+
+		await Assert.That(validPasses).IsTrue();
+		await Assert.That(invalidFails).IsTrue();
+	}
 }

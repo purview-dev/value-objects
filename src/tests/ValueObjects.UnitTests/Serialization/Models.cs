@@ -75,3 +75,11 @@ readonly partial record struct CustomerId
 
 	public static CustomerId Hydrate(Guid value) => new(value);
 }
+
+/// <summary>
+/// Holds a strict scalar, so a deserialization failure can be observed with a JSON path.
+/// </summary>
+sealed class StrictEmailHolder
+{
+	public StrictEmailAddress Email { get; set; }
+}
