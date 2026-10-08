@@ -3,10 +3,8 @@
 		<!-- One reference set per Entity Framework Core major version: EF Core 7 needs net8.0, EF Core 9 needs
 		     net9.0, and the centrally managed version covers net10.0 and net11.0. The generated code must
 		     compile and run against every one of them, which is what makes the EF Core 8 API gates verifiable.
-		     TargetFramework is cleared because the build SDK applies its single-framework default before this
-		     project body is evaluated. -->
-		<TargetFramework></TargetFramework>
-		<!-- Deliberately spelled out rather than selected through PurviewTargetFrameworkSet: each target
+
+		     Deliberately spelled out rather than selected through PurviewTargetFrameworkSet: each target
 		     below is paired with an explicit Entity Framework reference set, so a target arriving from a
 		     curated set would silently build with no EF pin of its own. Keep this list in step with the
 		     runtime's set (currently 'All') in src/src/ValueObjects/ValueObjects.csproj. -->

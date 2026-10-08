@@ -5,6 +5,9 @@
 		     (VO1013). That rule is covered by the analyzer unit tests, so it is opted out here rather
 		     than weakening the fixtures. -->
 		<NoWarn>$(NoWarn);VO1013</NoWarn>
+		<!-- Matches SharedTestingInfra, which the SDK auto-references into this project, and the centrally
+		     managed Entity Framework Core version's net10.0-only assets. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 
 	<ItemGroup>

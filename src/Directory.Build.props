@@ -2,14 +2,15 @@
 	<PropertyGroup>
 		<NamespacePrefix>Purview.ValueObjects</NamespacePrefix>
 		<ExcludePurviewTelemetry>true</ExcludePurviewTelemetry>
+		<!-- The runtime's reach, inherited by every project that does not name a narrower set. Selected
+		     through the SDK's set mechanism rather than assigned to TargetFrameworks after the import:
+		     assigning it applied the list to every project unconditionally, so a project could not narrow
+		     itself, and anything carrying a single Entity Framework Core 10 pin could not restore for
+		     net8.0/net9.0. Roslyn components are excluded by the SDK, which targets them at netstandard2.0. -->
+		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 
 	<Import Sdk="Purview.BuildSdk" Project="Sdk.props" />
-
-	<PropertyGroup Condition="'$(IsRoslynComponent)' != 'true'">
-		<TargetFramework></TargetFramework>
-		<TargetFrameworks>$(PurviewTargetFrameworksAll)</TargetFrameworks>
-	</PropertyGroup>
 
 	<ItemGroup>
 		<NamespaceRemoveSuffix Remove="SourceGenerator" />

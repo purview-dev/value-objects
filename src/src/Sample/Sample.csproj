@@ -2,6 +2,11 @@
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
+		<!-- Narrower than the repository's 'All': the centrally managed Entity Framework Core version ships
+		     net10.0 assets only, so net8.0/net9.0 cannot restore it. A sample does not need the runtime's
+		     full reach - ValueObjects.EFCompatibility.IntegrationTests is what proves the generated EF
+		     integration still compiles against the older targets. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 
 	<ItemGroup>
