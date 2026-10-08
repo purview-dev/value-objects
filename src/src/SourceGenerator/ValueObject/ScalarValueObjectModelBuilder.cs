@@ -49,35 +49,37 @@ static class ScalarValueObjectModelBuilder
 		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
 			typeSymbol.ContainingAssembly.GetAttributes()
 		);
+
+		var scalarAttribute = ScalarAttributeParser.Find(attributes);
+		if (scalarAttribute is null)
+			return GeneratorResult<ScalarValueObjectModel>.Create([.. diagnosticsList]);
+
 		var scalarOptions = ValueObjectDefaultsHelper.Apply(
-			ScalarAttributeData.FromAttributeData(attributes),
+			ScalarAttributeParser.Parse(scalarAttribute),
 			assemblyDefaults,
 			attributes
 		);
-		var scalarProperty = typeSymbol
-			.GetMembers(scalarOptions.PropertyName)
-			.OfType<IPropertySymbol>()
-			.FirstOrDefault(property => !property.IsStatic && property.GetMethod is not null);
 
-		if (scalarProperty is null)
-		{
-			diagnosticsList.Add(
-				ReportableDiagnostic.Create(
-					DiagnosticLibrary.ScalarPropertyMissing,
-					isBlocking: true,
-					location,
-					typeSymbol.Name,
-					scalarOptions.PropertyName
-				)
-			);
+		if (
+			!TryResolveScalarTarget(
+				typeSymbol,
+				scalarOptions,
+				scalarAttribute,
+				location,
+				diagnosticsList,
+				out var scalarType,
+				out var scalarPropertyName,
+				out var generateScalarProperty,
+				out var scalarProperty
+			)
+		)
 			return GeneratorResult<ScalarValueObjectModel>.Create([.. diagnosticsList]);
-		}
 
 		var ctorExists = typeSymbol
 			.Constructors.Where(static ctor => !ctor.IsStatic)
 			.Any(ctor =>
 				ctor.Parameters.Length == 1
-				&& SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, scalarProperty.Type)
+				&& SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, scalarType)
 			);
 
 		var typeModel = ValueObjectSymbolInspector.BuildTypeModel(typeSymbol);
@@ -97,30 +99,31 @@ static class ScalarValueObjectModelBuilder
 		}
 
 		var typeName = typeModel.Value.FullyQualifiedName;
-		var scalarTypeName = ValueObjectSymbolInspector.ToTypeName(scalarProperty.Type);
+		var scalarTypeName = ValueObjectSymbolInspector.ToTypeName(scalarType);
 		var scalarCanBeNull =
-			scalarProperty.Type.IsReferenceType
-			|| scalarProperty.Type.NullableAnnotation == NullableAnnotation.Annotated;
-		var scalarIsReferenceType = scalarProperty.Type.IsReferenceType;
+			scalarType.IsReferenceType || scalarType.NullableAnnotation == NullableAnnotation.Annotated;
+		var scalarTypeIsNullableReference =
+			scalarType.IsReferenceType && scalarType.NullableAnnotation == NullableAnnotation.Annotated;
+		// Whether null is a valid domain value: an annotated reference type (`string?`) or a nullable value
+		// type (`int?`). Distinct from ScalarCanBeNull, which is also true for a non-nullable reference type.
+		var scalarValueIsNullable =
+			scalarType.NullableAnnotation == NullableAnnotation.Annotated
+			|| scalarType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+		var scalarIsReferenceType = scalarType.IsReferenceType;
 		var isReferenceType = typeSymbol.TypeKind == TypeKind.Class;
-		var scalarPropertyName = scalarProperty.Name;
-		var createExists = ValueObjectSymbolInspector.HasStaticFactory(typeSymbol, "Create", [scalarProperty.Type]);
-		var hydrateExists = ValueObjectSymbolInspector.HasStaticFactory(typeSymbol, "Hydrate", [scalarProperty.Type]);
-		var tryCreateExists = ValueObjectSymbolInspector.HasTryCreate(typeSymbol, scalarProperty.Type);
+		var createExists = ValueObjectSymbolInspector.HasStaticFactory(typeSymbol, "Create", [scalarType]);
+		var hydrateExists = ValueObjectSymbolInspector.HasStaticFactory(typeSymbol, "Hydrate", [scalarType]);
+		var tryCreateExists = ValueObjectSymbolInspector.HasTryCreate(typeSymbol, scalarType);
 		var compareToSelfExists = ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "CompareTo", [typeSymbol]);
 		var compareToPrimitiveExists = ValueObjectSymbolInspector.HasInstanceMethod(
 			typeSymbol,
 			"CompareTo",
-			[scalarProperty.Type]
+			[scalarType]
 		);
 		var compareToObjectExists = ValueObjectSymbolInspector.HasCompareToObject(typeSymbol);
 		var equalsSelfExists =
 			typeSymbol.IsRecord || ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "Equals", [typeSymbol]);
-		var equalsPrimitiveExists = ValueObjectSymbolInspector.HasInstanceMethod(
-			typeSymbol,
-			"Equals",
-			[scalarProperty.Type]
-		);
+		var equalsPrimitiveExists = ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "Equals", [scalarType]);
 		var equalsObjectExists = ValueObjectSymbolInspector.HasEqualsObject(typeSymbol);
 		var getHashCodeExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "GetHashCode");
 		var sameTypeEqualityOperatorExists =
@@ -132,26 +135,25 @@ static class ScalarValueObjectModelBuilder
 		var primitiveEqualityOperatorExists = ValueObjectSymbolInspector.HasBinaryOperator(
 			typeSymbol,
 			"op_Equality",
-			[typeSymbol, scalarProperty.Type]
+			[typeSymbol, scalarType]
 		);
 		var primitiveInequalityOperatorExists = ValueObjectSymbolInspector.HasBinaryOperator(
 			typeSymbol,
 			"op_Inequality",
-			[typeSymbol, scalarProperty.Type]
+			[typeSymbol, scalarType]
 		);
 		var reversePrimitiveEqualityOperatorExists = ValueObjectSymbolInspector.HasBinaryOperator(
 			typeSymbol,
 			"op_Equality",
-			[scalarProperty.Type, typeSymbol]
+			[scalarType, typeSymbol]
 		);
 		var reversePrimitiveInequalityOperatorExists = ValueObjectSymbolInspector.HasBinaryOperator(
 			typeSymbol,
 			"op_Inequality",
-			[scalarProperty.Type, typeSymbol]
+			[scalarType, typeSymbol]
 		);
-		var enumPropertiesEnabled =
-			scalarOptions.GenerateEnumProperties && scalarProperty.Type.TypeKind == TypeKind.Enum;
-		var enumFieldNames = enumPropertiesEnabled ? BuildEnumFieldNames(typeSymbol, scalarProperty.Type) : [];
+		var enumPropertiesEnabled = scalarOptions.GenerateEnumProperties && scalarType.TypeKind == TypeKind.Enum;
+		var enumFieldNames = enumPropertiesEnabled ? BuildEnumFieldNames(typeSymbol, scalarType) : [];
 		var toStringExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "ToString");
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
@@ -193,61 +195,28 @@ static class ScalarValueObjectModelBuilder
 			diagnosticsList
 		);
 
-		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
-		if (
-			isEFReferenced
-			&& scalarOptions.GenerateEFConverter
-			&& !ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type)
-		)
-		{
-			diagnosticsList.Add(
-				ReportableDiagnostic.Create(
-					DiagnosticLibrary.EFAutoConversionSkipped,
-					isBlocking: false,
-					typeSymbol.Locations.FirstOrDefault(),
-					typeSymbol.Name,
-					scalarTypeName
-				)
-			);
-		}
-		else if (
-			!isEFReferenced
-			&& (
-				ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
-					attributes,
-					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
-					"GenerateEFConverter"
-				)
-				|| ValueObjectDefaultsHelper.IsPropertyExplicitlySet(
-					attributes,
-					TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
-					"GenerateEFComparer"
-				)
-			)
-		)
-		{
-			diagnosticsList.Add(
-				ReportableDiagnostic.Create(
-					DiagnosticLibrary.EFMappingRequiresEntityFramework,
-					isBlocking: false,
-					location,
-					typeSymbol.Name
-				)
-			);
-		}
-
-		var (efProviderType, efHydrateCastTypeName) = ValueObjectSymbolInspector.ResolveEFProviderType(
-			scalarProperty.Type
+		var isEFReferenced = CollectEFDiagnostics(
+			typeSymbol,
+			scalarType,
+			scalarTypeName,
+			scalarOptions,
+			attributes,
+			compilation,
+			location,
+			diagnosticsList
 		);
+
+		var (efProviderType, efHydrateCastTypeName) = ValueObjectSymbolInspector.ResolveEFProviderType(scalarType);
 
 		var efValueGeneratorEnabled = ResolveEFValueGeneration(
 			typeSymbol,
-			scalarProperty.Type,
+			scalarType,
 			scalarOptions,
 			isEFReferenced,
 			diagnosticsList
 		);
-		ValueObjectSymbolInspector.CollectMutableMemberDiagnostics(typeSymbol, [scalarProperty], diagnosticsList);
+		if (scalarProperty is not null)
+			ValueObjectSymbolInspector.CollectMutableMemberDiagnostics(typeSymbol, [scalarProperty], diagnosticsList);
 
 		ScalarValueObjectModel model = new(
 			typeModel.Value,
@@ -257,13 +226,16 @@ static class ScalarValueObjectModelBuilder
 			typeName,
 			scalarTypeName,
 			scalarPropertyName,
+			generateScalarProperty,
 			scalarCanBeNull,
+			scalarTypeIsNullableReference,
+			scalarValueIsNullable,
 			scalarIsReferenceType,
 			isReferenceType,
 			typeSymbol.IsRecord,
 			typeSymbol.IsReadOnly,
 			typeSymbol.DeclaredAccessibility.ToTypeDeclarationAccessibility(),
-			TypeReference.Create(scalarProperty.Type),
+			TypeReference.Create(scalarType),
 			createExists,
 			hydrateExists,
 			tryCreateExists,
@@ -288,17 +260,17 @@ static class ScalarValueObjectModelBuilder
 			declareOnValidate,
 			ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol),
 			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "Empty"),
-			ValueObjectSymbolInspector.GetEmptyValueExpression(scalarProperty.Type),
-			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarProperty.Type, fromPrimitive: true),
-			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarProperty.Type, fromPrimitive: false),
-			ValueObjectSymbolInspector.HasContextualCreateOverload(typeSymbol, scalarProperty.Type),
-			SymbolEqualityComparer.Default.Equals(scalarProperty.Type, typeSymbol),
+			ValueObjectSymbolInspector.GetEmptyValueExpression(scalarType),
+			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: true),
+			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: false),
+			ValueObjectSymbolInspector.HasContextualCreateOverload(typeSymbol, scalarType),
+			SymbolEqualityComparer.Default.Equals(scalarType, typeSymbol),
 			BuildExistingRelationalOperators(typeSymbol, typeName, typeName),
 			BuildExistingRelationalOperators(typeSymbol, typeName, scalarTypeName),
 			zodSchema.HasSchema,
 			zodSchema.SchemaClassName,
 			isEFReferenced,
-			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarProperty.Type),
+			ValueObjectSymbolInspector.IsEFMappableProviderType(scalarType),
 			ValueObjectSymbolInspector.ToTypeName(efProviderType),
 			TypeReference.Create(efProviderType),
 			efHydrateCastTypeName,
@@ -309,6 +281,170 @@ static class ScalarValueObjectModelBuilder
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
 	}
+
+	/// <summary>
+	/// Reports the Entity Framework Core availability diagnostics for the scalar and returns whether the
+	/// compilation references Entity Framework Core.
+	/// </summary>
+	static bool CollectEFDiagnostics(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol scalarType,
+		string scalarTypeName,
+		ScalarAttributeData scalarOptions,
+		ImmutableArray<AttributeData> attributes,
+		Compilation compilation,
+		Location location,
+		List<ReportableDiagnostic> diagnostics
+	)
+	{
+		var isEFReferenced = ValueObjectSymbolInspector.IsEFReferenced(compilation);
+		if (
+			isEFReferenced
+			&& scalarOptions.GenerateEFConverter
+			&& !ValueObjectSymbolInspector.IsEFMappableProviderType(scalarType)
+		)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFAutoConversionSkipped,
+					isBlocking: false,
+					typeSymbol.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					scalarTypeName
+				)
+			);
+		}
+		else if (
+			!isEFReferenced
+			&& (
+				ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "GenerateEFConverter")
+				|| ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "GenerateEFComparer")
+			)
+		)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.EFMappingRequiresEntityFramework,
+					isBlocking: false,
+					location,
+					typeSymbol.Name
+				)
+			);
+		}
+
+		return isEFReferenced;
+	}
+
+	/// <summary>
+	/// Resolves the underlying value type and property name for either scalar form, reporting the
+	/// declaration errors as blocking diagnostics.
+	/// </summary>
+	/// <remarks>
+	/// The manual <c>[Scalar]</c> form requires the author to declare the named property (<c>VO1004</c>);
+	/// the automatic <c>[Scalar&lt;T&gt;]</c> form derives the type from the attribute argument and forbids
+	/// a declared member with that name (<c>VO1022</c>).
+	/// </remarks>
+	static bool TryResolveScalarTarget(
+		INamedTypeSymbol typeSymbol,
+		ScalarAttributeData scalarOptions,
+		AttributeData scalarAttribute,
+		Location location,
+		List<ReportableDiagnostic> diagnostics,
+		out ITypeSymbol scalarType,
+		out string scalarPropertyName,
+		out bool generateScalarProperty,
+		out IPropertySymbol? scalarProperty
+	)
+	{
+		scalarType = null!;
+		scalarPropertyName = scalarOptions.PropertyName;
+		generateScalarProperty = false;
+		scalarProperty = null;
+
+		if (ScalarAttributeParser.GetValueType(scalarAttribute) is { } declaredType)
+		{
+			scalarType =
+				ScalarAttributeParser.GetNullable(scalarAttribute) && declaredType.IsReferenceType
+					? declaredType.WithNullableAnnotation(NullableAnnotation.Annotated)
+					: declaredType;
+			generateScalarProperty = true;
+
+			// The generator owns the named property, so a declared member with that name (or with the
+			// interface's Value name, which is forwarded) is a conflict - never both.
+			var conflictingName =
+				HasDeclaredMember(typeSymbol, scalarPropertyName) ? scalarPropertyName
+				: !string.Equals(scalarPropertyName, "Value", StringComparison.Ordinal)
+				&& HasDeclaredMember(typeSymbol, "Value")
+					? "Value"
+				: null;
+
+			if (conflictingName is not null)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.ScalarPropertyIsGenerated,
+						isBlocking: true,
+						GetDeclaredMemberLocation(typeSymbol, conflictingName) ?? location,
+						typeSymbol.Name,
+						conflictingName
+					)
+				);
+				return false;
+			}
+
+			return true;
+		}
+
+		scalarProperty = typeSymbol
+			.GetMembers(scalarOptions.PropertyName)
+			.OfType<IPropertySymbol>()
+			.FirstOrDefault(property => !property.IsStatic && property.GetMethod is not null);
+
+		if (scalarProperty is null)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.ScalarPropertyMissing,
+					isBlocking: true,
+					location,
+					typeSymbol.Name,
+					scalarOptions.PropertyName
+				)
+			);
+			return false;
+		}
+
+		scalarType = scalarProperty.Type;
+		scalarPropertyName = scalarProperty.Name;
+		return true;
+	}
+
+	/// <summary>
+	/// True when the type already declares, in user-authored source, a property or field with the given
+	/// name. Used by the automatic form, where the generator owns the named property: a declared member
+	/// would be a duplicate (CS0102) in the merged partial, so it is reported as a blocking diagnostic
+	/// instead. Members the generator emitted (in a <c>*.g.cs</c> tree) are ignored, otherwise the
+	/// analyzer would see the property the generator just declared and flag its own output.
+	/// </summary>
+	static bool HasDeclaredMember(INamedTypeSymbol typeSymbol, string name) =>
+		typeSymbol
+			.GetMembers(name)
+			.Where(static member => member is IPropertySymbol or IFieldSymbol)
+			.Any(static member =>
+				member.DeclaringSyntaxReferences.Any(static reference => !IsGeneratedSyntaxTree(reference.SyntaxTree))
+			);
+
+	static Location? GetDeclaredMemberLocation(INamedTypeSymbol typeSymbol, string name) =>
+		typeSymbol
+			.GetMembers(name)
+			.Where(static member => member is IPropertySymbol or IFieldSymbol)
+			.SelectMany(static member => member.DeclaringSyntaxReferences)
+			.Where(static reference => !IsGeneratedSyntaxTree(reference.SyntaxTree))
+			.Select(static reference => reference.GetSyntax().GetLocation())
+			.FirstOrDefault(static location => location.IsInSource);
+
+	static bool IsGeneratedSyntaxTree(SyntaxTree syntaxTree) =>
+		syntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// Resolves whether the value object gets an Entity Framework Core key value generator, reporting the

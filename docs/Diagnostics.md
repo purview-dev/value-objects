@@ -21,6 +21,7 @@ These govern the declaration shape a value object must have for the generator to
 | `VO1007` | Warning | `ValueObjectDeserializationMode.Strict` is set but no `Create` overload exists to re-validate through. | Add the `Create` overload, or use the default `Hydrate` mode. |
 | `VO1008` | Error | `[Scalar]` and `[ValueObject]` are both applied to the same type. | Pick one. A scalar wraps a single primitive; a value object composes members. |
 | `VO1016` | Warning | A value object member is mutable. | Make the member `readonly`/`init`-only. A mutable member breaks immutability and makes equality unstable. |
+| `VO1022` | Error | A `[Scalar<T>]` type declares a member with the name of the property the generator owns. | Remove the declaration, or use `[Scalar]` (without a type argument) to own the property yourself. |
 
 ## ZodSharp validation rules
 

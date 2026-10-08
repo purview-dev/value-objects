@@ -2,6 +2,9 @@
 	<PropertyGroup>
 		<!-- Test method names use snake_case to keep test purpose readable in the name. -->
 		<!--<NoWarn>$(NoWarn);CA1707</NoWarn>-->
+		<!-- Matches SharedTestingInfra, which the SDK auto-references into this project, and the centrally
+		     managed Entity Framework Core version's net10.0-only assets. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />

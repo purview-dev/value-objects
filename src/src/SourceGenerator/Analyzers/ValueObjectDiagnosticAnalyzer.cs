@@ -13,6 +13,7 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.GenericValueObjectsAreNotSupported,
 			DiagnosticLibrary.ConflictingValueObjectAttributes,
 			DiagnosticLibrary.ScalarPropertyMissing,
+			DiagnosticLibrary.ScalarPropertyIsGenerated,
 			DiagnosticLibrary.ScalarShouldBeRecordStruct,
 			DiagnosticLibrary.StrictDeserializationRequiresCreate,
 			DiagnosticLibrary.EFMappingRequiresEntityFramework,
@@ -39,14 +40,17 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			var scalarAttribute = compilationContext.Compilation.GetTypeByMetadataName(
 				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttributeFullName
 			);
+			var genericScalarAttribute = compilationContext.Compilation.GetTypeByMetadataName(
+				TypeLibrary.ScalarAttributeGenericMetadataName
+			);
 			var valueObjectAttribute = compilationContext.Compilation.GetTypeByMetadataName(
 				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttributeFullName
 			);
-			if (scalarAttribute is null && valueObjectAttribute is null)
+			if (scalarAttribute is null && genericScalarAttribute is null && valueObjectAttribute is null)
 				return;
 
 			compilationContext.RegisterSymbolAction(
-				context => ValidateValueObject(context, scalarAttribute, valueObjectAttribute),
+				context => ValidateValueObject(context, scalarAttribute, genericScalarAttribute, valueObjectAttribute),
 				SymbolKind.NamedType
 			);
 		});
@@ -55,12 +59,15 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 	static void ValidateValueObject(
 		SymbolAnalysisContext context,
 		INamedTypeSymbol? scalarAttribute,
+		INamedTypeSymbol? genericScalarAttribute,
 		INamedTypeSymbol? valueObjectAttribute
 	)
 	{
 		var typeSymbol = (INamedTypeSymbol)context.Symbol;
 
-		var hasScalarAttribute = scalarAttribute is not null && HasAttribute(typeSymbol, scalarAttribute);
+		var hasScalarAttribute =
+			(scalarAttribute is not null && HasAttribute(typeSymbol, scalarAttribute))
+			|| (genericScalarAttribute is not null && HasAttribute(typeSymbol, genericScalarAttribute));
 		var hasValueObjectAttribute =
 			valueObjectAttribute is not null && HasAttribute(typeSymbol, valueObjectAttribute);
 		if (!hasScalarAttribute && !hasValueObjectAttribute)
@@ -101,5 +108,10 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 	static bool HasAttribute(INamedTypeSymbol typeSymbol, INamedTypeSymbol attributeType) =>
 		typeSymbol
 			.GetAttributes()
-			.Any(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType));
+			.Any(attribute =>
+				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType)
+				// A generic attribute is applied as a constructed type (ScalarAttribute<Guid>), while the
+				// definition resolved from metadata is the open generic (ScalarAttribute<T>).
+				|| SymbolEqualityComparer.Default.Equals(attribute.AttributeClass?.OriginalDefinition, attributeType)
+			);
 }

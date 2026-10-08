@@ -79,6 +79,20 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).
 
+## Trimming and Native AOT (non-negotiable)
+
+- The generated, default path for every value object must stay trimming- and Native AOT-safe: no reflection, no
+  `Type.MakeGenericType`, no expression-tree compilation, no reflection-based `JsonSerializer` overloads, and no
+  unannotated `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]` call sites.
+- The runtime package sets `IsAotCompatible`, so the trim and AOT analyzers run as part of every build. A new
+  trim/AOT warning is a defect, not noise.
+- `ScalarJsonConverterFactory` is the only permitted reflection-based component. It must keep its
+  `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]` annotations at the opt-in construction point and its
+  suppressions accurate. Do not add reflection anywhere else in the runtime.
+- Never weaken or delete an AOT/trim annotation or suppression to silence a warning; fix the call site or move the
+  reflection into the annotated factory.
+- A feature is not complete until the generated path is confirmed clean under the trim/AOT analyzers.
+
 ## Testing conventions
 
 - This repository uses TUnit on Microsoft.Testing.Platform, selected in `global.json`. Do not add xUnit, NUnit,
@@ -146,6 +160,8 @@ Before handing work back:
 - Confirm the requested behavior and scope are satisfied.
 - Confirm only intended files changed.
 - Review public API, serialization, and package-content implications.
+- Confirm trimming/Native AOT safety: the generated path adds no reflection and no new
+  `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]` call sites, and the `IsAotCompatible` build is clean.
 - Add or update focused tests for code changes.
 - Update all affected docs, samples, analyzer metadata, and release notes when applicable.
 - Run appropriate build, test, formatting, and pack checks in proportion to risk.

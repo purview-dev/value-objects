@@ -2,6 +2,9 @@
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
+		<!-- The centrally managed Entity Framework Core version ships net10.0 assets only, so this sample
+		     cannot carry the repository's 'All' set. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 
 	<ItemGroup>

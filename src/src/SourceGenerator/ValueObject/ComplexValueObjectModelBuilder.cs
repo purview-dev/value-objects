@@ -28,12 +28,7 @@ static class ComplexValueObjectModelBuilder
 		];
 
 		var attributes = typeSymbol.GetAttributes();
-		if (
-			ValueObjectSymbolInspector.HasAttribute(
-				attributes,
-				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute
-			)
-		)
+		if (ScalarAttributeParser.Find(attributes) is not null)
 		{
 			diagnosticsList.Add(
 				ReportableDiagnostic.Create(

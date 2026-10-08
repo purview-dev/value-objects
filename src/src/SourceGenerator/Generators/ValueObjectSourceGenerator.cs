@@ -5,6 +5,16 @@ namespace Purview.ValueObjects.SourceGenerator.Generators;
 [Generator]
 public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 {
+	/// <summary>
+	/// The automatic <c>[Scalar&lt;T&gt;]</c> attribute as an open generic definition, so the incremental
+	/// pipeline can match it by metadata name (<c>ScalarAttribute`1</c>).
+	/// </summary>
+	static readonly TypeIdentity GenericScalarAttributeIdentity = new(
+		"ScalarAttribute",
+		TypeLibrary.SerializationNamespace,
+		1
+	);
+
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
 		context.RegisterEmbeddedAttribute<ValueObjectSourceGenerator>();
@@ -37,6 +47,20 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			trackingName: "GetScalarValueObjectTargets"
 		);
 
+		var genericScalarCandidates = IncrementalPipeline.ForAttributeWithMetadataName(
+			context,
+			GenericScalarAttributeIdentity,
+			static (ctx, ct) =>
+				ScalarValueObjectModelBuilder.Build(
+					(INamedTypeSymbol)ctx.TargetSymbol,
+					(TypeDeclarationSyntax)ctx.TargetNode,
+					ctx.SemanticModel.Compilation,
+					ct
+				),
+			static (node, _) => node is TypeDeclarationSyntax,
+			trackingName: "GetGenericScalarValueObjectTargets"
+		);
+
 		var complexCandidates = IncrementalPipeline.ForAttributeWithMetadataName(
 			context,
 			TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute,
@@ -56,6 +80,10 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (spc, tuple) => EmitScalarResult(spc, tuple.Left, tuple.Right.Left, tuple.Right.Right)
 		);
 		context.RegisterSourceOutput(
+			genericScalarCandidates.Combine(generationContext.Combine(efDisabled)),
+			static (spc, tuple) => EmitScalarResult(spc, tuple.Left, tuple.Right.Left, tuple.Right.Right)
+		);
+		context.RegisterSourceOutput(
 			complexCandidates.Combine(generationContext.Combine(efDisabled)),
 			static (spc, tuple) => EmitComplexResult(spc, tuple.Left, tuple.Right.Left, tuple.Right.Right)
 		);
@@ -65,6 +93,7 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		RegisterEFRegistryOutput(
 			context,
 			scalarCandidates,
+			genericScalarCandidates,
 			complexCandidates,
 			efDisabled,
 			registryDisabled,
@@ -137,6 +166,7 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 	static void RegisterEFRegistryOutput(
 		IncrementalGeneratorInitializationContext context,
 		IncrementalValuesProvider<GeneratorResult<ScalarValueObjectModel>> scalarCandidates,
+		IncrementalValuesProvider<GeneratorResult<ScalarValueObjectModel>> genericScalarCandidates,
 		IncrementalValuesProvider<GeneratorResult<ComplexValueObjectModel>> complexCandidates,
 		IncrementalValueProvider<bool> efDisabled,
 		IncrementalValueProvider<bool> registryDisabled,
@@ -144,6 +174,9 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 	)
 	{
 		var scalarDescriptors = scalarCandidates
+			.Select(static (result, _) => result.ShouldProcess ? BuildScalarEFDescriptor(result.Value) : null)
+			.Collect();
+		var genericScalarDescriptors = genericScalarCandidates
 			.Select(static (result, _) => result.ShouldProcess ? BuildScalarEFDescriptor(result.Value) : null)
 			.Collect();
 		var complexDescriptors = complexCandidates
@@ -158,7 +191,10 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 				ReferencedEFValueObjectDiscovery.Scan(compilation, cancellationToken)
 		);
 
-		var combinedDescriptors = scalarDescriptors.Combine(complexDescriptors).Combine(referencedDescriptors);
+		var combinedDescriptors = scalarDescriptors
+			.Combine(genericScalarDescriptors)
+			.Combine(complexDescriptors)
+			.Combine(referencedDescriptors);
 
 		// Complex-type mapping and the compiled-model converter members need Entity Framework Core 8, so
 		// the emitted registry omits them below that and still compiles.
@@ -167,10 +203,11 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 		);
 
 		var anyEFValueObject = combinedDescriptors.Select(
-			static (pair, _) =>
-				pair.Left.Left.Any(static descriptor => descriptor is not null)
-				|| pair.Left.Right.Any(static descriptor => descriptor is not null)
-				|| !pair.Right.IsEmpty
+			static (combined, _) =>
+				combined.Left.Left.Left.Any(static descriptor => descriptor is not null)
+				|| combined.Left.Left.Right.Any(static descriptor => descriptor is not null)
+				|| combined.Left.Right.Any(static descriptor => descriptor is not null)
+				|| !combined.Right.IsEmpty
 		);
 
 		var registryInput = anyEFValueObject
@@ -196,7 +233,13 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 
 				var scalars = ImmutableArray.CreateBuilder<EFScalarDescriptor>();
 				var complex = ImmutableArray.CreateBuilder<EFComplexDescriptor>();
-				foreach (var descriptor in combined.Left.Left)
+				foreach (var descriptor in combined.Left.Left.Left)
+				{
+					if (descriptor is not null)
+						scalars.Add(descriptor.Value);
+				}
+
+				foreach (var descriptor in combined.Left.Left.Right)
 				{
 					if (descriptor is not null)
 						scalars.Add(descriptor.Value);

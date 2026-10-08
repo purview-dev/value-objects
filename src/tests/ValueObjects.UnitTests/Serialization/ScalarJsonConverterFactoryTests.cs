@@ -58,6 +58,38 @@ public sealed class ScalarJsonConverterFactoryTests
 	}
 
 	[Test]
+	public async Task Deserialize_NullableScalarProperty_AcceptsNull()
+	{
+		var options = CreateOptions();
+		var value = JsonSerializer.Deserialize<NullableEmailAddress>("null", options);
+
+		await Assert.That(value.Value).IsNull();
+	}
+
+	[Test]
+	public async Task Deserialize_NonNullableScalarProperty_RejectsNull()
+	{
+		var options = CreateOptions();
+
+		var exception = Assert.Throws<JsonException>(() =>
+			JsonSerializer.Deserialize<HydratingEmailAddress>("null", options)
+		);
+
+		await Assert.That(exception).IsNotNull();
+	}
+
+	[Test]
+	public async Task Deserialize_AutomaticScalarAttribute_IsRecognizedByTheFactory()
+	{
+		// The automatic [Scalar<T>] form derives from the shared ScalarOptionsAttribute base, so the
+		// reflection factory has to match the base rather than the non-generic ScalarAttribute type.
+		var options = CreateOptions();
+		var value = JsonSerializer.Deserialize<AutomaticEmailAddress>("\"TEST@Example.COM\"", options);
+
+		await Assert.That(value.Value).IsEqualTo("TEST@Example.COM");
+	}
+
+	[Test]
 	public async Task Serialize_DefaultScalarMode_WritesUnderlyingValue()
 	{
 		var options = CreateOptions();

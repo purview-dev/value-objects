@@ -13,7 +13,7 @@ namespace Purview.ValueObjects.Serialization;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Scalar value objects are persisted as their underlying <see cref="ScalarAttribute.PropertyName"/> value
+/// Scalar value objects are persisted as their underlying <see cref="ScalarOptionsAttribute.PropertyName"/> value
 /// rather than as a full object graph. On write the converter serializes the scalar member; on read it
 /// reconstructs the value object using the configured <see cref="ValueObjectDeserializationMode"/> (defaulting
 /// to <see cref="ValueObjectDeserializationMode.Hydrate"/>), falling back to a public or non-public
@@ -70,7 +70,7 @@ public sealed class ScalarJsonConverterFactory : JsonConverterFactory
 	/// <param name="typeToConvert">The type being checked.</param>
 	/// <returns>True when the type is a scalar value object, otherwise false.</returns>
 	public override bool CanConvert(Type typeToConvert) =>
-		typeToConvert.GetCustomAttribute<ScalarAttribute>() is not null;
+		typeToConvert.GetCustomAttribute<ScalarOptionsAttribute>() is not null;
 
 	/// <summary>
 	/// Creates a converter for the given scalar value object type.
@@ -108,7 +108,7 @@ public sealed class ScalarJsonConverterFactory : JsonConverterFactory
 			typeToConvert,
 			static t =>
 			{
-				var attr = t.GetCustomAttribute<ScalarAttribute>()!;
+				var attr = t.GetCustomAttribute<ScalarOptionsAttribute>()!;
 				var scalarProp =
 					t.GetProperty(attr.PropertyName, BindingFlags.Instance | BindingFlags.Public)
 					?? throw new InvalidOperationException(
@@ -145,16 +145,20 @@ public sealed class ScalarJsonConverterFactory : JsonConverterFactory
 	{
 		readonly Func<TScalarObject, TScalar> _getScalar = BuildGetter(scalarProperty);
 		readonly Func<TScalar, TScalarObject> _create = BuildCreator(deserializationMode);
+		readonly bool _allowsNull = AllowsNull(scalarProperty);
 
 		public override TScalarObject Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 		{
-			var scalar =
-				JsonSerializer.Deserialize<TScalar>(ref reader, options)
-				?? throw new JsonException($"Cannot deserialize {typeof(TScalarObject).Name} from null.");
+			// A nullable scalar (a `T?` reference or value type) round-trips JSON null; a non-nullable
+			// reference scalar rejects it. NullabilityInfoContext is unannotated and this factory is already
+			// the one reflection-based, non-AOT component, so this adds no trimming/AOT surface.
+			var scalar = JsonSerializer.Deserialize<TScalar>(ref reader, options);
+			if (!_allowsNull && scalar is null)
+				throw new JsonException($"Cannot deserialize {typeof(TScalarObject).Name} from null.");
 
 			try
 			{
-				return _create(scalar);
+				return _create(scalar!);
 			}
 			catch (Exception exception) when (IsValidationFailure(exception))
 			{
@@ -181,6 +185,14 @@ public sealed class ScalarJsonConverterFactory : JsonConverterFactory
 
 		public override void Write(Utf8JsonWriter writer, TScalarObject value, JsonSerializerOptions options) =>
 			JsonSerializer.Serialize(writer, _getScalar(value), options);
+
+		/// <summary>
+		/// Whether the scalar member accepts <see langword="null"/>: a nullable reference type or a nullable
+		/// value type. A nullable-oblivious property (<see cref="NullabilityState.Unknown"/>) is treated as
+		/// non-nullable, so the factory keeps rejecting null exactly as before.
+		/// </summary>
+		static bool AllowsNull(PropertyInfo property) =>
+			new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
 
 		static Func<TScalarObject, TScalar> BuildGetter(PropertyInfo property)
 		{

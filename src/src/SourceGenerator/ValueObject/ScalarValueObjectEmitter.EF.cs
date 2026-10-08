@@ -23,7 +23,8 @@ static partial class ScalarValueObjectEmitter
 			model.EFProviderTypeName,
 			ValueObjectEFConverterEmitter.ToProviderExpression(
 				model.ScalarPropertyName,
-				model.EFHydrateCastTypeName is null ? null : model.EFProviderTypeName
+				model.EFHydrateCastTypeName is null ? null : model.EFProviderTypeName,
+				model.ScalarTypeIsNullableReference
 			),
 			ValueObjectEFConverterEmitter.FromProviderExpression(model.TypeName, model.EFHydrateCastTypeName),
 			ValueObjectEmitterHelpers.EFJsonReaderWriterType(model.EFProviderTypeName),

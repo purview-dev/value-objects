@@ -17,6 +17,20 @@ been published to NuGet. No stable release has been cut yet; the published line 
 - [Diagnostics](docs/Diagnostics.md): a consolidated reference for all 17 `VO1xxx` rules. `VO1002`–`VO1008`
   previously appeared only in the analyzer release table, and the Entity Framework and ZodSharp rules were split
   across two guides.
+- **Automatic scalar declaration.** `[Scalar<TValue>]` and `[Scalar(typeof(TValue))]` let the generator
+  declare the underlying property (`public TValue Value { get; init; }`); `[Scalar]` remains the manual form
+  where the author declares it. The forms are mutually exclusive: declaring the generator-owned property is
+  reported as the new error `VO1022`. `Nullable = true` (reference types) declares a nullable reference
+  scalar; nullable value types are written directly (`[Scalar<int?>]` / `[Scalar(typeof(int?))]`). A nullable
+  reference type cannot be a generic attribute argument or a `typeof` operand (`CS8970`/`CS8639`).
+- **Nullable scalars round-trip JSON `null`.** The generated converter and `ScalarJsonConverterFactory`
+  accept `null` for a nullable scalar (a `T?` reference or value type) and still reject it for a non-nullable
+  reference scalar.
+- **ZodSharp integration for the automatic forms.** With `Purview.ZodSharp 2.0.2`, `[Scalar<T>]` /
+  `[Scalar(typeof(T))]` combined with `[ZodSchema]` generate a `{Type}Schema` from the attribute (the
+  underlying type and property name) and validate through `Create`, even though the property is not visible
+  to the ZodSharp generator. ZodSharp 2.0.2 also ships `[NullOrNonWhiteSpace]` for the nullable
+  "null or non-whitespace" rule.
 
 ### Fixed
 
@@ -37,6 +51,10 @@ been published to NuGet. No stable release has been cut yet; the published line 
   setter-less. A get-only **auto**-property is still mapped — it has a compiler-generated backing field,
   which Entity Framework Core maps — so the check is for that field rather than merely for a missing
   setter. `[NotMapped]` and `.Ignore(` previously appeared nowhere in the test suite.
+- **A nullable value type scalar emitted a `CS8607` warning in its generated `GetHashCode`.** The generated
+  override suppressed the BCL `[DisallowNull]` annotation on `EqualityComparer<T>.GetHashCode` only for a
+  nullable *reference* scalar; a nullable *value* type scalar (`[Scalar<int?>]`) now suppresses it too — both
+  hash `null` as 0 at runtime — so the generated code is warning-free.
 - **A strict-mode deserialization failure returned a 500 instead of a 400.** With
   `ValueObjectDeserializationMode.Strict`, the validation exception from `Create` — `ArgumentException` by
   default, `ZodException` with ZodSharp validation — escaped `JsonSerializer` unwrapped. ASP.NET Core treats
@@ -76,6 +94,11 @@ been published to NuGet. No stable release has been cut yet; the published line 
   advertised interface contract is honoured. Covered by a **compiling** regression test; the previous
   coverage was an incremental-cache test that never compiled its output, which is why this was missed.
 - The scalar ZodSharp adapter.
+- **Nullable reference scalars now compile cleanly.** The Entity Framework converter emitted
+  `typeof(string?)` (`CS8639`), `is` patterns used a nullable reference type (`CS8116`), the primitive
+  `CompareTo`/`Equals` overload was ambiguous for a nullable value type, and `GetHashCode`/`ToString`
+  produced nullable warnings. The generated code now strips the annotation where it is not representable and
+  handles null in those members.
 
 ### Changed — trimming and Native AOT
 
@@ -91,6 +114,9 @@ been published to NuGet. No stable release has been cut yet; the published line 
   `[JsonConverter(typeof(<Type>JsonConverter))]` pointing at a generated, reflection-free converter, and that
   path is trim- and AOT-safe. Register the factory only for a hand-written scalar, in a host that is neither
   trimmed nor AOT-compiled.
+- `AGENTS.md` now records trimming and Native AOT as a **non-negotiable**: the generated path stays
+  reflection-free and an `IsAotCompatible` warning is a defect. The nullable-scalar support adds no reflection
+  to the generated converter; the opt-in `ScalarJsonConverterFactory` remains the only reflection component.
 
 ### Changed
 
@@ -121,12 +147,15 @@ been published to NuGet. No stable release has been cut yet; the published line 
   constructor is not an error condition. When a `[Scalar]` type declares no constructor matching its scalar
   value, `ScalarValueObjectEmitter.EmitConstructor` **emits a private one**, which is the documented and
   tested behaviour. The rule as written contradicted the generator. The id now sits with `VO1011`, `VO1012`,
-  `VO1014` and `VO1020` as retired and never reused, leaving 16 live rules.
+  `VO1014` and `VO1020` as retired and never reused, leaving 17 live rules.
+- **`VO1022` ships in a new `## Release 1.0.1` block** in `AnalyzerReleases.Shipped.md`, for the automatic
+  scalar forms that declare the underlying property themselves.
 
-### Still outstanding for a stable 1.0
+### Versioning and package lineage
 
-- `Purview.ZodSharp 2.0.1-prerelease.1` is resolvable only from the local feed, not nuget.org. A stable
-  `Purview.ValueObjects` cannot be published until a stable `Purview.ZodSharp` is on nuget.org.
+- `Purview.ZodSharp` continues the [`guinhx/ZodSharp`](https://github.com/guinhx/ZodSharp) project (its `v1`
+  line). The package was moved to `Purview.*` and restarted at `v2` so existing `v1` consumers can migrate;
+  `Purview.ValueObjects` integrates with `Purview.ZodSharp 2.0.2`.
 
 ## 1.0.0-prerelease.11
 

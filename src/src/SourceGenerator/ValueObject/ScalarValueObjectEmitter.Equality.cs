@@ -37,7 +37,7 @@ static partial class ScalarValueObjectEmitter
 					IsOverride = true,
 					Parameters = [new("obj", PurviewTypeLibrary.System.Object.MakeNullable(writer))],
 					ExpressionBody =
-						$"obj is {model.TypeName} other ? Equals(other) : obj is {model.ScalarTypeName} primitive && Equals(primitive)",
+						$"obj is {model.TypeName} other ? Equals(other) : obj is {ScalarPatternTypeName(model)} primitive && Equals({ScalarPatternArgument(model)})",
 				}
 			);
 		}
@@ -48,8 +48,11 @@ static partial class ScalarValueObjectEmitter
 				new("GetHashCode", PurviewTypeLibrary.System.Int32, TypeDeclarationAccessibility.Public)
 				{
 					IsOverride = true,
+					// EqualityComparer<T>.GetHashCode is annotated [DisallowNull]; a nullable scalar
+					// (string? or int?) still hashes null as 0 at runtime, so the annotation is suppressed
+					// rather than branched.
 					ExpressionBody =
-						$"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.GetHashCode({model.ScalarPropertyName})",
+						$"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.GetHashCode({model.ScalarPropertyName}{(model.ScalarValueIsNullable ? "!" : string.Empty)})",
 				}
 			);
 		}
@@ -186,7 +189,9 @@ static partial class ScalarValueObjectEmitter
 			new("ToString", PurviewTypeLibrary.System.String, TypeDeclarationAccessibility.Public)
 			{
 				IsOverride = true,
-				ExpressionBody = $"{model.ScalarPropertyName}.ToString() ?? string.Empty",
+				ExpressionBody = model.ScalarTypeIsNullableReference
+					? $"{model.ScalarPropertyName}?.ToString() ?? string.Empty"
+					: $"{model.ScalarPropertyName}.ToString() ?? string.Empty",
 			}
 		);
 	}
@@ -234,7 +239,9 @@ static partial class ScalarValueObjectEmitter
 								)
 						);
 
-						if (model.ScalarCanBeNull)
+						// A nullable scalar (`string?`, `int?`) round-trips JSON null; only a non-nullable
+						// reference scalar rejects it.
+						if (model.ScalarCanBeNull && !model.ScalarValueIsNullable)
 						{
 							methodBody.IfBlock(
 								"value is null",

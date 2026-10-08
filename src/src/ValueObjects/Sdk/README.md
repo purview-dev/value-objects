@@ -33,6 +33,10 @@ var email = EmailAddress.Create("Demo@Example.com");
 // email.Value == "demo@example.com"
 ```
 
+The manual `[Scalar]` form above declares the underlying property. The automatic `[Scalar<T>]` /
+`[Scalar(typeof(T))]` forms have the generator declare it, and `[Scalar<string>(Nullable = true)]`
+expresses a nullable reference scalar.
+
 ## JSON serialization
 
 Scalar value objects serialize as their underlying value. Register the converter factory on your

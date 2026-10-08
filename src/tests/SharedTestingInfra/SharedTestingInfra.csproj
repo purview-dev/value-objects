@@ -5,6 +5,11 @@
 		     (ValueObjectEFExtensions/UseValueObjects/ValueObjectModelCustomizer). Consumers
 		     discover these types through the markers and map them from their own registry. -->
 		<DisableValueObjectsEFRegistry>true</DisableValueObjectsEFRegistry>
+		<!-- The centrally managed Entity Framework Core version ships net10.0 assets only. Narrowing here
+		     narrows every test project the SDK auto-references this one into, which is why those carry the
+		     same set. ValueObjects.EFCompatibility.IntegrationTests drops the reference precisely so it can
+		     keep spanning net8.0-net11.0 with a per-target EF pin. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -36,6 +36,13 @@ public readonly partial record struct CompatibilityCode
 }
 
 /// <summary>
+/// A nullable value-type scalar using the automatic form. Its provider type is <c>int?</c>, so the generated
+/// Entity Framework Core converter has to accept and produce null on both directions.
+/// </summary>
+[Scalar<int?>]
+public readonly partial record struct CompatibilityScore { }
+
+/// <summary>
 /// A complex value object mapped to a JSON column. This mapping is a value converter, so it works on every
 /// Entity Framework Core version the package supports.
 /// </summary>
@@ -74,6 +81,9 @@ sealed class CompatibilityEntity
 
 	/// <summary>Gets or sets the code column.</summary>
 	public CompatibilityCode Code { get; set; }
+
+	/// <summary>Gets or sets the nullable value-type scalar column.</summary>
+	public CompatibilityScore Score { get; set; }
 
 	/// <summary>Gets or sets the JSON column.</summary>
 	public CompatibilityStamp Stamp { get; set; }

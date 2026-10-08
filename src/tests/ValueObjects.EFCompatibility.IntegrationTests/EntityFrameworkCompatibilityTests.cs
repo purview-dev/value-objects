@@ -65,6 +65,33 @@ public sealed class EntityFrameworkCompatibilityTests
 	}
 
 	[Test]
+	public async Task NullableScalarValueObject_ConverterHandlesNullAndColumnRoundTrips()
+	{
+		// The provider is int?, so the generated converter must accept and produce null on both directions.
+		var converter = CompatibilityScore.EF.Converter;
+		await Assert.That(converter.ProviderClrType).IsEqualTo(typeof(int?));
+		await Assert.That(converter.ConvertToProvider(CompatibilityScore.Hydrate(null))).IsNull();
+
+		var fromNull = converter.ConvertFromProvider(null);
+		await Assert.That(fromNull).IsNull();
+
+		// A non-null value round-trips through a real column.
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+		await context.Database.EnsureCreatedAsync();
+
+		var entity = CreateEntity("NULLABLE");
+		entity.Score = CompatibilityScore.Create(42);
+		context.Entities.Add(entity);
+		await context.SaveChangesAsync();
+		var generated = entity.Id;
+		context.ChangeTracker.Clear();
+		var found = await context.Entities.SingleAsync(row => row.Id == generated);
+
+		await Assert.That(found.Score.Value).IsEqualTo(42);
+	}
+
+	[Test]
 	public async Task ComplexTypeValueObjectMappedToJsonColumn_RoundTrips()
 	{
 		// Arrange
@@ -211,6 +238,7 @@ public sealed class EntityFrameworkCompatibilityTests
 		new()
 		{
 			Code = CompatibilityCode.Create(code),
+			Score = CompatibilityScore.Create(0),
 			Stamp = CreateStamp(),
 #if !NET8_0
 			Total = CompatibilityMoney.Create(1250.75m, CompatibilityCode.Create("GBP")),

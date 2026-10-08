@@ -144,18 +144,13 @@ static class ReferencedEFValueObjectDiscovery
 		// neither the marker interfaces nor an EF nested class. The consumer still discovers them from
 		// their [Scalar]/[ValueObject] attributes and emits the conversions inline.
 		var attributes = type.GetAttributes();
-		if (
-			ValueObjectSymbolInspector.HasAttribute(
-				attributes,
-				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute
-			)
-		)
+		if (ScalarAttributeParser.Find(attributes) is { } scalarAttribute)
 		{
 			var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
 				type.ContainingAssembly.GetAttributes()
 			);
 			var options = ValueObjectDefaultsHelper.Apply(
-				ScalarAttributeData.FromAttributeData(attributes),
+				ScalarAttributeParser.Parse(scalarAttribute),
 				assemblyDefaults,
 				attributes
 			);
@@ -186,7 +181,9 @@ static class ReferencedEFValueObjectDiscovery
 					HasEFMembers: false,
 					GenerateEFValueGenerator: options.GenerateEFValueGenerator
 						&& options.GenerateEFConverter
-						&& ValueObjectSymbolInspector.IsGuidProviderType(scalarProperty.Type)
+						&& ValueObjectSymbolInspector.IsGuidProviderType(scalarProperty.Type),
+					ProviderTypeIsNullableReference: scalarProperty.Type.IsReferenceType
+						&& scalarProperty.Type.NullableAnnotation == NullableAnnotation.Annotated
 				)
 			);
 			return;
@@ -241,8 +238,11 @@ static class ReferencedEFValueObjectDiscovery
 			return false;
 
 		var attributes = type.GetAttributes();
+		if (ScalarAttributeParser.Find(attributes) is not { } scalarAttribute)
+			return false;
+
 		var options = ValueObjectDefaultsHelper.Apply(
-			ScalarAttributeData.FromAttributeData(attributes),
+			ScalarAttributeParser.Parse(scalarAttribute),
 			ValueObjectDefaultsAttributeData.FromAttributeData(type.ContainingAssembly.GetAttributes()),
 			attributes
 		);

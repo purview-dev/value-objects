@@ -4,7 +4,7 @@ namespace Purview.ValueObjects.SourceGenerator.Generators;
 /// Regression tests for <c>[Scalar("CustomName")]</c>.
 /// </summary>
 /// <remarks>
-/// <see cref="Purview.ValueObjects.Serialization.ScalarAttribute.PropertyName"/> is a documented public
+/// <see cref="Purview.ValueObjects.Serialization.ScalarOptionsAttribute.PropertyName"/> is a documented public
 /// option, but the generated partial unconditionally implements
 /// <c>IScalarValueObject&lt;TSelf, TValue&gt;</c>, which declares a member named <c>Value</c>. With a
 /// custom name no <c>Value</c> was emitted, so the generated code failed with CS0535 — an error inside
