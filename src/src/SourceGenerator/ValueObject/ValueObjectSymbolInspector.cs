@@ -291,10 +291,10 @@ static class ValueObjectSymbolInspector
 			type.ContainingAssembly?.GetAttributes() ?? []
 		);
 
-		if (HasAttribute(attributes, TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute))
+		if (ScalarAttributeParser.Find(attributes) is { } scalarAttribute)
 		{
 			var scalarOptions = ValueObjectDefaultsHelper.Apply(
-				ScalarAttributeData.FromAttributeData(attributes),
+				ScalarAttributeParser.Parse(scalarAttribute),
 				assemblyDefaults,
 				attributes
 			);
@@ -896,7 +896,16 @@ static class ValueObjectSymbolInspector
 
 		var underlyingType = nullableScalar is null ? scalarType : nullableScalar.TypeArguments[0];
 		if (underlyingType.TypeKind != TypeKind.Enum)
-			return (scalarType, null);
+		{
+			// A nullable reference annotation is not representable in a typeof() expression, and it carries
+			// no meaning for the provider CLR type, so strip it before it reaches the generated converter.
+			return (
+				scalarType.IsReferenceType
+					? scalarType.WithNullableAnnotation(NullableAnnotation.NotAnnotated)
+					: scalarType,
+				null
+			);
+		}
 
 		var integralType = ((INamedTypeSymbol)underlyingType).EnumUnderlyingType!;
 

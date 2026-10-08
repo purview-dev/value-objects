@@ -55,6 +55,58 @@ string json = System.Text.Json.JsonSerializer.Serialize(email);
 // json == "\"demo@example.com\""
 ```
 
+### Automatic vs manual underlying property
+
+`[Scalar]` is the **manual** form: you declare the property. `[Scalar<T>]` and `[Scalar(typeof(T))]` are
+the **automatic** form: the generator declares it. They are mutually exclusive for a given type —
+declaring the property with an automatic form is an error (`VO1022`).
+
+```csharp
+// Automatic: the generator emits `public Guid Value { get; init; }`.
+[Scalar<Guid>]                     // or [Scalar(typeof(Guid))]
+public readonly partial record struct InstallationId { }
+
+// Manual: you declare the property.
+[Scalar]
+public readonly partial record struct InstallationId
+{
+    public Guid Value { get; init; }
+}
+```
+
+Use `Nullable` when the automatic property should be a nullable reference type. Nullable reference types
+cannot be generic attribute arguments (`[Scalar<string?>]` does not compile — `CS8970`) or `typeof`
+operands (`typeof(string?)` does not compile — `CS8639`), so express nullability on the attribute:
+
+```csharp
+[Scalar<string>(Nullable = true)]              // emits `public string? Value { get; init; }`
+[Scalar(typeof(string), Nullable = true)]      // same
+public readonly partial record struct Handle { }
+```
+
+Nullable value types are written directly, for example `[Scalar<int?>]` or `[Scalar(typeof(int?))]`.
+
+A nullable scalar round-trips JSON `null`: `[Scalar<string>(Nullable = true)]` and `[Scalar<int?>]`
+deserialize `null` and serialize back to `null`. A non-nullable reference scalar still rejects `null` with
+a `JsonException`. Validation is yours to write, so make it null-tolerant — for a value that must be
+`null` or non-whitespace:
+
+```csharp
+[Scalar<string>(Nullable = true)]
+public readonly partial record struct Nickname
+{
+    static partial void OnValidate(string? value)
+    {
+        if (value is not null && string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Value must be null or non-whitespace.", nameof(value));
+    }
+}
+```
+
+The manual form is the more explicit option when you prefer the type and nullability to appear in a
+property declaration. Both forms are supported, and neither is reported as a diagnostic. Other properties
+are allowed in either form; only the scalar property (and the interface's `Value` forwarding) is reserved.
+
 ## 3. Complex value objects
 
 A complex value object wraps multiple members and validates them together.

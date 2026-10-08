@@ -21,7 +21,11 @@ readonly record struct EFScalarDescriptor(
 	string? EFProviderTypeName,
 	string? EFHydrateCastTypeName,
 	bool HasEFMembers,
-	bool GenerateEFValueGenerator
+	bool GenerateEFValueGenerator,
+	// True when the scalar's underlying property is a nullable reference type. The provider type is the
+	// non-nullable CLR type (a nullable annotation is not representable in typeof), so the inline
+	// conversion reads the property with the null-forgiving operator.
+	bool ProviderTypeIsNullableReference = false
 );
 
 /// <summary>

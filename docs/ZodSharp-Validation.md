@@ -114,6 +114,18 @@ public readonly partial record struct PhoneNumber
 }
 ```
 
+> **Automatic scalar form.** The examples above use the manual `[Scalar]` form, where the property and its
+> DataAnnotations are declared by you. The automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the
+> value-object generator declare the underlying property, so a property-attached DataAnnotation has no host.
+> For those types, use Zod-native **type-level** rules (`[RequiredZod]`, `[ZodRule(typeof(...))]`), which
+> ZodSharp reads from the type and adapts to the scalar's underlying value, or keep the manual form when
+> property-level DataAnnotations are required. Purview.ZodSharp 2.0.2+ generates the `{Type}Schema` from the
+> attribute itself (the underlying type and property name), so the automatic form validates through `Create`
+> exactly like the manual form. A nullable scalar (`Nullable = true` or a `T?` value type) round-trips JSON
+> `null`, so its schema — and any string rule — must be null-tolerant: use the shipped
+> `[NullOrNonWhiteSpace]` (which accepts `null` but rejects whitespace) rather than `[RequiredZod]`, which
+> always rejects `null`.
+
 The `[ZodSchema]` attribute also exposes generator options that tune the emitted schema:
 
 - `SchemaName` — overrides the generated schema class name (default `{TypeName}Schema`); the ZodSharp DI

@@ -30,11 +30,17 @@ static class ValueObjectEFConverterEmitter
 	/// <summary>
 	/// Builds the model-to-provider lambda. <paramref name="providerCastTypeName"/> is the provider type when
 	/// a cast is required (an enum-backed scalar converts through its underlying integral type), or
-	/// <see langword="null"/> to read the scalar property directly.
+	/// <see langword="null"/> to read the scalar property directly. <paramref name="nullForgiving"/> adds the
+	/// null-forgiving operator when the underlying property is a nullable reference type but the provider
+	/// type is the non-nullable CLR type.
 	/// </summary>
-	public static string ToProviderExpression(string scalarPropertyName, string? providerCastTypeName) =>
+	public static string ToProviderExpression(
+		string scalarPropertyName,
+		string? providerCastTypeName,
+		bool nullForgiving = false
+	) =>
 		providerCastTypeName is null
-			? $"vo => vo.{scalarPropertyName}"
+			? $"vo => vo.{scalarPropertyName}{(nullForgiving ? "!" : string.Empty)}"
 			: $"vo => ({providerCastTypeName})vo.{scalarPropertyName}";
 
 	/// <summary>

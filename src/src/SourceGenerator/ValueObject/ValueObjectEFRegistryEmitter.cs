@@ -623,7 +623,8 @@ static class ValueObjectEFRegistryEmitter
 					providerTypeName,
 					ValueObjectEFConverterEmitter.ToProviderExpression(
 						descriptor.ScalarPropertyName!,
-						hydrateCastTypeName is null ? null : providerTypeName
+						hydrateCastTypeName is null ? null : providerTypeName,
+						descriptor.ProviderTypeIsNullableReference
 					),
 					ValueObjectEFConverterEmitter.FromProviderExpression(descriptor.TypeName, hydrateCastTypeName)
 				)

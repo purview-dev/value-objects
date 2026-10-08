@@ -1,8 +1,9 @@
 namespace Purview.ValueObjects.Serialization;
 
 /// <summary>
-/// Marks a struct or class as a scalar value object and controls how the source generator
-/// produces conversion, comparison, and serialization members for it.
+/// Marks a struct or class as a scalar value object whose underlying value property is declared by the
+/// author, and controls how the source generator produces conversion, comparison, and serialization
+/// members for it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -11,116 +12,42 @@ namespace Purview.ValueObjects.Serialization;
 /// comparison operators, implicit conversions to and from the primitive, and an <c>Empty</c> instance.
 /// </para>
 /// <para>
-/// The <see cref="PropertyName"/> identifies the member holding the underlying value. Scalar value objects are
-/// serialized using only that member's value, which is what makes them query-friendly for primitive inner values.
+/// The <see cref="ScalarOptionsAttribute.PropertyName"/> identifies the member holding the underlying value.
+/// Scalar value objects are serialized using only that member's value, which is what makes them
+/// query-friendly for primitive inner values.
+/// </para>
+/// <para>
+/// This is the <b>manual</b> form: the author declares the named property and the generator never emits
+/// it. To have the generator declare the property instead, pass a value type to the constructor (for
+/// example <c>[Scalar(typeof(string))]</c>) or use <see cref="ScalarAttribute{TValue}"/>. The forms are
+/// mutually exclusive for a given type.
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-public sealed class ScalarAttribute(string propertyName = "Value") : Attribute
+public sealed class ScalarAttribute : ScalarOptionsAttribute
 {
 	/// <summary>
-	/// Gets the name of the property that holds the underlying scalar value.
+	/// Initializes the manual form, where the author declares the named property.
 	/// </summary>
-	/// <value>Defaults to <c>Value</c> when not specified.</value>
-	public string PropertyName { get; } = propertyName;
+	/// <param name="propertyName">The name of the property that holds the underlying scalar value.</param>
+	public ScalarAttribute(string propertyName = "Value")
+		: base(propertyName) { }
 
 	/// <summary>
-	/// Gets or sets whether a JSON converter should be generated for the value object.
+	/// Initializes the automatic form, where the generator declares the named property of type
+	/// <paramref name="valueType"/>.
 	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateJsonConverter { get; init; } = true;
+	/// <param name="valueType">
+	/// The underlying value type, for example <c>typeof(string)</c> or <c>typeof(int?)</c>. A nullable
+	/// reference type cannot be a <c>typeof</c> operand (CS8639); use <see cref="ScalarOptionsAttribute.Nullable"/>
+	/// for those, for example <c>[Scalar(typeof(string), Nullable = true)]</c>.
+	/// </param>
+	/// <param name="propertyName">The name of the property the generator declares.</param>
+	public ScalarAttribute(Type valueType, string propertyName = "Value")
+		: base(propertyName) => ValueType = valueType;
 
 	/// <summary>
-	/// Gets or sets whether the value object should implement <see cref="IComparable{T}"/>.
+	/// Gets the underlying value type for the automatic form, or <see langword="null"/> for the manual form.
 	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateComparable { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether comparison operators should be generated for the value object.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateComparisonOperators { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether enum properties should be generated from the underlying value.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateEnumProperties { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether an implicit conversion from the primitive value should be generated.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateImplicitFromPrimitive { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether an implicit conversion to the primitive value should be generated.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateImplicitToPrimitive { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether a static <c>Empty</c> instance should be generated.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	public bool GenerateEmpty { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether an Entity Framework Core <c>ValueConverter</c> and <c>ValueComparer</c> should
-	/// be generated for the value object.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	/// <remarks>
-	/// Entity Framework members are emitted only when the consuming project references
-	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored. Set to
-	/// <see langword="false"/> to opt out per type (see <see cref="ValueObjectDefaultsAttribute"/> for
-	/// assembly-level opt-out).
-	/// </remarks>
-	public bool GenerateEFConverter { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether an Entity Framework Core <c>ValueComparer</c> should be generated for the
-	/// value object.
-	/// </summary>
-	/// <value>Defaults to <see langword="true"/>.</value>
-	/// <remarks>
-	/// Entity Framework members are emitted only when the consuming project references
-	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored.
-	/// </remarks>
-	public bool GenerateEFComparer { get; init; } = true;
-
-	/// <summary>
-	/// Gets or sets whether an Entity Framework Core value generator should be generated for this
-	/// Guid-backed scalar value object.
-	/// </summary>
-	/// <value>Defaults to <see langword="false"/>.</value>
-	/// <remarks>
-	/// <para>
-	/// When enabled, the generator emits a <c>ValueGenerator</c> that assigns a time-ordered
-	/// (UUIDv7) identifier when an entity's key is left at <see cref="Guid.Empty"/>, and publishes
-	/// it through the generated <c>ValueObjectKeyValueGeneratorConvention</c> so it applies to key
-	/// properties without per-entity configuration. A value supplied by domain code is never
-	/// overwritten, and an explicit <c>ValueGeneratedNever()</c> in an entity configuration wins.
-	/// </para>
-	/// <para>
-	/// Entity Framework members are emitted only when the consuming project references
-	/// <c>Microsoft.EntityFrameworkCore</c>; otherwise this option is ignored. Value generation is
-	/// supported for Guid-backed scalars only.
-	/// </para>
-	/// </remarks>
-	public bool GenerateEFValueGenerator { get; init; }
-
-	/// <summary>
-	/// Gets or sets the deserialization mode used by the generated JSON converter.
-	/// </summary>
-	/// <value>Defaults to <see cref="ValueObjectDeserializationMode.Hydrate"/>.</value>
-	public ValueObjectDeserializationMode DeserializationMode { get; init; } = ValueObjectDeserializationMode.Hydrate;
-
-	/// <summary>
-	/// Gets or sets how a source-generated ZodSharp schema validator (from the <c>[ZodSchema]</c>
-	/// attribute on this type) participates in the generated <c>Create</c> path.
-	/// </summary>
-	/// <value>Defaults to <see cref="ZodSchemaMode.InAdditionToHooks"/>.</value>
-	public ZodSchemaMode ZodSchemaMode { get; init; } = ZodSchemaMode.InAdditionToHooks;
+	public Type? ValueType { get; }
 }

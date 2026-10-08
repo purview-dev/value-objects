@@ -48,6 +48,21 @@ readonly partial record struct OrderId
 	}
 }
 
+// The automatic form: the generator declares `public Guid Value { get; init; }`.
+[Scalar<Guid>]
+readonly partial record struct CustomerId
+{
+	static partial void OnValidate(Guid value)
+	{
+		if (value == Guid.Empty)
+			throw new ArgumentException("Customer id cannot be empty.", nameof(value));
+	}
+}
+
+// A nullable reference scalar: the generator declares `public string? Value { get; init; }`.
+[Scalar<string>(Nullable = true)]
+readonly partial record struct Nickname { }
+
 [ValueObject]
 readonly partial record struct Money
 {

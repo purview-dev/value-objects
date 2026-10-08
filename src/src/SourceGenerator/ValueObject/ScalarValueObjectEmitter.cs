@@ -24,6 +24,7 @@ static partial class ScalarValueObjectEmitter
 
 	static void EmitBody(CodeWriter writer, ScalarValueObjectModel model, bool emitEF)
 	{
+		EmitScalarProperty(writer, model);
 		EmitHookDeclarations(writer, model);
 		EmitScalarInterfaceValue(writer, model);
 		EmitFactories(writer, model);
@@ -172,6 +173,52 @@ static partial class ScalarValueObjectEmitter
 		model.TypeModel.Namespace is null
 			? model.ZodSchemaClassName!
 			: $"global::{model.TypeModel.Namespace}.{model.ZodSchemaClassName}";
+
+	/// <summary>
+	/// Declares the underlying property for the automatic <c>[Scalar&lt;T&gt;]</c> form. The manual form
+	/// declares the property itself, so this emits nothing for it.
+	/// </summary>
+	/// <summary>
+	/// The scalar type name safe to use in an <c>is</c> pattern. Neither a nullable-reference annotation nor
+	/// a nullable value type is legal in a pattern (CS8116), so the trailing <c>?</c> is trimmed; a boxed
+	/// value matches the underlying type either way.
+	/// </summary>
+	internal static string ScalarPatternTypeName(ScalarValueObjectModel model) => model.ScalarTypeName.TrimEnd('?');
+
+	/// <summary>
+	/// The argument to pass to the primitive comparison/equality overload from an <c>is</c> pattern. A
+	/// nullable value type's pattern variable is the underlying non-nullable type, which is convertible to
+	/// both the primitive overload and the value object (via the implicit-from-primitive operator), so it is
+	/// cast to the scalar type to select the primitive overload unambiguously.
+	/// </summary>
+	internal static string ScalarPatternArgument(ScalarValueObjectModel model) =>
+		model.ScalarValueIsNullable && !model.ScalarIsReferenceType
+			? $"({model.ScalarTypeName})primitive"
+			: "primitive";
+
+	/// <summary>
+	/// The parameter type for the primitive comparison overload. The BCL comparison interfaces annotate the
+	/// parameter as nullable, so a reference scalar's parameter must be nullable too; a scalar whose
+	/// underlying type is already a nullable reference keeps its single annotation.
+	/// </summary>
+	internal static TypeReference ScalarComparableParameter(ScalarValueObjectModel model, CodeWriter writer) =>
+		model.ScalarIsReferenceType && !model.ScalarTypeIsNullableReference
+			? model.ScalarTypeReference.Nullable(writer)
+			: model.ScalarTypeReference;
+
+	static void EmitScalarProperty(CodeWriter writer, ScalarValueObjectModel model)
+	{
+		if (!model.GenerateScalarProperty)
+			return;
+
+		writer.Property(
+			new(model.ScalarPropertyName, model.ScalarTypeReference, TypeDeclarationAccessibility.Public)
+			{
+				HasSetter = true,
+				IsInitOnly = true,
+			}
+		);
+	}
 
 	/// <summary>
 	/// Satisfies <c>IScalarValueObject&lt;TSelf, TValue&gt;.Value</c> when the scalar member is named

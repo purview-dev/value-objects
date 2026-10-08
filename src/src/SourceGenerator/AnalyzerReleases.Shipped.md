@@ -20,3 +20,11 @@ VO1017 | ValueObjects | Warning | Entity Framework JSON mapping requires the JSO
 VO1018 | ValueObjects | Warning | Entity Framework complex mapping cannot convert a member
 VO1019 | ValueObjects | Warning | Entity Framework complex type mapping requires Entity Framework Core 8 or later
 VO1021 | ValueObjects | Warning | Entity Framework key value generation is unavailable for the value object
+
+## Release 1.0.1
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+VO1022 | ValueObjects | Error | The automatic [Scalar<T>]/[Scalar(typeof(T))] form declares the scalar property, so the author must not declare it

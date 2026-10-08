@@ -63,15 +63,7 @@ static partial class ScalarValueObjectEmitter
 			writer.MethodExpression(
 				new("CompareTo", PurviewTypeLibrary.System.Int32, TypeDeclarationAccessibility.Public)
 				{
-					Parameters =
-					[
-						new(
-							"other",
-							model.ScalarIsReferenceType
-								? model.ScalarTypeReference.Nullable(writer)
-								: model.ScalarTypeReference
-						),
-					],
+					Parameters = [new("other", ScalarComparableParameter(model, writer))],
 					ExpressionBody = $"{ScalarComparerExpression(model)}.Compare({model.ScalarPropertyName}, other)",
 				}
 			);
@@ -92,8 +84,8 @@ static partial class ScalarValueObjectEmitter
 						ifBody => ifBody.Return("CompareTo(otherValueObject)")
 					);
 					body.IfBlock(
-						$"obj is {model.ScalarTypeName} primitive",
-						ifBody => ifBody.Return("CompareTo(primitive)")
+						$"obj is {ScalarPatternTypeName(model)} primitive",
+						ifBody => ifBody.Return($"CompareTo({ScalarPatternArgument(model)})")
 					);
 					body.Throw(
 						$"new global::System.ArgumentException($\"Object must be of type {{nameof({model.TypeModel.Name})}} or {model.ScalarTypeName}.\", nameof(obj))"

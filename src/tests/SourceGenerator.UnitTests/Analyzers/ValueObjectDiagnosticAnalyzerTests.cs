@@ -91,6 +91,48 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 	}
 
 	[Test]
+	public async Task Generate_GivenAutomaticScalarWithDeclaredProperty_ReportsScalarPropertyIsGenerated(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<System.Guid>]
+				public readonly partial record struct InstallationId
+				{
+					public System.Guid Value { get; init; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ScalarPropertyIsGenerated);
+	}
+
+	[Test]
+	public async Task Generate_GivenTypeofScalarWithDeclaredProperty_ReportsScalarPropertyIsGenerated(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(typeof(System.Guid))]
+				public readonly partial record struct InstallationId
+				{
+					public System.Guid Value { get; init; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ScalarPropertyIsGenerated);
+	}
+
+	[Test]
 	public async Task Generate_GivenNonRecordStructScalar_ReportsScalarShouldBeRecordStruct(
 		CancellationToken cancellationToken
 	)
@@ -120,6 +162,31 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 			namespace Testing
 			{
 				[Scalar]
+				[ValueObject]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ConflictingValueObjectAttributes);
+	}
+
+	[Test]
+	[Arguments("[Purview.ValueObjects.Serialization.Scalar<System.Guid>]")]
+	[Arguments("[Purview.ValueObjects.Serialization.Scalar(typeof(System.Guid))]")]
+	public async Task Generate_GivenAutomaticScalarAndValueObject_ReportsConflictingValueObjectAttributes(
+		string scalarAttribute,
+		CancellationToken cancellationToken
+	)
+	{
+		var source = $$"""
+			namespace Testing
+			{
+				{{scalarAttribute}}
 				[ValueObject]
 				public readonly partial record struct EmailAddress
 				{

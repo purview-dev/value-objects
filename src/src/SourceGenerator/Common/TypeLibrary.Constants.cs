@@ -19,6 +19,9 @@ public static partial class TypeLibrary
 
 	public const string ScalarAttributeFullTypeName = SerializationNamespace + ".ScalarAttribute";
 
+	/// <summary>The metadata name of the automatic (generic) scalar attribute, <c>[Scalar&lt;T&gt;]</c>.</summary>
+	public const string ScalarAttributeGenericMetadataName = ScalarAttributeFullTypeName + "`1";
+
 	public const string ValueObjectDeserializationModeFullTypeName =
 		SerializationNamespace + ".ValueObjectDeserializationMode";
 

@@ -74,23 +74,17 @@ static class ValueObjectDefaultsHelper
 		};
 
 		bool MergeBool(bool typeValue, bool assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(
-				attributes,
-				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
-				propertyName
-			)
-				? typeValue
-				: assemblyValue;
+			IsScalarPropertyExplicitlySet(attributes, propertyName) ? typeValue : assemblyValue;
 
 		string MergeString(string typeValue, string assemblyValue, string propertyName) =>
-			IsPropertyExplicitlySet(
-				attributes,
-				TypeLibrary.Purview.ValueObjects.Serialization.ScalarAttribute,
-				propertyName
-			)
-				? typeValue
-				: assemblyValue;
+			IsScalarPropertyExplicitlySet(attributes, propertyName) ? typeValue : assemblyValue;
 	}
+
+	/// <summary>
+	/// True when <paramref name="propertyName"/> is set on the applied scalar attribute, generic or not.
+	/// </summary>
+	public static bool IsScalarPropertyExplicitlySet(ImmutableArray<AttributeData> attributes, string propertyName) =>
+		ScalarAttributeParser.Find(attributes)?.NamedArguments.Any(argument => argument.Key == propertyName) ?? false;
 
 	public static ValueObjectAttributeData Apply(
 		ValueObjectAttributeData typeOptions,
