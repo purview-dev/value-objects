@@ -69,6 +69,11 @@ static partial class TypeLibrarySpec
 	[TypeRef("System.Linq.Expressions", arity: 1)]
 	static readonly TypeIdentity Expression = default;
 
+	// Referenced by the scalar value object's generated IFormattable.ToString overload. The framework's
+	// PurviewTypeLibrary exposes IFormattable but not IFormatProvider, so it is declared here.
+	[TypeRef("System")]
+	static readonly TypeIdentity IFormatProvider = default;
+
 	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
 	static readonly TypeIdentity IComplexType = default;
 

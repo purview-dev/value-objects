@@ -518,6 +518,56 @@ static class ValueObjectSymbolInspector
 			&& SymbolEqualityComparer.Default.Equals(namedTypeSymbol.TypeArguments[0], typeSymbol)
 		);
 
+	/// <summary>
+	/// True when the underlying scalar value supports .NET formatting, so the generated value object can
+	/// forward <c>ToString(string?, IFormatProvider?)</c> to it. A nullable value type is unwrapped first,
+	/// because <see cref="Nullable{T}"/> itself implements no interfaces even when <c>T</c> does; a nullable
+	/// reference annotation does not change the implemented set.
+	/// </summary>
+	public static bool ImplementsIFormattable(ITypeSymbol type)
+	{
+		var effectiveType = UnwrapNullable(type);
+
+		return effectiveType.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol.Name == nameof(IFormattable)
+			&& interfaceSymbol.ContainingNamespace.ToDisplayString() == "System"
+		);
+	}
+
+	/// <summary>
+	/// The underlying type behind a nullable value type, or the type itself. A nullable value type is not
+	/// the CLR type whose members matter — <see cref="Nullable{T}"/> declares only its own parameterless
+	/// members — so overloads and interfaces must be resolved against <c>T</c>.
+	/// </summary>
+	public static ITypeSymbol UnwrapNullable(ITypeSymbol type) =>
+		type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+			? nullable.TypeArguments[0]
+			: type;
+
+	/// <summary>
+	/// True when <paramref name="type"/>, or a base type, declares an instance <c>ToString</c> overload whose
+	/// parameters match <paramref name="parameterTypes"/> exactly. The base chain is walked so an enum's
+	/// inherited <c>Enum.ToString(string)</c> and <c>Enum.ToString(string, IFormatProvider)</c> are seen;
+	/// the parameterless <c>object.ToString</c> is not matched by either.
+	/// </summary>
+	public static bool DeclaresToString(ITypeSymbol type, IReadOnlyList<ITypeSymbol> parameterTypes)
+	{
+		for (var current = type as INamedTypeSymbol; current is not null; current = current.BaseType)
+		{
+			foreach (var member in current.GetMembers("ToString"))
+			{
+				if (
+					member is IMethodSymbol { IsStatic: false } method
+					&& method.Parameters.Length == parameterTypes.Count
+					&& ParametersMatch(method.Parameters, parameterTypes)
+				)
+					return true;
+			}
+		}
+
+		return false;
+	}
+
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0072:Add missing cases")]
 	public static GeneratedTypeModel? BuildTypeModel(INamedTypeSymbol typeSymbol)
 	{

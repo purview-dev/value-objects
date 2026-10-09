@@ -155,6 +155,19 @@ static class ScalarValueObjectModelBuilder
 		var enumPropertiesEnabled = scalarOptions.GenerateEnumProperties && scalarType.TypeKind == TypeKind.Enum;
 		var enumFieldNames = enumPropertiesEnabled ? BuildEnumFieldNames(typeSymbol, scalarType) : [];
 		var toStringExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "ToString");
+		// Mirror the underlying value's formatting overloads per type. The scalar is unwrapped first so a
+		// nullable value type (`int?`) resolves the overloads declared by its underlying type (`int`), not by
+		// `Nullable<int>`. Each generated overload is suppressed when the author already declared it, because
+		// a duplicate member would be CS0111 in generated code the consumer cannot edit.
+		var effectiveScalarType = ValueObjectSymbolInspector.UnwrapNullable(scalarType);
+		var stringType = compilation.GetSpecialType(SpecialType.System_String);
+		var formatProviderType = compilation.GetTypeByMetadataName("System.IFormatProvider");
+		var scalarImplementsIFormattable = ValueObjectSymbolInspector.ImplementsIFormattable(effectiveScalarType);
+		var formattedToStringExists =
+			formatProviderType is not null
+			&& ValueObjectSymbolInspector.DeclaresToString(typeSymbol, [stringType, formatProviderType]);
+		var scalarHasFormatToString = ValueObjectSymbolInspector.DeclaresToString(effectiveScalarType, [stringType]);
+		var formatToStringExists = ValueObjectSymbolInspector.DeclaresToString(typeSymbol, [stringType]);
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
 			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
@@ -255,6 +268,10 @@ static class ScalarValueObjectModelBuilder
 			enumPropertiesEnabled,
 			enumFieldNames,
 			toStringExists,
+			scalarImplementsIFormattable,
+			formattedToStringExists,
+			scalarHasFormatToString,
+			formatToStringExists,
 			hasJsonConverterAttribute,
 			declareOnNormalize,
 			declareOnValidate,

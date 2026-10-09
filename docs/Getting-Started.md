@@ -43,6 +43,7 @@ The generator adds:
 - `EmailAddress.TryCreate(string, out EmailAddress)` – returns `false` instead of throwing.
 - `EmailAddress.Empty` – a default instance.
 - Equality, comparison, `CompareTo`, `ToString`, implicit conversions, and a JSON converter.
+- `IFormattable` (see [Formatting](#formatting)) when the underlying value implements it.
 
 ```csharp
 var email = EmailAddress.Create("  Demo@Example.COM  ");
@@ -106,6 +107,33 @@ public readonly partial record struct Nickname
 The manual form is the more explicit option when you prefer the type and nullability to appear in a
 property declaration. Both forms are supported, and neither is reported as a diagnostic. Other properties
 are allowed in either form; only the scalar property (and the interface's `Value` forwarding) is reserved.
+
+### Formatting
+
+The generated value object mirrors the underlying value's formatting overloads per type, so it exposes the
+same options as the property it wraps.
+
+- When the underlying value implements `System.IFormattable` (`decimal`, `Guid`, `DateTime`,
+  `DateTimeOffset`, `TimeSpan`, the numeric types, `char`, and enums, but not `string` or `bool`), the value
+  object implements `IFormattable` and forwards `ToString(string? format, IFormatProvider? formatProvider)`.
+- When the underlying value declares a format-only `ToString(string? format)` (`Guid`, `DateTime`,
+  `DateTimeOffset`, `TimeSpan`, the numeric types, and enums), that overload is forwarded too.
+
+```csharp
+[Scalar<decimal>]
+public readonly partial record struct Amount { }
+
+var amount = Amount.Create(1234.5m);
+
+amount.ToString("N2", CultureInfo.InvariantCulture);           // "1,234.50"
+amount.ToString("N2");                                         // current culture
+string.Format(CultureInfo.InvariantCulture, "{0:N2}", amount); // "1,234.50"
+$"{amount:N2}"                                                 // current culture, e.g. "1,234.50"
+```
+
+A null underlying value formats as the empty string, and a scalar whose underlying type declares neither
+overload (`string`, `bool`) is unchanged. If you declare a matching overload yourself, the generator leaves
+your implementation in place.
 
 ## 3. Complex value objects
 

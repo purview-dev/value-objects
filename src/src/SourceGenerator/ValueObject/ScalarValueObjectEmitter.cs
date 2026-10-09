@@ -84,6 +84,12 @@ static partial class ScalarValueObjectEmitter
 		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
 		builder.Add(TypeLibrary.System.IComparable);
 
+		// Expose the underlying value's formatting surface (for example a decimal's "N2") through the
+		// generated ToString overload, but only when the scalar type actually supports it and the author has
+		// not already implemented the interface.
+		if (model.ScalarImplementsIFormattable && !model.FormattedToStringExists)
+			builder.Add(TypeLibrary.System.IFormattable.AsTypeReference());
+
 		if (emitEF && model.IsEFReferenced && (model.Options.GenerateEFConverter || model.Options.GenerateEFComparer))
 			builder.Add(
 				TypeLibrary.Purview.ValueObjects.IEFScalarValueObject.MakeGeneric(

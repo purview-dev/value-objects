@@ -9,7 +9,7 @@ Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[S
 incremental source generator produces:
 
 - `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
-- `Empty` instances, equality, comparison, `CompareTo`, `ToString`, and implicit conversions
+- `Empty` instances, equality, comparison, `CompareTo`, `ToString` (including the underlying value's `IFormattable` and format overloads), and implicit conversions
 - JSON converters (scalar value objects serialize as their underlying value)
 - Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
 

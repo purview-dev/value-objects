@@ -31,6 +31,16 @@ been published to NuGet. No stable release has been cut yet; the published line 
   underlying type and property name) and validate through `Create`, even though the property is not visible
   to the ZodSharp generator. ZodSharp 2.0.2 also ships `[NullOrNonWhiteSpace]` for the nullable
   "null or non-whitespace" rule.
+- **Scalar formatting.** The generated value object now mirrors the underlying value's formatting overloads
+  per type. When the wrapped type implements `System.IFormattable` (for example `decimal`, `Guid`,
+  `DateTime`, or an enum), the value object implements `IFormattable` and forwards
+  `ToString(string? format, IFormatProvider? formatProvider)`. When the wrapped type declares a format-only
+  `ToString(string? format)` (for example `Guid`, `DateTime`, or an enum), that overload is forwarded too.
+  The value object exposes the same formatting options as the property it wraps, so
+  `amount.ToString("N2", CultureInfo.InvariantCulture)`, `id.ToString("N")`, and
+  `string.Format("{0:N2}", amount)` behave as they would on the underlying value. A scalar whose underlying
+  type declares neither overload (`string`, `bool`) is unchanged, a null underlying value formats as the
+  empty string, and an author-declared overload is left untouched.
 
 ### Fixed
 
