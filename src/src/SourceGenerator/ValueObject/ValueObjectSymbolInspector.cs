@@ -568,6 +568,48 @@ static class ValueObjectSymbolInspector
 		return false;
 	}
 
+	/// <summary>
+	/// True when <paramref name="type"/> implements the named <c>System</c> generic interface closed over
+	/// <paramref name="typeArgument"/> (for example <c>IEquatable&lt;T&gt;</c> or <c>IParsable&lt;T&gt;</c>).
+	/// Nullable annotations are ignored, so a nullable reference scalar still matches its non-nullable form.
+	/// </summary>
+	public static bool ImplementsGenericInterface(ITypeSymbol type, string interfaceName, ITypeSymbol typeArgument) =>
+		type.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol is INamedTypeSymbol named
+			&& named.OriginalDefinition.Name == interfaceName
+			&& named.OriginalDefinition.ContainingNamespace.ToDisplayString() == "System"
+			&& named.TypeArguments.Length == 1
+			&& SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], typeArgument)
+		);
+
+	/// <summary>
+	/// True when <paramref name="type"/> implements the named non-generic <c>System</c> interface (for
+	/// example <c>ISpanFormattable</c>).
+	/// </summary>
+	public static bool ImplementsInterface(ITypeSymbol type, string interfaceName) =>
+		type.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol.Name == interfaceName && interfaceSymbol.ContainingNamespace.ToDisplayString() == "System"
+		);
+
+	/// <summary>
+	/// True when <paramref name="typeSymbol"/> declares a static method with the given name whose parameters
+	/// match <paramref name="parameterTypes"/> exactly. Used to avoid emitting a parsing member the author
+	/// already declared (which would be a duplicate member, CS0111, in generated code).
+	/// </summary>
+	public static bool HasStaticMethod(
+		INamedTypeSymbol typeSymbol,
+		string name,
+		IReadOnlyList<ITypeSymbol> parameterTypes
+	) =>
+		typeSymbol
+			.GetMembers(name)
+			.OfType<IMethodSymbol>()
+			.Any(method =>
+				method.IsStatic
+				&& method.Parameters.Length == parameterTypes.Count
+				&& ParametersMatch(method.Parameters, parameterTypes)
+			);
+
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0072:Add missing cases")]
 	public static GeneratedTypeModel? BuildTypeModel(INamedTypeSymbol typeSymbol)
 	{

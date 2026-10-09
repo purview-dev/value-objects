@@ -10,6 +10,7 @@ incremental source generator produces:
 
 - `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
 - `Empty` instances, equality, comparison, `CompareTo`, `ToString` (including the underlying value's `IFormattable` and format overloads), and implicit conversions
+- The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`, `IParsable<T>`, `ISpanParsable<T>`, and `IUtf8SpanParsable<T>` — mirrored per type
 - JSON converters (scalar value objects serialize as their underlying value)
 - Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
 

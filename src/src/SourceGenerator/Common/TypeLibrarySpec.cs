@@ -74,6 +74,30 @@ static partial class TypeLibrarySpec
 	[TypeRef("System")]
 	static readonly TypeIdentity IFormatProvider = default;
 
+	// Mirrored from the underlying scalar value's standard interfaces. The framework's PurviewTypeLibrary
+	// predates these, so they are declared here and emitted as qualified names; the consuming compilation
+	// resolves them (and the generator only emits the ones the underlying type actually implements).
+	[TypeRef("System")]
+	static readonly TypeIdentity ISpanFormattable = default;
+
+	[TypeRef("System")]
+	static readonly TypeIdentity IUtf8SpanFormattable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity IParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity ISpanParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity IUtf8SpanParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity Span = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity ReadOnlySpan = default;
+
 	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
 	static readonly TypeIdentity IComplexType = default;
 

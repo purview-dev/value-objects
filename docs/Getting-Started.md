@@ -43,7 +43,7 @@ The generator adds:
 - `EmailAddress.TryCreate(string, out EmailAddress)` – returns `false` instead of throwing.
 - `EmailAddress.Empty` – a default instance.
 - Equality, comparison, `CompareTo`, `ToString`, implicit conversions, and a JSON converter.
-- `IFormattable` (see [Formatting](#formatting)) when the underlying value implements it.
+- The underlying value's standard interfaces (see [Formatting](#formatting) and [Standard interfaces](#standard-interfaces)) when it implements them.
 
 ```csharp
 var email = EmailAddress.Create("  Demo@Example.COM  ");
@@ -134,6 +134,32 @@ $"{amount:N2}"                                                 // current cultur
 A null underlying value formats as the empty string, and a scalar whose underlying type declares neither
 overload (`string`, `bool`) is unchanged. If you declare a matching overload yourself, the generator leaves
 your implementation in place.
+
+### Standard interfaces
+
+The generated value object also implements the same standard interfaces as the type it wraps, so it behaves
+like that type in equality, sorting, formatting, and parsing contexts:
+
+- `IEquatable<TValue>` when the underlying type implements it, and `IEquatable<TSelf>` for every shape that
+  does not already synthesize it.
+- `ISpanFormattable` and `IUtf8SpanFormattable` when the underlying type implements them, forwarding
+  `TryFormat`.
+- `IParsable<TSelf>`, `ISpanParsable<TSelf>`, and `IUtf8SpanParsable<TSelf>` when the underlying type
+  implements them. `Parse` validates through `Create`, and `TryParse` returns `false` (through `TryCreate`)
+  for input that does not parse or fails domain validation.
+
+```csharp
+[Scalar<Guid>]
+public readonly partial record struct InstallationId { }
+
+var id = InstallationId.Parse("2f8a...", CultureInfo.InvariantCulture); // Create(...)
+InstallationId.TryParse("not-a-guid", null, out _);                     // false
+```
+
+Detection is per type and per target framework: a scalar only gets the interfaces its underlying type
+actually implements (`string` is parsable but not span-formattable; an enum is span-formattable but not
+parsable). If you declare one of the generated members yourself, the generator leaves that interface alone.
+Numeric and arithmetic interfaces, `IConvertible`, and collection interfaces are intentionally not mirrored.
 
 ## 3. Complex value objects
 

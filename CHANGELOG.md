@@ -41,6 +41,19 @@ been published to NuGet. No stable release has been cut yet; the published line 
   `string.Format("{0:N2}", amount)` behave as they would on the underlying value. A scalar whose underlying
   type declares neither overload (`string`, `bool`) is unchanged, a null underlying value formats as the
   empty string, and an author-declared overload is left untouched.
+- **Scalar interface mirroring.** The generated value object now implements the same standard interfaces as
+  the type it wraps, so it behaves like that type in equality, formatting, and parsing contexts:
+  - `IEquatable<TValue>` when the underlying type implements it, and `IEquatable<TSelf>` for non-record
+    classes (previously only non-record structs and records implemented it).
+  - `ISpanFormattable` / `IUtf8SpanFormattable` when the underlying type implements them, forwarding
+    `TryFormat` (a null underlying value writes nothing and reports success).
+  - `IParsable<TSelf>` / `ISpanParsable<TSelf>` / `IUtf8SpanParsable<TSelf>` when the underlying type
+    implements them; `Parse` validates through `Create`, and `TryParse` returns `false` (through `TryCreate`)
+    for input that does not parse or fails domain validation.
+
+  Detection is per type and per target framework, so a scalar only gets the interfaces its underlying type
+  actually implements; an interface is skipped when the author already declares one of its members. Numeric
+  and arithmetic interfaces, `IConvertible`, and collection interfaces are intentionally not mirrored.
 
 ### Fixed
 

@@ -9,7 +9,15 @@ static partial class ScalarValueObjectEmitter
 			writer.MethodExpression(
 				new("Equals", PurviewTypeLibrary.System.Boolean, TypeDeclarationAccessibility.Public)
 				{
-					Parameters = [new("other", ValueObjectType(model))],
+					// IEquatable<TSelf>.Equals takes a nullable parameter for a reference type, so a class
+					// scalar must accept null to satisfy the interface (records synthesize their own).
+					Parameters =
+					[
+						new(
+							"other",
+							model.IsReferenceType ? ValueObjectType(model).Nullable(writer) : ValueObjectType(model)
+						),
+					],
 					ExpressionBody = model.IsReferenceType
 						? $"other is not null && global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.Equals({model.ScalarPropertyName}, other.{model.ScalarPropertyName})"
 						: $"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.Equals({model.ScalarPropertyName}, other.{model.ScalarPropertyName})",
@@ -22,7 +30,8 @@ static partial class ScalarValueObjectEmitter
 			writer.MethodExpression(
 				new("Equals", PurviewTypeLibrary.System.Boolean, TypeDeclarationAccessibility.Public)
 				{
-					Parameters = [new("other", model.ScalarTypeReference)],
+					// IEquatable<TValue>.Equals takes a nullable parameter for a reference type.
+					Parameters = [new("other", ScalarComparableParameter(model, writer))],
 					ExpressionBody =
 						$"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.Equals({model.ScalarPropertyName}, other)",
 				}
