@@ -9,7 +9,15 @@ static partial class ComplexValueObjectEmitter
 			writer.Method(
 				new("Equals", PurviewTypeLibrary.System.Boolean, TypeDeclarationAccessibility.Public)
 				{
-					Parameters = [new("other", ValueObjectType(model))],
+					// IEquatable<TSelf>.Equals takes a nullable parameter for a reference type, so a class
+					// value object must accept null to satisfy the interface.
+					Parameters =
+					[
+						new(
+							"other",
+							model.IsReferenceType ? ValueObjectType(model).Nullable(writer) : ValueObjectType(model)
+						),
+					],
 				},
 				body =>
 				{

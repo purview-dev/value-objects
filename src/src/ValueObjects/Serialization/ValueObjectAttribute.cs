@@ -20,9 +20,14 @@ public sealed class ValueObjectAttribute : Attribute
 	public bool GenerateJsonConverter { get; init; } = true;
 
 	/// <summary>
-	/// Gets or sets whether the value object should implement <see cref="IComparable{T}"/>.
+	/// Gets or sets whether the comparison operators should be generated for the value object.
 	/// </summary>
 	/// <value>Defaults to <see langword="true"/>.</value>
+	/// <remarks>
+	/// The value object always implements <see cref="IComparable{T}"/> of itself and
+	/// <see cref="IComparable"/>, because the value-object contract requires them. This option only controls
+	/// the comparison operators, together with <see cref="GenerateComparisonOperators"/>.
+	/// </remarks>
 	public bool GenerateComparable { get; init; } = true;
 
 	/// <summary>

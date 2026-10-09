@@ -174,11 +174,16 @@ static class ScalarValueObjectModelBuilder
 		// duplicate member would be CS0111 in generated code the consumer cannot edit.
 		var mirroring = ResolveInterfaceMirroring(
 			typeSymbol,
-			scalarType,
 			effectiveScalarType,
 			compilation,
 			stringType,
 			formatProviderType
+		);
+		var equalityMirroring = ResolveEqualityMirroring(
+			typeSymbol,
+			scalarType,
+			equalsSelfExists,
+			equalsPrimitiveExists
 		);
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
@@ -288,7 +293,8 @@ static class ScalarValueObjectModelBuilder
 			formattedToStringExists,
 			scalarHasFormatToString,
 			formatToStringExists,
-			mirroring.IEquatableValue,
+			equalityMirroring.IEquatableValue,
+			equalityMirroring.IEquatableSelf,
 			mirroring.SpanFormattable,
 			mirroring.Utf8SpanFormattable,
 			mirroring.Parsable,
@@ -550,10 +556,42 @@ static class ScalarValueObjectModelBuilder
 	}
 
 	/// <summary>
+	/// The equality interfaces the generated value object mirrors.
+	/// </summary>
+	readonly record struct EqualityMirroring(bool IEquatableValue, bool IEquatableSelf);
+
+	/// <summary>
+	/// Resolves the equality interfaces the generated value object mirrors. IEquatable&lt;TValue&gt; is
+	/// checked against the property type, not the unwrapped type: the generated Equals(TValue) takes the
+	/// property type, so a nullable value type (`int?`) cannot satisfy IEquatable&lt;int&gt; and is left
+	/// alone. When the author declared the Equals overload, the interface is only added if their parameter is
+	/// nullability-compatible; a non-nullable reference parameter would report CS8767, so the interface is
+	/// left to the author.
+	/// </summary>
+	static EqualityMirroring ResolveEqualityMirroring(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol scalarType,
+		bool equalsSelfExists,
+		bool equalsPrimitiveExists
+	)
+	{
+		var iEquatableValue =
+			ValueObjectSymbolInspector.ImplementsGenericInterface(scalarType, "IEquatable", scalarType)
+			&& (
+				!equalsPrimitiveExists
+				|| ValueObjectSymbolInspector.HasNullabilityCompatibleEquals(typeSymbol, scalarType)
+			);
+		var iEquatableSelf =
+			!ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol)
+			&& (!equalsSelfExists || ValueObjectSymbolInspector.HasNullabilityCompatibleEquals(typeSymbol, typeSymbol));
+
+		return new EqualityMirroring(iEquatableValue, iEquatableSelf);
+	}
+
+	/// <summary>
 	/// The set of standard interfaces the generated value object mirrors from its underlying scalar value.
 	/// </summary>
 	readonly record struct InterfaceMirroring(
-		bool IEquatableValue,
 		bool SpanFormattable,
 		bool Utf8SpanFormattable,
 		bool Parsable,
@@ -574,7 +612,6 @@ static class ScalarValueObjectModelBuilder
 	/// </summary>
 	static InterfaceMirroring ResolveInterfaceMirroring(
 		INamedTypeSymbol typeSymbol,
-		ITypeSymbol scalarType,
 		ITypeSymbol effectiveScalarType,
 		Compilation compilation,
 		ITypeSymbol stringType,
@@ -588,15 +625,6 @@ static class ScalarValueObjectModelBuilder
 		var spanOfByte = compilation.GetTypeByMetadataName("System.Span`1")?.Construct(byteType);
 		var readOnlySpanOfChar = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")?.Construct(charType);
 		var readOnlySpanOfByte = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")?.Construct(byteType);
-
-		// IEquatable<TValue> is checked against the property type, not the unwrapped type: the generated
-		// Equals(TValue) takes the property type, so a nullable value type (`int?`) cannot satisfy
-		// IEquatable<int> and is left alone.
-		var iEquatableValue = ValueObjectSymbolInspector.ImplementsGenericInterface(
-			scalarType,
-			"IEquatable",
-			scalarType
-		);
 
 		var spanFormattable =
 			ValueObjectSymbolInspector.ImplementsInterface(effectiveScalarType, "ISpanFormattable")
@@ -616,7 +644,6 @@ static class ScalarValueObjectModelBuilder
 		);
 
 		return new InterfaceMirroring(
-			iEquatableValue,
 			spanFormattable,
 			utf8SpanFormattable,
 			parsing.Parsable,

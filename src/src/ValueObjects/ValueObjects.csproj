@@ -7,8 +7,8 @@
 		     src/tests/ValueObjects.EFCompatibility.IntegrationTests. -->
 		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
 		<Title>Purview Value Objects</Title>
-		<Description>Source-generated scalar and complex value objects for .NET. Brings F#-style single-case types to C# with Create/Hydrate factories, normalization, validation, equality, comparison, implicit conversions, and JSON serialization for DTOs, Entity Framework, and domain models.</Description>
-		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;</PackageTags>
+		<Description>Source-generated scalar and complex value objects for .NET. Brings F#-style single-case types to C# with Create/Hydrate factories, normalization, validation, equality, comparison, implicit conversions, JSON serialization, and the underlying value's formatting and parsing interfaces for DTOs, Entity Framework, and domain models.</Description>
+		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;formatting;parsing;</PackageTags>
 	</PropertyGroup>
 
 	<!--

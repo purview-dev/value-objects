@@ -82,14 +82,18 @@ static partial class ScalarValueObjectEmitter
 		// Mirror the underlying value's equatable surface. IEquatable<TSelf> is added for every shape that
 		// does not already implement it (records synthesize it, so they are skipped); the earlier
 		// `!IsReferenceType` gate left non-record classes without it even though they declare Equals(TSelf).
-		if (!model.ImplementsSelfEquatable)
+		if (model.MirrorIEquatableSelf)
 			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(valueObjectType));
 
 		if (model.MirrorIEquatableValue)
 			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(model.ScalarTypeReference));
 
 		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(valueObjectType));
-		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
+		// IComparable<TValue> (comparison against the primitive) is the extra comparable surface
+		// GenerateComparable controls; IComparable<TSelf> and IComparable are required by IScalarValueObject
+		// and are always present.
+		if (model.Options.GenerateComparable)
+			builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
 		builder.Add(TypeLibrary.System.IComparable);
 
 		// Expose the underlying value's formatting surface (for example a decimal's "N2") through the

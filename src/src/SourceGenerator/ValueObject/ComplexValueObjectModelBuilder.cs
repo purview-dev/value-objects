@@ -91,6 +91,13 @@ static class ComplexValueObjectModelBuilder
 		var isReferenceType = typeSymbol.TypeKind == TypeKind.Class;
 		var equalsSelfExists =
 			typeSymbol.IsRecord || ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "Equals", [typeSymbol]);
+		// IEquatable<TSelf> is added for every shape that does not already implement it (records synthesize
+		// it). When the author declared Equals(TSelf), the interface is only added if their parameter is
+		// nullability-compatible; a non-nullable reference parameter would report CS8767.
+		var implementsSelfEquatable = ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol);
+		var mirrorIEquatableSelf =
+			!implementsSelfEquatable
+			&& (!equalsSelfExists || ValueObjectSymbolInspector.HasNullabilityCompatibleEquals(typeSymbol, typeSymbol));
 		var equalsObjectExists = ValueObjectSymbolInspector.HasEqualsObject(typeSymbol);
 		var getHashCodeExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "GetHashCode");
 		var equalityOperatorExists =
@@ -205,7 +212,8 @@ static class ComplexValueObjectModelBuilder
 			typeSymbol.IsRecord,
 			typeSymbol.IsReadOnly,
 			typeSymbol.DeclaredAccessibility.ToTypeDeclarationAccessibility(),
-			ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol),
+			implementsSelfEquatable,
+			mirrorIEquatableSelf,
 			hydrateExists,
 			createExists,
 			compareToSelfExists,

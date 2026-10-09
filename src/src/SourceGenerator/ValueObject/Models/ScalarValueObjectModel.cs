@@ -43,6 +43,7 @@ sealed record class ScalarValueObjectModel(
 	bool ScalarHasFormatToString,
 	bool FormatToStringExists,
 	bool MirrorIEquatableValue,
+	bool MirrorIEquatableSelf,
 	bool MirrorISpanFormattable,
 	bool MirrorIUtf8SpanFormattable,
 	bool MirrorIParsable,

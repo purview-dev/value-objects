@@ -58,6 +58,9 @@ static partial class ScalarValueObjectEmitter
 			);
 		}
 
+		// CompareTo(TValue) is required by IScalarValueObject<TSelf, TValue>, so it is always emitted. Only
+		// the extra IComparable<TValue> interface (advertising comparison against the primitive) is the
+		// comparable surface GenerateComparable controls.
 		if (!model.CompareToPrimitiveExists)
 		{
 			writer.MethodExpression(

@@ -667,6 +667,38 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 	}
 
 	[Test]
+	public async Task ComplexValueObjectGeneration_ClassImplementsSelfEquatable(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial class MoneyAmount(decimal Amount, string Currency);
+
+				public static class MoneyAmountHarness
+				{
+					public static bool IsSelfEquatable() =>
+						new MoneyAmount(1m, "USD") is System.IEquatable<MoneyAmount>;
+
+					public static bool EqualsIsValueBased() =>
+						new MoneyAmount(1m, "USD").Equals(new MoneyAmount(1m, "USD"));
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		var query = result.Generated();
+		var moneyAmount = query.GetClass("MoneyAmount", "Testing");
+		await Assert.That(moneyAmount.Node.BaseList?.ToString()).Contains("IEquatable");
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harnessType = assembly.GetType("Testing.MoneyAmountHarness")!;
+
+		await Assert.That((bool)harnessType.GetMethod("IsSelfEquatable")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harnessType.GetMethod("EqualsIsValueBased")!.Invoke(null, null)!).IsTrue();
+	}
+
+	[Test]
 	public async Task ComplexValueObjectGeneration_WithoutProperties_GeneratesValidCreateAndJsonData(
 		CancellationToken cancellationToken
 	)
@@ -936,7 +968,9 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 	}
 
 	[Test]
-	public async Task Scalar_GenerateComparableFalse_SuppressesComparisonOperators(CancellationToken cancellationToken)
+	public async Task Scalar_GenerateComparableFalse_DropsPrimitiveComparableAndOperators(
+		CancellationToken cancellationToken
+	)
 	{
 		const string source = """
 			namespace Testing
@@ -951,13 +985,26 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
 
 		var query = result.Generated();
 		var name = query.GetRecord("Name", "Testing");
 		var nameType = TypeRefs.Named("Name", "Testing");
+
+		// The contract-required comparison surface (IComparable<TSelf>, IComparable, CompareTo(TValue))
+		// always remains; GenerateComparable only drops the extra IComparable<TValue> interface.
 		await Assert.That(name.HasMethod("CompareTo", nameType)).IsTrue();
 		await Assert.That(name.HasMethod("CompareTo", TypeRefs.String)).IsTrue();
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var generatedType = assembly.GetType("Testing.Name")!;
+		await Assert
+			.That(typeof(IComparable<>).MakeGenericType(generatedType).IsAssignableFrom(generatedType))
+			.IsTrue();
+		await Assert
+			.That(typeof(IComparable<>).MakeGenericType(typeof(string)).IsAssignableFrom(generatedType))
+			.IsFalse();
+
 		await Assert.That(HasOperator(query, name, "<", "Name", "Name")).IsFalse();
 		await Assert.That(HasOperator(query, name, ">", "Name", "Name")).IsFalse();
 		await Assert.That(HasOperator(query, name, "<=", "Name", "Name")).IsFalse();

@@ -44,9 +44,16 @@ public abstract class ScalarOptionsAttribute : Attribute
 	public bool GenerateJsonConverter { get; init; } = true;
 
 	/// <summary>
-	/// Gets or sets whether the value object should implement <see cref="IComparable{T}"/>.
+	/// Gets or sets whether the value object advertises comparison against its underlying value
+	/// (<see cref="IComparable{T}"/> of the primitive) and whether the comparison operators are generated.
 	/// </summary>
 	/// <value>Defaults to <see langword="true"/>.</value>
+	/// <remarks>
+	/// The value object always implements <see cref="IComparable{T}"/> of itself, <see cref="IComparable"/>,
+	/// and <c>CompareTo(TValue)</c>, because the value-object contract requires them. Setting this to
+	/// <see langword="false"/> drops the extra <c>IComparable&lt;TValue&gt;</c> interface and the comparison
+	/// operators; the operators additionally require <see cref="GenerateComparisonOperators"/>.
+	/// </remarks>
 	public bool GenerateComparable { get; init; } = true;
 
 	/// <summary>

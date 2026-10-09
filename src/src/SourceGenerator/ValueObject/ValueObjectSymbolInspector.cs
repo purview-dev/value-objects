@@ -124,6 +124,32 @@ static class ValueObjectSymbolInspector
 			);
 	}
 
+	/// <summary>
+	/// True when <paramref name="typeSymbol"/> declares an instance <c>Equals</c> overload for
+	/// <paramref name="parameterType"/> whose nullability satisfies <c>IEquatable&lt;T&gt;.Equals(T?)</c>.
+	/// A non-nullable reference-type parameter does not, so adding the interface would report CS8767; the
+	/// generator leaves the interface off in that case and lets the author own it.
+	/// </summary>
+	public static bool HasNullabilityCompatibleEquals(INamedTypeSymbol typeSymbol, ITypeSymbol parameterType)
+	{
+		foreach (var method in typeSymbol.GetMembers("Equals").OfType<IMethodSymbol>())
+		{
+			if (method.IsStatic || method.Parameters.Length != 1)
+				continue;
+
+			var parameter = method.Parameters[0];
+			if (!SymbolEqualityComparer.Default.Equals(parameter.Type, parameterType))
+				continue;
+
+			if (parameter.Type.IsReferenceType && parameter.Type.NullableAnnotation != NullableAnnotation.Annotated)
+				continue;
+
+			return true;
+		}
+
+		return false;
+	}
+
 	public static bool HasCompareToObject(INamedTypeSymbol typeSymbol) =>
 		typeSymbol
 			.GetMembers("CompareTo")

@@ -5,10 +5,11 @@ All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). `package.json` is the authoritative version.
 
-Released versions correspond to `v<version>` GitHub releases. Entries below the `Unreleased` heading have not
-been published to NuGet. No stable release has been cut yet; the published line is `1.0.0-prerelease.N`.
+Released versions correspond to `v<version>` GitHub releases. `package.json` is the authoritative version; the
+newest heading below is the version in development. Earlier releases are listed under
+[releases](https://github.com/purview-dev/value-objects/releases).
 
-## Unreleased
+## 1.1.0
 
 ### Added
 
@@ -54,6 +55,13 @@ been published to NuGet. No stable release has been cut yet; the published line 
   Detection is per type and per target framework, so a scalar only gets the interfaces its underlying type
   actually implements; an interface is skipped when the author already declares one of its members. Numeric
   and arithmetic interfaces, `IConvertible`, and collection interfaces are intentionally not mirrored.
+- **Complex value objects implement `IEquatable<TSelf>`.** A `[ValueObject]` class now implements
+  `IEquatable<TSelf>` (previously only non-record structs and records did), so `EqualityComparer<T>` and
+  generic equality treat it by value. The generated `Equals(TSelf)` accepts a nullable reference, as the
+  interface requires.
+- **NuGet package validation.** The runtime package enables `EnablePackageValidation` against the previous
+  stable release (`1.0.1`), so an accidental breaking change to the public API fails `dotnet pack` rather
+  than shipping.
 
 ### Fixed
 
@@ -122,6 +130,15 @@ been published to NuGet. No stable release has been cut yet; the published line 
   `CompareTo`/`Equals` overload was ambiguous for a nullable value type, and `GetHashCode`/`ToString`
   produced nullable warnings. The generated code now strips the annotation where it is not representable and
   handles null in those members.
+- **`GenerateComparable` now does what its documentation says.** The option claimed to control
+  `IComparable<T>`, but the value object always implements `IComparable<TSelf>`/`IComparable` (and a scalar
+  always exposes `CompareTo(TValue)`) because the runtime contract requires it. `GenerateComparable = false`
+  now drops the extra `IComparable<TValue>` interface as well as the comparison operators, and the
+  documentation on `ScalarOptionsAttribute`, `ValueObjectAttribute`, and `ValueObjectDefaultsAttribute`
+  describes the actual behaviour.
+- **An author-declared `Equals` no longer conflicts with the mirrored `IEquatable` interface.** When a scalar
+  declares `Equals(TValue)`, or a value object declares `Equals(TSelf)`, with a non-nullable reference
+  parameter, the generated `IEquatable<T>` is left off instead of emitting `CS8767` in the consumer's build.
 
 ### Changed — trimming and Native AOT
 
@@ -171,7 +188,7 @@ been published to NuGet. No stable release has been cut yet; the published line 
   value, `ScalarValueObjectEmitter.EmitConstructor` **emits a private one**, which is the documented and
   tested behaviour. The rule as written contradicted the generator. The id now sits with `VO1011`, `VO1012`,
   `VO1014` and `VO1020` as retired and never reused, leaving 17 live rules.
-- **`VO1022` ships in a new `## Release 1.0.1` block** in `AnalyzerReleases.Shipped.md`, for the automatic
+- **`VO1022` ships in a new `## Release 1.1.0` block** in `AnalyzerReleases.Shipped.md`, for the automatic
   scalar forms that declare the underlying property themselves.
 
 ### Versioning and package lineage

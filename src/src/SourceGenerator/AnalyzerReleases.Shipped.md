@@ -21,7 +21,7 @@ VO1018 | ValueObjects | Warning | Entity Framework complex mapping cannot conver
 VO1019 | ValueObjects | Warning | Entity Framework complex type mapping requires Entity Framework Core 8 or later
 VO1021 | ValueObjects | Warning | Entity Framework key value generation is unavailable for the value object
 
-## Release 1.0.1
+## Release 1.1.0
 
 ### New Rules
 

@@ -13,6 +13,7 @@ sealed record class ComplexValueObjectModel(
 	bool IsReadOnly,
 	TypeDeclarationAccessibility? Accessibility,
 	bool ImplementsSelfEquatable,
+	bool MirrorIEquatableSelf,
 	bool HydrateExists,
 	bool CreateExists,
 	bool CompareToSelfExists,

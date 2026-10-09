@@ -355,4 +355,66 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 		await Assert.That((int)harnessType.GetMethod("ParseValue")!.Invoke(null, ["42"])!).IsEqualTo(42);
 		await Assert.That((bool)harnessType.GetMethod("IsParsable")!.Invoke(null, null)!).IsFalse();
 	}
+
+	[Test]
+	public async Task ScalarMirroring_GivenAuthorDeclaredNonNullableEquals_SkipsValueEquatable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+			[Purview.ValueObjects.Serialization.Scalar]
+			public readonly partial record struct Code
+			{
+				public string Value { get; }
+
+				public bool Equals(string other) => Value == other;
+			}
+
+			public static class CodeHarness
+			{
+				public static bool IsValueEquatable() => Code.Create("x") is System.IEquatable<string>;
+			}
+			}
+			""";
+
+		// The generated code must not report CS8767 (the author's non-nullable parameter cannot satisfy
+		// IEquatable<string>.Equals(string?)), so the interface is left to the author.
+		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harnessType = assembly.GetType("Testing.CodeHarness")!;
+
+		await Assert.That((bool)harnessType.GetMethod("IsValueEquatable")!.Invoke(null, null)!).IsFalse();
+	}
+
+	[Test]
+	public async Task ScalarMirroring_GivenAuthorDeclaredNullableEquals_ImplementsValueEquatable(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+			[Purview.ValueObjects.Serialization.Scalar]
+			public readonly partial record struct Code
+			{
+				public string Value { get; }
+
+				public bool Equals(string? other) => Value == other;
+			}
+
+			public static class CodeHarness
+			{
+				public static bool IsValueEquatable() => Code.Create("x") is System.IEquatable<string>;
+			}
+			}
+			""";
+
+		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harnessType = assembly.GetType("Testing.CodeHarness")!;
+
+		await Assert.That((bool)harnessType.GetMethod("IsValueEquatable")!.Invoke(null, null)!).IsTrue();
+	}
 }

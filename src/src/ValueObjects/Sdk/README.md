@@ -3,18 +3,39 @@
 Source-generated scalar and complex value objects for .NET.
 
 Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[Scalar]` or `[ValueObject]` and the
-source generator produces `Create`/`Hydrate` factories, normalization (`OnNormalize`), validation (`OnValidate`),
-`Empty` instances, equality, comparison, implicit conversions, and JSON converters.
+incremental source generator produces:
 
-- **DTOs** – strong types with serialization/deserialization and business rules.
+- `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
+- `Empty` instances, equality, comparison, `CompareTo`, `ToString` (including the underlying value's `IFormattable`
+  and format overloads), and implicit conversions
+- The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`,
+  `IParsable<T>`, `ISpanParsable<T>`, and `IUtf8SpanParsable<T>` — mirrored per type
+- JSON converters (scalar value objects serialize as their underlying value)
+- Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
+
+**Use cases**
+
+- **DTOs** – strong, self-validating types with serialization/deserialization and business rules.
 - **Entity Framework** – reference `Microsoft.EntityFrameworkCore` and the generator emits mapping members
   (value converters, comparers, complex-type mapping) plus a `ConfigureValueObjects` extension for automatic
-  mapping. Queries use the value object type directly.
+  mapping. Queries use the value object type directly — no `.Value` required.
 - **Domain models** – the F#-style single-case union pattern in C#.
+
+## Install
+
+```text
+dotnet add package Purview.ValueObjects
+```
+
+The package ships the runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, ...), the source generator,
+the diagnostic analyzer, and code fixes for the analyzer's diagnostics (for example `VO1001` offers
+**Add 'partial' modifier**). There is no dependency on any event-sourcing library.
 
 ## Quick start
 
 ```csharp
+using Purview.ValueObjects.Serialization;
+
 [Scalar]
 public readonly partial record struct EmailAddress
 {
@@ -33,9 +54,33 @@ var email = EmailAddress.Create("Demo@Example.com");
 // email.Value == "demo@example.com"
 ```
 
-The manual `[Scalar]` form above declares the underlying property. The automatic `[Scalar<T>]` /
-`[Scalar(typeof(T))]` forms have the generator declare it, and `[Scalar<string>(Nullable = true)]`
-expresses a nullable reference scalar.
+`[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members. The manual `[Scalar]` form
+declares the underlying property; the automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the
+generator declare it (and `[Scalar<string>(Nullable = true)]` expresses a nullable reference scalar).
+
+## Formatting and parsing
+
+A scalar mirrors the formatting and parsing surface of the type it wraps. When the underlying value implements
+`IFormattable`, `ISpanFormattable`, `IUtf8SpanFormattable`, `IParsable<T>`, `ISpanParsable<T>`, or
+`IUtf8SpanParsable<T>`, the generated value object implements the same interfaces and forwards to the wrapped
+value:
+
+```csharp
+[Scalar<Guid>]
+public readonly partial record struct InstallationId { }
+
+var id = InstallationId.Create(Guid.NewGuid());
+
+id.ToString("N", CultureInfo.InvariantCulture);   // forwards to Guid.ToString("N", ...)
+InstallationId.Parse("2f8a…", CultureInfo.InvariantCulture);  // Create(...) — validates
+InstallationId.TryParse("not-a-guid", null, out _);           // false
+```
+
+`Parse` validates through `Create`; `TryParse` returns `false` (through `TryCreate`) for input that does not
+parse or fails domain validation. Detection is per type and per target framework, so a scalar only gets the
+interfaces its underlying type actually implements (`string` is parsable but not span-formattable; an enum is
+span-formattable but not parsable). Numeric/arithmetic interfaces, `IConvertible`, and collection interfaces are
+intentionally not mirrored.
 
 ## JSON serialization
 
@@ -47,14 +92,10 @@ var options = new JsonSerializerOptions();
 options.Converters.Add(new ScalarJsonConverterFactory());
 ```
 
-Use the same options for Entity Framework JSON columns:
-
-```csharp
-modelBuilder
-    .Entity<Customer>()
-    .Property(c => c.Email)
-    .HasColumnType("jsonb");
-```
+The generator also emits a `[JsonConverter]` per value object, so scalar/complex value objects serialize
+correctly even when the factory is not registered. That generated converter is reflection-free and trim- and
+Native AOT-safe; register `ScalarJsonConverterFactory` only for a hand-written scalar, in a host that is neither
+trimmed nor AOT-compiled.
 
 ## Entity Framework Core
 
@@ -70,9 +111,10 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 ```
 
 Scalar value objects convert to their underlying primitive column; complex value objects map as EF Core complex
-types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]`. Queries compare
-the value object type directly — no `.Value` required — or the raw underlying value (`c.Email == "..."`,
-`m.Id == guid`). See `docs/Entity-Framework.md` for the full guide.
+types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]`.
+Queries compare the value object type directly — no `.Value` required — or the raw underlying value
+(`c.Email == "..."`, `m.Id == guid`). See the Entity Framework guide for automatic + manual mapping, keys and
+indexes, generated key values, query filters, schema/migrations, assembly defaults, and the opt-out levels.
 
 ## Validation with ZodSharp
 
@@ -91,5 +133,25 @@ Validate value objects with [Purview.ZodSharp](https://www.nuget.org/packages/Pu
 - **Schema-first** – build a schema for the underlying value (`Z.String().Email()`, `Z.Number()`, `Z.Enum<>()`)
   and construct the value object through its strict `Create` factory.
 
-See `docs/ZodSharp-Validation.md` for the full guide, and the `src/src/ZodSharpSample` /
-`src/src/ZodSharp.AspNetCoreSample` projects for runnable examples.
+## How it works
+
+- `Create(...)` is the strict creation path: normalize, validate, then construct.
+- `Hydrate(...)` reconstructs from persisted data without re-validating and is the path used by EF provider
+  conversions.
+- `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
+  `Strict` re-runs validation).
+- Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance
+  through `ValueObjectContext<TOwner>`.
+
+## Disabling the generator
+
+Set `DisableValueObjectsSourceGenerator` to `true` in your project:
+
+```xml
+<PropertyGroup>
+    <DisableValueObjectsSourceGenerator>true</DisableValueObjectsSourceGenerator>
+</PropertyGroup>
+```
+
+See the project documentation for the full guides: getting started, value object design, Entity Framework, and
+ZodSharp validation.

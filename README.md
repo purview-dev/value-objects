@@ -175,6 +175,10 @@ the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details fo
   provider conversions.
 - `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
   `Strict` re-runs validation).
+- A scalar mirrors the underlying value's standard interfaces (`IEquatable<T>`, `IFormattable` and the format
+  overloads, `ISpanFormattable`/`IUtf8SpanFormattable`, and `IParsable<T>`/`ISpanParsable<T>`/
+  `IUtf8SpanParsable<T>`), so it behaves like that type in equality, sorting, formatting, and parsing contexts.
+  `Parse` validates through `Create`; `TryParse` returns `false` through `TryCreate`.
 - Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance
   through `ValueObjectContext<TOwner>`.
 
