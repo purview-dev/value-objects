@@ -30,7 +30,7 @@ public class ZodValidatedTryCreateTests
 
 		// Assert
 		await Assert.That(created).IsFalse();
-		await Assert.That(result).IsEqualTo(default(ZodValidatedEmail));
+		await Assert.That(result).IsEqualTo(default);
 	}
 
 	[Test]

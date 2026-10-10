@@ -39,6 +39,12 @@ static partial class TypeLibrarySpec
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ZodSchemaMode = default;
 
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	static readonly TypeIdentity StringCasing = default;
+
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	static readonly TypeIdentity StringNormalizeAttribute = default;
+
 	[TypeRef("Microsoft.EntityFrameworkCore")]
 	static readonly TypeIdentity ModelBuilder = default;
 

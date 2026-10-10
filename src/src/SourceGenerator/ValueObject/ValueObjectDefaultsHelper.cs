@@ -65,6 +65,8 @@ static class ValueObjectDefaultsHelper
 				assemblyDefaults.GenerateEFValueGenerator,
 				"GenerateEFValueGenerator"
 			),
+			Trim = MergeBool(typeOptions.Trim, assemblyDefaults.Trim, "Trim"),
+			Casing = MergeString(typeOptions.Casing, assemblyDefaults.Casing, "Casing"),
 			DeserializationMode = MergeString(
 				typeOptions.DeserializationMode,
 				assemblyDefaults.DeserializationMode,

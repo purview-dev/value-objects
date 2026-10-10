@@ -32,7 +32,7 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.InstallationIdHarness")!;
-		var id = System.Guid.NewGuid();
+		var id = Guid.NewGuid();
 
 		var formatN = (string)harnessType.GetMethod("FormatN")!.Invoke(null, [id])!;
 		var formatD = (string)harnessType.GetMethod("FormatD")!.Invoke(null, [id])!;

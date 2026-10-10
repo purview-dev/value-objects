@@ -93,6 +93,35 @@ static class ValueObjectSymbolInspector
 			);
 	}
 
+	/// <summary>
+	/// True when the author declared, in user source, a public static factory with the given signature.
+	/// Members emitted by the generator (in a <c>*.g.cs</c> tree) are ignored, so an analyzer running over
+	/// the post-generation compilation does not mistake a generated factory for an author-declared one.
+	/// </summary>
+	public static bool HasDeclaredStaticFactory(INamedTypeSymbol typeSymbol, string name, ITypeSymbol[] parameterTypes)
+	{
+		return typeSymbol
+			.GetMembers(name)
+			.OfType<IMethodSymbol>()
+			.Any(method =>
+				method.IsStatic
+				&& method.DeclaredAccessibility == Accessibility.Public
+				&& method.Parameters.Length == parameterTypes.Length
+				&& SymbolEqualityComparer.Default.Equals(method.ReturnType, typeSymbol)
+				&& ParametersMatch(method.Parameters, parameterTypes)
+				&& method.DeclaringSyntaxReferences.Any(static reference =>
+					!IsGeneratedSyntaxTree(reference.SyntaxTree)
+				)
+			);
+	}
+
+	/// <summary>
+	/// True when the syntax tree is a source-generated file, identified by the <c>.g.cs</c> suffix the
+	/// generator uses for its hint names.
+	/// </summary>
+	public static bool IsGeneratedSyntaxTree(SyntaxTree syntaxTree) =>
+		syntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase);
+
 	public static bool HasTryCreate(INamedTypeSymbol typeSymbol, ITypeSymbol scalarType)
 	{
 		return typeSymbol

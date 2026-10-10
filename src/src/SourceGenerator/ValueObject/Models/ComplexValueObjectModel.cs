@@ -39,4 +39,11 @@ sealed record class ComplexValueObjectModel(
 	bool IsEF8Referenced
 );
 
-readonly record struct ComplexPropertyModel(string Name, string TypeName, TypeReference Type);
+readonly record struct ComplexPropertyModel(
+	string Name,
+	string TypeName,
+	TypeReference Type,
+	bool NormalizeTrim,
+	string NormalizeCasing,
+	bool NormalizeExplicit
+);

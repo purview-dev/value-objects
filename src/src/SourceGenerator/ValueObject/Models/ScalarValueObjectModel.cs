@@ -69,5 +69,7 @@ sealed record class ScalarValueObjectModel(
 	TypeReference EFProviderTypeReference,
 	string? EFHydrateCastTypeName,
 	bool EFValueGeneratorEnabled,
-	bool IsEF8Referenced
+	bool IsEF8Referenced,
+	bool NormalizeTrim,
+	string NormalizeCasing
 );

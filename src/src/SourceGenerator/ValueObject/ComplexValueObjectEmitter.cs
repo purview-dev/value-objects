@@ -136,6 +136,20 @@ static partial class ComplexValueObjectEmitter
 			},
 			body =>
 			{
+				foreach (var property in model.Properties)
+				{
+					var parameterName = ValueObjectSymbolInspector.ToCamelCase(property.Name);
+					if (
+						ValueObjectEmitterHelpers.StringNormalization.Expression(
+							parameterName,
+							property.NormalizeTrim,
+							property.NormalizeCasing
+						) is
+						{ } normalization
+					)
+						body.Assignment(parameterName, normalization);
+				}
+
 				body.MethodCall("OnNormalize", normalizeArgs);
 				body.Assignment(
 					"var",

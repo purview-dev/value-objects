@@ -298,40 +298,44 @@ static class ValueObjectEFRegistryEmitter
 			"static bool IsMappableValueObjectProperty("
 				+ "global::Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType, "
 				+ "global::System.Reflection.PropertyInfo property)",
-			body =>
+			static body =>
 			{
-				body.Line("// Not readable, or not an instance member: never mapped.")
-					.Line("if (property.GetMethod is null || property.GetMethod.IsStatic)")
-					.Line("\treturn false;")
-					.Line("")
-					.Line("// The author excluded it with [NotMapped].")
-					.Line(
-						"if (global::System.Reflection.CustomAttributeExtensions"
-							+ ".GetCustomAttribute<global::System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>"
-							+ "(property) is not null)"
-					)
-					.Line("\treturn false;")
-					.Line("")
-					.Line("// The author excluded it with modelBuilder.Entity<T>().Ignore(...).")
-					.Line(
-						"if (((global::Microsoft.EntityFrameworkCore.Metadata.IConventionEntityType)entityType)"
-							+ ".FindIgnoredConfigurationSource(property.Name) is not null)"
-					)
-					.Line("\treturn false;")
-					.Line("")
-					.Line("// Computed and setter-less: there is nowhere to materialize into, and configuring it")
-					.Line("// fails Entity Framework Core's field-mapping validation. A get-only auto-property is")
-					.Line("// different - it has a compiler-generated backing field, which EF maps - so the check is")
-					.Line("// for that field rather than merely for a missing setter.")
-					.Line("if (property.SetMethod is null && property.DeclaringType is { } declaringType")
-					.Line(
-						"\t&& declaringType.GetField($\"<{property.Name}>k__BackingField\", "
-							+ "global::System.Reflection.BindingFlags.Instance | "
-							+ "global::System.Reflection.BindingFlags.NonPublic) is null)"
-					)
-					.Line("\treturn false;")
-					.Line("")
-					.Line("return true;");
+				body.Comment("Not readable, or not an instance member: never mapped.");
+				body.IfBlock(
+					"property.GetMethod is null || property.GetMethod.IsStatic",
+					static ifBody => ifBody.Return("false")
+				);
+
+				body.Comment("The author excluded it with [NotMapped].");
+				body.IfBlock(
+					"global::System.Reflection.CustomAttributeExtensions"
+						+ ".GetCustomAttribute<global::System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>"
+						+ "(property) is not null",
+					static ifBody => ifBody.Return("false")
+				);
+
+				body.Comment("The author excluded it with modelBuilder.Entity<T>().Ignore(...).");
+				body.IfBlock(
+					"((global::Microsoft.EntityFrameworkCore.Metadata.IConventionEntityType)entityType)"
+						+ ".FindIgnoredConfigurationSource(property.Name) is not null",
+					static ifBody => ifBody.Return("false")
+				);
+
+				body.Comment(
+					"Computed and setter-less: there is nowhere to materialize into, and configuring it",
+					"fails Entity Framework Core's field-mapping validation. A get-only auto-property is",
+					"different - it has a compiler-generated backing field, which EF maps - so the check is",
+					"for that field rather than merely for a missing setter."
+				);
+				body.IfBlock(
+					"property.SetMethod is null && property.DeclaringType is { } declaringType"
+						+ " && declaringType.GetField($\"<{property.Name}>k__BackingField\", "
+						+ "global::System.Reflection.BindingFlags.Instance"
+						+ " | global::System.Reflection.BindingFlags.NonPublic) is null",
+					static ifBody => ifBody.Return("false")
+				);
+
+				body.Return("true");
 			}
 		);
 	}
@@ -602,7 +606,7 @@ static class ValueObjectEFRegistryEmitter
 	{
 		var definitions = ImmutableArray.CreateBuilder<InlineConverterDefinition>();
 		Dictionary<EFScalarDescriptor, string> fields = [];
-		HashSet<string> usedNames = new(StringComparer.Ordinal);
+		HashSet<string> usedNames = [with(StringComparer.Ordinal)];
 
 		foreach (var descriptor in scalars)
 		{
@@ -646,7 +650,7 @@ static class ValueObjectEFRegistryEmitter
 	{
 		var definitions = ImmutableArray.CreateBuilder<InlineConverterDefinition>();
 		Dictionary<EFComplexDescriptor, string> fields = [];
-		HashSet<string> usedNames = new(StringComparer.Ordinal);
+		HashSet<string> usedNames = [with(StringComparer.Ordinal)];
 
 		foreach (var descriptor in complex)
 		{
@@ -680,7 +684,7 @@ static class ValueObjectEFRegistryEmitter
 	static ImmutableArray<KeyValueGeneratorMapping> BuildKeyValueGenerators(EquatableArray<EFScalarDescriptor> scalars)
 	{
 		var mappings = ImmutableArray.CreateBuilder<KeyValueGeneratorMapping>();
-		HashSet<string> usedNames = new(StringComparer.Ordinal);
+		HashSet<string> usedNames = [with(StringComparer.Ordinal)];
 
 		foreach (var descriptor in scalars)
 		{

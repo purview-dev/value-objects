@@ -111,6 +111,34 @@ public sealed class ValueObjectDefaultsAttribute : Attribute
 	public bool GenerateEFValueGenerator { get; init; }
 
 	/// <summary>
+	/// Gets or sets the default string normalization applied to every string-backed scalar and every
+	/// string member of a <c>[ValueObject]</c> in the assembly.
+	/// </summary>
+	/// <value>Defaults to <see langword="false"/>.</value>
+	/// <remarks>
+	/// A <c>[Scalar]</c>/<c>[Scalar&lt;T&gt;]</c> type can override this with
+	/// <see cref="ScalarOptionsAttribute.Trim"/>, and a complex member can override it with
+	/// <see cref="StringNormalizeAttribute"/>. The default is applied silently to string targets only;
+	/// it is ignored where the value object implements its own <c>OnNormalize</c> hook or declares its own
+	/// <c>Create</c>.
+	/// </remarks>
+	public bool Trim { get; init; }
+
+	/// <summary>
+	/// Gets or sets the default casing canonicalization applied to every string-backed scalar and every
+	/// string member of a <c>[ValueObject]</c> in the assembly.
+	/// </summary>
+	/// <value>Defaults to <see cref="StringCasing.None"/>.</value>
+	/// <remarks>
+	/// A <c>[Scalar]</c>/<c>[Scalar&lt;T&gt;]</c> type can override this with
+	/// <see cref="ScalarOptionsAttribute.Casing"/>, and a complex member can override it with
+	/// <see cref="StringNormalizeAttribute"/>. The default is applied silently to string targets only;
+	/// it is ignored where the value object implements its own <c>OnNormalize</c> hook or declares its own
+	/// <c>Create</c>.
+	/// </remarks>
+	public StringCasing Casing { get; init; } = StringCasing.None;
+
+	/// <summary>
 	/// Gets or sets the deserialization mode used by generated JSON converters by default.
 	/// </summary>
 	/// <value>Defaults to <see cref="ValueObjectDeserializationMode.Hydrate"/>.</value>

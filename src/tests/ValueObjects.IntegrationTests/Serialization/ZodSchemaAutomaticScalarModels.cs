@@ -75,7 +75,7 @@ public readonly partial record struct AutoHookEmail
 	static partial void OnValidate(string value)
 	{
 		if (value != "allowed")
-			throw new System.ArgumentException("Only 'allowed' is accepted.", nameof(value));
+			throw new ArgumentException("Only 'allowed' is accepted.", nameof(value));
 	}
 }
 
@@ -92,7 +92,7 @@ public readonly partial record struct AutoHookEmail
 public readonly partial record struct AutoInsteadOfHooksEmail
 {
 	static partial void OnValidate(string value) =>
-		throw new System.ArgumentException("OnValidate must not run.", nameof(value));
+		throw new ArgumentException("OnValidate must not run.", nameof(value));
 }
 
 /// <summary>

@@ -238,14 +238,15 @@ static partial class ScalarValueObjectEmitter
 	)
 	{
 		var parameters = outParameter
-			? ImmutableArray.Create(
+			?
+			[
 				new ParameterDeclarationOptions(inputName, inputType),
 				new("provider", FormatProviderType(writer)),
 				new("result", TypeParameterReference, ParameterModifier.Out)
 				{
 					Attributes = [MaybeNullWhenFalseAttribute],
-				}
-			)
+				},
+			]
 			: ImmutableArray.Create(
 				new ParameterDeclarationOptions(inputName, inputType),
 				new("provider", FormatProviderType(writer))

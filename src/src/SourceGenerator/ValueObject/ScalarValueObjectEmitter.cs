@@ -165,6 +165,16 @@ static partial class ScalarValueObjectEmitter
 				},
 				body =>
 				{
+					if (
+						ValueObjectEmitterHelpers.StringNormalization.Expression(
+							"value",
+							model.NormalizeTrim,
+							model.NormalizeCasing
+						) is
+						{ } normalization
+					)
+						body.Assignment("value", normalization);
+
 					body.MethodCall("OnNormalize", "ref value");
 
 					if (model.HasZodSchemaValidation)

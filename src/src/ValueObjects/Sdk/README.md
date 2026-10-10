@@ -5,7 +5,8 @@ Source-generated scalar and complex value objects for .NET.
 Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[Scalar]` or `[ValueObject]` and the
 incremental source generator produces:
 
-- `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
+- `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization (or built-in string trim/casing)
+  and `OnValidate` validation
 - `Empty` instances, equality, comparison, `CompareTo`, `ToString` (including the underlying value's `IFormattable`
   and format overloads), and implicit conversions
 - The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`,
@@ -53,6 +54,16 @@ public readonly partial record struct EmailAddress
 var email = EmailAddress.Create("Demo@Example.com");
 // email.Value == "demo@example.com"
 ```
+
+For the common trim-and-canonicalize case, configure the normalization instead of writing the hook:
+
+```csharp
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct EmailAddress { }
+```
+
+A complex member uses `[StringNormalize(Trim = true)]`, and `[assembly: ValueObjectDefaults(Trim = true)]`
+applies to every string scalar and member. `Hydrate` is never normalized.
 
 `[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members. The manual `[Scalar]` form
 declares the underlying property; the automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the

@@ -46,7 +46,7 @@ static class ScalarAttributeParser
 	public static bool IsAutomatic(AttributeData attribute) => GetValueType(attribute) is not null;
 
 	/// <summary>Whether the automatic form declares the property as a nullable reference type.</summary>
-	public static bool GetNullable(AttributeData attribute) => attribute.GetNamedArgument<bool>("Nullable", false);
+	public static bool GetNullable(AttributeData attribute) => attribute.GetNamedArgument("Nullable", false);
 
 	/// <summary>
 	/// Reads the shared option set from either attribute form into the same model.
@@ -54,17 +54,19 @@ static class ScalarAttributeParser
 	public static ScalarAttributeData Parse(AttributeData attribute) =>
 		new(
 			true,
-			attribute.GetConstructorArgument<string>("propertyName", "Value")!,
-			attribute.GetNamedArgument<bool>("GenerateJsonConverter", true),
-			attribute.GetNamedArgument<bool>("GenerateComparable", true),
-			attribute.GetNamedArgument<bool>("GenerateComparisonOperators", true),
-			attribute.GetNamedArgument<bool>("GenerateEnumProperties", true),
-			attribute.GetNamedArgument<bool>("GenerateImplicitFromPrimitive", true),
-			attribute.GetNamedArgument<bool>("GenerateImplicitToPrimitive", true),
-			attribute.GetNamedArgument<bool>("GenerateEmpty", true),
-			attribute.GetNamedArgument<bool>("GenerateEFConverter", true),
-			attribute.GetNamedArgument<bool>("GenerateEFComparer", true),
-			attribute.GetNamedArgument<bool>("GenerateEFValueGenerator", false),
+			attribute.GetConstructorArgument("propertyName", "Value")!,
+			attribute.GetNamedArgument("GenerateJsonConverter", true),
+			attribute.GetNamedArgument("GenerateComparable", true),
+			attribute.GetNamedArgument("GenerateComparisonOperators", true),
+			attribute.GetNamedArgument("GenerateEnumProperties", true),
+			attribute.GetNamedArgument("GenerateImplicitFromPrimitive", true),
+			attribute.GetNamedArgument("GenerateImplicitToPrimitive", true),
+			attribute.GetNamedArgument("GenerateEmpty", true),
+			attribute.GetNamedArgument("GenerateEFConverter", true),
+			attribute.GetNamedArgument("GenerateEFComparer", true),
+			attribute.GetNamedArgument("GenerateEFValueGenerator", false),
+			attribute.GetNamedArgument("Trim", false),
+			attribute.GetEnumNamedArgument("Casing", TypeLibrary.StringCasingFullTypeName + ".None")!,
 			attribute.GetEnumNamedArgument(
 				"DeserializationMode",
 				TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate"

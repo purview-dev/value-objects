@@ -38,30 +38,28 @@ namespace Purview.ValueObjects.Serialization;
 /// nor AOT-compiled.
 /// </para>
 /// </remarks>
-public sealed class ScalarJsonConverterFactory : JsonConverterFactory
+/// <remarks>
+/// Creates the factory.
+/// </remarks>
+/// <remarks>
+/// The trimming and Native AOT requirement is declared here because this is where a host opts in, and
+/// because an override of <see cref="JsonConverterFactory.CreateConverter"/> cannot carry the attributes
+/// itself (IL2046/IL3051 require them to match the unannotated base). Registering this factory in a
+/// trimmed or AOT-compiled host will warn at the construction site instead of failing at runtime.
+/// </remarks>
+[method: RequiresUnreferencedCode(
+	"ScalarJsonConverterFactory reads ScalarAttribute, resolves the scalar member and the "
+		+ "Create/Hydrate factory by name, and serializes through reflection-based JsonSerializer "
+		+ "overloads. Generated scalar value objects already carry a [JsonConverter] pointing at a "
+		+ "reflection-free generated converter; prefer that and do not register this factory."
+)]
+[method: RequiresDynamicCode(
+	"ScalarJsonConverterFactory builds a closed generic converter with Type.MakeGenericType and compiles "
+		+ "accessors with expression trees. Prefer the generated per-type JsonConverter."
+)]
+public sealed class ScalarJsonConverterFactory() : JsonConverterFactory
 {
 	static readonly ConcurrentDictionary<Type, JsonConverter> Cache = new();
-
-	/// <summary>
-	/// Creates the factory.
-	/// </summary>
-	/// <remarks>
-	/// The trimming and Native AOT requirement is declared here because this is where a host opts in, and
-	/// because an override of <see cref="JsonConverterFactory.CreateConverter"/> cannot carry the attributes
-	/// itself (IL2046/IL3051 require them to match the unannotated base). Registering this factory in a
-	/// trimmed or AOT-compiled host will warn at the construction site instead of failing at runtime.
-	/// </remarks>
-	[RequiresUnreferencedCode(
-		"ScalarJsonConverterFactory reads ScalarAttribute, resolves the scalar member and the "
-			+ "Create/Hydrate factory by name, and serializes through reflection-based JsonSerializer "
-			+ "overloads. Generated scalar value objects already carry a [JsonConverter] pointing at a "
-			+ "reflection-free generated converter; prefer that and do not register this factory."
-	)]
-	[RequiresDynamicCode(
-		"ScalarJsonConverterFactory builds a closed generic converter with Type.MakeGenericType and compiles "
-			+ "accessors with expression trees. Prefer the generated per-type JsonConverter."
-	)]
-	public ScalarJsonConverterFactory() { }
 
 	/// <summary>
 	/// Determines whether the type can be converted, returning true when it is decorated with

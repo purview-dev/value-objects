@@ -56,6 +56,19 @@ string json = System.Text.Json.JsonSerializer.Serialize(email);
 // json == "\"demo@example.com\""
 ```
 
+### Built-in string normalization
+
+For the common trim-and-canonicalize case, the generator can apply the normalization for you, so the
+scalar does not need an `OnNormalize` hook:
+
+```csharp
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct EmailAddress { }
+```
+
+`Create` trims and then applies the casing before validation; `Hydrate` is left untouched. See
+[Value object design](Value-Object-Design.md#built-in-string-normalization).
+
 ### Automatic vs manual underlying property
 
 `[Scalar]` is the **manual** form: you declare the property. `[Scalar<T>]` and `[Scalar(typeof(T))]` are

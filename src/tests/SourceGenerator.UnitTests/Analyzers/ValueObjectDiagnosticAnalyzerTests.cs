@@ -391,6 +391,131 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
 	}
 
+	[Test]
+	public async Task Generate_GivenStringNormalizationWithImplementedOnNormalize_ReportsIgnoredByHook(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>(Trim = true)]
+				public readonly partial record struct EmailAddress
+				{
+					static partial void OnNormalize(ref string value) => value = value?.Trim()!;
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizationWithDeclaredCreate_ReportsIgnored(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>(Trim = true)]
+				public readonly partial record struct EmailAddress
+				{
+					public static EmailAddress Create(string value) => new EmailAddress { Value = value };
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizationOnNonStringScalar_ReportsRequiresString(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<System.Guid>(Trim = true)]
+				public readonly partial record struct InstallationId { }
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationRequiresString);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnNonStringMember_ReportsRequiresString(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Order
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public System.Guid Id { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationRequiresString);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizationWithoutHook_ReportsNoDiagnostics(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>(Trim = true)]
+				public readonly partial record struct EmailAddress { }
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationRequiresString);
+	}
+
+	[Test]
+	public async Task Generate_GivenAssemblyDefaultNormalizationWithOnNormalize_ReportsNoIgnoredDiagnostic(
+		CancellationToken cancellationToken
+	)
+	{
+		// The assembly default is applied silently; only an explicit option alongside a hook is reported.
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>]
+				public readonly partial record struct EmailAddress
+				{
+					static partial void OnNormalize(ref string value) => value = value?.Trim()!;
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+	}
+
 	protected override AnalyzerTestOptions OnBeforeRun(
 		IEnumerable<string> sources,
 		AnalyzerTestOptions options,

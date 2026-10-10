@@ -21,6 +21,42 @@ Every value object exposes two static factories:
 
 Normalization is deterministic and runs on every `Create`.
 
+### Built-in string normalization
+
+Trimming and casing are common enough to be configured rather than hand-written. On a string-backed
+scalar, set `Trim` and/or `Casing`; on a complex `[ValueObject]`, annotate the string member with
+`[StringNormalize]`:
+
+```csharp
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct EmailAddress { }
+
+[ValueObject]
+public readonly partial record struct Contact
+{
+    [StringNormalize(Trim = true)]
+    public string Email { get; init; }
+
+    public string Name { get; init; }
+}
+```
+
+The generated `Create` applies the trim first, then the casing, before validation. `Hydrate` is never
+normalized, matching the hand-written hook. The option is only meaningful for `string` values; setting it
+on any other scalar or member is reported (`VO1024`) and ignored. The option is applied by the generated
+`Create`, so a hand-written `OnNormalize` hook or a hand-written `Create` takes precedence: a configured
+option alongside either is reported (`VO1023`) and ignored.
+
+An assembly-level default applies to every string-backed scalar and every string member of a
+`[ValueObject]`, and can be overridden per type or per member:
+
+```csharp
+[assembly: ValueObjectDefaults(Trim = true, Casing = StringCasing.LowerInvariant)]
+```
+
+Casing uses the invariant culture only, because a value object's canonical form must not depend on the
+current thread culture.
+
 ## Validation
 
 `OnValidate(T value)` (scalar) or `partial void OnValidate(...)` (complex) enforces invariants and throws

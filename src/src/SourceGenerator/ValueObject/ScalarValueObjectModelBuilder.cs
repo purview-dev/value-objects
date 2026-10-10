@@ -202,6 +202,19 @@ static class ScalarValueObjectModelBuilder
 			includeRef: false
 		);
 
+		var (normalizeTrim, normalizeCasing) = ResolveStringNormalization(
+			typeSymbol,
+			scalarAttribute,
+			scalarOptions,
+			attributes,
+			scalarTypeName,
+			scalarPropertyName,
+			ValueObjectSymbolInspector.HasDeclaredStaticFactory(typeSymbol, "Create", [scalarType]),
+			location,
+			diagnosticsList,
+			cancellationToken
+		);
+
 		if (scalarOptions.DeserializationMode == ValueObjectSymbolInspector.StrictModeName && !createExists)
 		{
 			diagnosticsList.Add(
@@ -321,10 +334,88 @@ static class ScalarValueObjectModelBuilder
 			efHydrateCastTypeName,
 			efValueGeneratorEnabled,
 			// Complex-type mapping and the compiled-model converter members need Entity Framework Core 8.
-			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
+			ValueObjectSymbolInspector.IsEF8Referenced(compilation),
+			normalizeTrim,
+			normalizeCasing
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
+	}
+
+	/// <summary>
+	/// Resolves the built-in string normalization for a scalar. It is only meaningful for a
+	/// string-backed scalar; an explicit request on any other scalar is reported and dropped, while an
+	/// assembly-level default is applied silently to string scalars only. The option is only applied by
+	/// the generated <c>Create</c>, so a hand-written <c>OnNormalize</c> hook or a hand-written
+	/// <c>Create</c> takes precedence and the option is reported and dropped.
+	/// </summary>
+	static (bool Trim, string Casing) ResolveStringNormalization(
+		INamedTypeSymbol typeSymbol,
+		AttributeData scalarAttribute,
+		ScalarAttributeData scalarOptions,
+		ImmutableArray<AttributeData> attributes,
+		string scalarTypeName,
+		string scalarPropertyName,
+		bool createExists,
+		Location location,
+		List<ReportableDiagnostic> diagnostics,
+		CancellationToken cancellationToken
+	)
+	{
+		var normalizeTrim = scalarOptions.Trim;
+		var normalizeCasing = scalarOptions.Casing;
+
+		if (!normalizeTrim && !ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(normalizeCasing))
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+
+		var explicitlySet =
+			ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Trim")
+			|| ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Casing");
+
+		if (!ValueObjectEmitterHelpers.StringNormalization.IsStringTypeName(scalarTypeName))
+		{
+			if (explicitlySet)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.StringNormalizationRequiresString,
+						isBlocking: false,
+						scalarAttribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation()
+							?? location,
+						typeSymbol.Name,
+						scalarPropertyName
+					)
+				);
+			}
+
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+		}
+
+		var ignoredReason =
+			ValueObjectSymbolInspector.HasHookImplementation(typeSymbol, "OnNormalize", 1) ? "implements 'OnNormalize'"
+			: createExists ? "declares its own 'Create'"
+			: null;
+		if (ignoredReason is not null)
+		{
+			// A hook or a hand-written Create always wins. Only an explicit option is reported, so an
+			// assembly-level default does not warn on every type that owns its own normalization.
+			if (explicitlySet)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.StringNormalizationIgnored,
+						isBlocking: false,
+						location,
+						typeSymbol.Name,
+						ignoredReason
+					)
+				);
+			}
+
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+		}
+
+		return (normalizeTrim, normalizeCasing);
 	}
 
 	/// <summary>

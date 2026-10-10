@@ -74,7 +74,7 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.InstallationIdHarness")!;
-		var id = System.Guid.NewGuid();
+		var id = Guid.NewGuid();
 		var text = id.ToString("N", System.Globalization.CultureInfo.InvariantCulture);
 
 		await Assert.That((bool)harnessType.GetMethod("IsValueEquatable")!.Invoke(null, null)!).IsTrue();
@@ -86,9 +86,9 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 
 		await Assert.That((string)harnessType.GetMethod("TryFormatSpan")!.Invoke(null, [id])!).IsEqualTo(text);
 		await Assert.That((string)harnessType.GetMethod("TryFormatUtf8")!.Invoke(null, [id])!).IsEqualTo(text);
-		await Assert.That((System.Guid)harnessType.GetMethod("ParseString")!.Invoke(null, [text])!).IsEqualTo(id);
-		await Assert.That((System.Guid)harnessType.GetMethod("ParseSpan")!.Invoke(null, [text])!).IsEqualTo(id);
-		await Assert.That((System.Guid)harnessType.GetMethod("ParseUtf8")!.Invoke(null, [text])!).IsEqualTo(id);
+		await Assert.That((Guid)harnessType.GetMethod("ParseString")!.Invoke(null, [text])!).IsEqualTo(id);
+		await Assert.That((Guid)harnessType.GetMethod("ParseSpan")!.Invoke(null, [text])!).IsEqualTo(id);
+		await Assert.That((Guid)harnessType.GetMethod("ParseUtf8")!.Invoke(null, [text])!).IsEqualTo(id);
 		await Assert.That((bool)harnessType.GetMethod("TryParseInvalid")!.Invoke(null, null)!).IsFalse();
 	}
 

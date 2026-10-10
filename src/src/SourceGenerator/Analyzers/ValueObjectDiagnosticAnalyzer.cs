@@ -25,6 +25,8 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.EFJsonMappingRequiresJsonConverter,
 			DiagnosticLibrary.EFComplexMappingUnsupportedMember,
 			DiagnosticLibrary.EFComplexTypeRequiresEntityFramework8,
+			DiagnosticLibrary.StringNormalizationIgnored,
+			DiagnosticLibrary.StringNormalizationRequiresString,
 		];
 
 	public override void Initialize(AnalysisContext context)

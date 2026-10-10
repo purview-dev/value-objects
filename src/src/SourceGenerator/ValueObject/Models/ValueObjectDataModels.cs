@@ -13,6 +13,8 @@ readonly partial record struct ScalarAttributeData(
 	[Property(DefaultValue = true)] bool GenerateEFConverter,
 	[Property(DefaultValue = true)] bool GenerateEFComparer,
 	[Property(DefaultValue = false)] bool GenerateEFValueGenerator,
+	[Property(DefaultValue = false)] bool Trim,
+	[Property(DefaultValue = TypeLibrary.StringCasingFullTypeName + ".None", IsEnum = true)] string Casing,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
@@ -50,8 +52,16 @@ readonly partial record struct ValueObjectDefaultsAttributeData(
 	[Property(DefaultValue = true)] bool GenerateEFConverter,
 	[Property(DefaultValue = true)] bool GenerateEFComparer,
 	[Property(DefaultValue = false)] bool GenerateEFValueGenerator,
+	[Property(DefaultValue = false)] bool Trim,
+	[Property(DefaultValue = TypeLibrary.StringCasingFullTypeName + ".None", IsEnum = true)] string Casing,
 	[Property(DefaultValue = TypeLibrary.ValueObjectDeserializationModeFullTypeName + ".Hydrate", IsEnum = true)]
 		string DeserializationMode,
 	[Property(DefaultValue = TypeLibrary.ZodSchemaModeFullTypeName + ".InAdditionToHooks", IsEnum = true)]
 		string ZodSchemaMode
+);
+
+[Generate(TypeLibrary.StringNormalizeAttributeFullTypeName)]
+readonly partial record struct StringNormalizeAttributeData(
+	[Property(DefaultValue = false)] bool Trim,
+	[Property(DefaultValue = TypeLibrary.StringCasingFullTypeName + ".None", IsEnum = true)] string Casing
 );

@@ -69,17 +69,24 @@ static class ComplexValueObjectModelBuilder
 			.Constructors.Where(static ctor => !ctor.IsStatic)
 			.Any(ctor => ValueObjectSymbolInspector.ConstructorMatches(ctor, properties));
 
-		var propertyModels = ImmutableArray.CreateBuilder<ComplexPropertyModel>(properties.Length);
-		foreach (var property in properties)
-		{
-			propertyModels.Add(
-				new ComplexPropertyModel(
-					property.Name,
-					ValueObjectSymbolInspector.ToTypeName(property.Type),
-					TypeReference.Create(property.Type)
-				)
-			);
-		}
+		var createExists = ValueObjectSymbolInspector.HasStaticFactory(
+			typeSymbol,
+			"Create",
+			[.. properties.Select(property => property.Type)]
+		);
+
+		var propertyModels = BuildPropertyModels(
+			typeSymbol,
+			properties,
+			ValueObjectSymbolInspector.HasDeclaredStaticFactory(
+				typeSymbol,
+				"Create",
+				[.. properties.Select(property => property.Type)]
+			),
+			assemblyDefaults,
+			location,
+			diagnosticsList
+		);
 
 		var hydrateExists = ValueObjectSymbolInspector.HasStaticFactory(
 			typeSymbol,
@@ -109,11 +116,6 @@ static class ComplexValueObjectModelBuilder
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
 			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
-		);
-		var createExists = ValueObjectSymbolInspector.HasStaticFactory(
-			typeSymbol,
-			"Create",
-			[.. properties.Select(property => property.Type)]
 		);
 		var declareOnNormalize = ValueObjectSymbolInspector.ShouldEmitComplexHookDeclaration(
 			typeSymbol,
@@ -202,7 +204,7 @@ static class ComplexValueObjectModelBuilder
 
 		ComplexValueObjectModel model = new(
 			typeModel.Value,
-			propertyModels.ToImmutable(),
+			propertyModels,
 			valueObjectOptions,
 			ctorExists,
 			hintName,
@@ -244,6 +246,126 @@ static class ComplexValueObjectModelBuilder
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
+	}
+
+	/// <summary>
+	/// Builds the complex member models and resolves their built-in string normalization. The option is
+	/// only applied by the generated <c>Create</c>, so a hand-written <c>OnNormalize</c> hook or a
+	/// hand-written <c>Create</c> takes precedence and the option is reported and dropped.
+	/// </summary>
+	static ImmutableArray<ComplexPropertyModel> BuildPropertyModels(
+		INamedTypeSymbol typeSymbol,
+		IPropertySymbol[] properties,
+		bool createExists,
+		ValueObjectDefaultsAttributeData assemblyDefaults,
+		Location location,
+		List<ReportableDiagnostic> diagnostics
+	)
+	{
+		var propertyModels = ImmutableArray.CreateBuilder<ComplexPropertyModel>(properties.Length);
+		foreach (var property in properties)
+		{
+			var propertyTypeName = ValueObjectSymbolInspector.ToTypeName(property.Type);
+			var (normalizeTrim, normalizeCasing, normalizeExplicit) = ResolvePropertyNormalization(
+				property,
+				propertyTypeName,
+				assemblyDefaults,
+				diagnostics
+			);
+			propertyModels.Add(
+				new ComplexPropertyModel(
+					property.Name,
+					propertyTypeName,
+					TypeReference.Create(property.Type),
+					normalizeTrim,
+					normalizeCasing,
+					normalizeExplicit
+				)
+			);
+		}
+
+		var normalizationConfigured = propertyModels.Any(static property =>
+			property.NormalizeTrim
+			|| ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(property.NormalizeCasing)
+		);
+		if (normalizationConfigured)
+		{
+			var ignoredReason =
+				ValueObjectSymbolInspector.HasHookImplementation(typeSymbol, "OnNormalize", properties.Length)
+					? "implements 'OnNormalize'"
+				: createExists ? "declares its own 'Create'"
+				: null;
+			if (ignoredReason is not null)
+			{
+				// A hook or a hand-written Create always wins. Only an explicit option is reported, so an
+				// assembly-level default does not warn on every type that owns its own normalization.
+				if (propertyModels.Any(static property => property.NormalizeExplicit))
+				{
+					diagnostics.Add(
+						ReportableDiagnostic.Create(
+							DiagnosticLibrary.StringNormalizationIgnored,
+							isBlocking: false,
+							location,
+							typeSymbol.Name,
+							ignoredReason
+						)
+					);
+				}
+
+				for (var index = 0; index < propertyModels.Count; index++)
+				{
+					propertyModels[index] = propertyModels[index] with
+					{
+						NormalizeTrim = false,
+						NormalizeCasing = TypeLibrary.StringCasingFullTypeName + ".None",
+					};
+				}
+			}
+		}
+
+		return propertyModels.ToImmutable();
+	}
+
+	/// <summary>
+	/// Resolves the built-in string normalization for one complex member: an explicit
+	/// <c>[StringNormalize]</c> overrides the assembly default, and the option is only meaningful for a
+	/// string member. An explicit request on a non-string member is reported and dropped.
+	/// </summary>
+	static (bool Trim, string Casing, bool Explicit) ResolvePropertyNormalization(
+		IPropertySymbol property,
+		string propertyTypeName,
+		ValueObjectDefaultsAttributeData assemblyDefaults,
+		List<ReportableDiagnostic> diagnostics
+	)
+	{
+		var attributeData = StringNormalizeAttributeData.FromAttributeData(property.GetAttributes());
+
+		var trim = attributeData.Exists ? attributeData.Trim : assemblyDefaults.Trim;
+		var casing = attributeData.Exists ? attributeData.Casing : assemblyDefaults.Casing;
+
+		if (!trim && !ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(casing))
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None", false);
+
+		if (!ValueObjectEmitterHelpers.StringNormalization.IsStringTypeName(propertyTypeName))
+		{
+			if (attributeData.Exists)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.StringNormalizationRequiresString,
+						isBlocking: false,
+						property.Locations.FirstOrDefault(static location => location.IsInSource)
+							?? property.Locations.FirstOrDefault(),
+						property.ContainingType.Name,
+						property.Name
+					)
+				);
+			}
+
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None", false);
+		}
+
+		return (trim, casing, attributeData.Exists);
 	}
 
 	/// <summary>
