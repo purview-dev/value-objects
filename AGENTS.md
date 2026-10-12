@@ -130,7 +130,7 @@ just pipeline-pr
 ```
 
 The repository uses the shared `Purview.Build` pipeline (`purview-build.json` at the root). `just pipeline-pr`
-installs the pinned `Purview.Build` tool to `.tools/purview-build` when missing.
+runs `dotnet tool restore`, which installs the pinned `Purview.Build` from `.config/dotnet-tools.json`.
 
 Local CI-equivalent validation:
 
