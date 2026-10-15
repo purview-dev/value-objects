@@ -1,6 +1,6 @@
 using Purview.Skills.Testing;
 
-namespace Purview.ValueObjects;
+namespace Purview.ValueObjects.Repository;
 
 /// <summary>
 /// Runs the Agent Skills conformance rule set against this repository's authored skills in
