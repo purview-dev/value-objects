@@ -166,3 +166,18 @@ Before handing work back:
 - Update all affected docs, samples, analyzer metadata, and release notes when applicable.
 - Run appropriate build, test, formatting, and pack checks in proportion to risk.
 - State exactly what validation ran. If a check was skipped or blocked, give the concrete reason and remaining risk.
+## Agent skills
+
+Authored skills live in the repository-root `skills/` folder — **not** in `.agents/skills/`, which is the
+gitignored mirror that NuGet packages write into on build. The skills CLI (`npx skills`) only discovers
+skills at a root `skills/` folder, and a gitignored folder is absent from a git clone, so the authored copy
+has to be tracked at the root. One copy serves both routes: the git clone for the CLI, and the package for
+the existing mirror.
+
+Install them into your agent's own directories with:
+
+```bash
+npx skills add purview-dev/value-objects
+```
+The `value-objects` skill is authored here and installable from git. It is not packed into a package.
+
