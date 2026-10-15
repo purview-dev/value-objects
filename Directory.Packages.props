@@ -5,7 +5,9 @@
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
-		<TUnitVersion>1.74.0</TUnitVersion>
+		<!-- Purview.Skills.Testing 1.0.6 depends on TUnit.Assertions/TUnit.Core 1.75.0, and central
+		     transitive pinning would otherwise pin TUnit.Core back down to a lower version. -->
+		<TUnitVersion>1.75.0</TUnitVersion>
 		<PurviewSGFVersion>1.1.0</PurviewSGFVersion>
 		<PurviewZodSharpVersion>2.1.0</PurviewZodSharpVersion>
 	</PropertyGroup>
@@ -24,6 +26,9 @@
 		<PackageVersion Include="TUnit" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Core" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Mocks" Version="$(TUnitVersion)" />
+		<PackageVersion Include="TUnit.Assertions" Version="$(TUnitVersion)" />
+		<!-- The Agent Skills conformance rule set, shipped alongside Purview.BuildSdk. -->
+		<PackageVersion Include="Purview.Skills.Testing" Version="1.0.6" />
 		<PackageVersion Include="Bogus" Version="35.6.5" />
 	</ItemGroup>
 	<ItemGroup Label="Entity Framework (test/sample only)">

@@ -168,16 +168,39 @@ Before handing work back:
 - State exactly what validation ran. If a check was skipped or blocked, give the concrete reason and remaining risk.
 ## Agent skills
 
-Authored skills live in the repository-root `skills/` folder — **not** in `.agents/skills/`, which is the
-gitignored mirror that NuGet packages write into on build. The skills CLI (`npx skills`) only discovers
-skills at a root `skills/` folder, and a gitignored folder is absent from a git clone, so the authored copy
-has to be tracked at the root. One copy serves both routes: the git clone for the CLI, and the package for
-the existing mirror.
+Authored skills live in the repository-root `skills/` folder. Nothing packs them: `Purview.BuildSdk`
+delivers skills through the skills CLI, which clones the *git* repository and only discovers a root
+`skills/` folder.
 
-Install them into your agent's own directories with:
+`.agents/skills/` is the CLI's install location for skills from **other** repositories, and is
+gitignored. This repository's own skills are never installed into it — that would leave two copies
+to drift apart. Read them at their authored path, `skills/<name>/SKILL.md`.
+
+Install these skills into your agent's directories with:
 
 ```bash
 npx skills add purview-dev/value-objects
 ```
-The `value-objects` skill is authored here and installable from git. It is not packed into a package.
+
+| Skill | Answers |
+| -- | -- |
+| `skills/purview-value-objects/` | modelling a value object: scalar, complex, contextual, `Create`/`Hydrate`, normalization, typed identifiers |
+| `skills/purview-value-objects-efcore/` | persisting one with EF Core: converters, complex-type vs JSON, keys, generated key values, migrations |
+| `skills/purview-value-objects-zodsharp/` | validating one with ZodSharp: `[ZodSchema]`, `ZodSchemaMode`, `OnZodValidate`, custom rules, Problem Details |
+| `skills/purview-value-objects-diagnostics/` | what a `VO1xxx` means and how to fix it |
+
+Every skill carries the `purview-value-objects` prefix. Skills install into one flat directory per
+agent, shared with every skill a developer has installed from anywhere, so an unprefixed name
+collides and the loser is whichever installed second.
+
+`src/tests/Repository.UnitTests/SkillTests.cs` validates them on every test run, through
+`Purview.Skills.Testing`'s rule set (the Agent Skills specification: frontmatter fields, name and
+description constraints, bundled links, body size). The `[InheritsTests]` attribute on that class is
+load-bearing — TUnit does not walk base types during discovery, so without it the run is green and
+nothing is checked. That project pins `net10.0` rather than taking the repository's `All` set,
+because it asserts something about the repository rather than about the runtime's reach.
+
+A relative link from one `SKILL.md` into another skill's folder is a rule violation: only a skill's
+own folder is installed with it, so such a link works here and nowhere else. Name the other skill in
+prose instead.
 
