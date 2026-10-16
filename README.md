@@ -9,7 +9,8 @@ Adds F#-style single-case types to C#. Mark a `partial` struct or class with `[S
 incremental source generator produces:
 
 - `Create` / `Hydrate` / `TryCreate` factories with `OnNormalize` normalization and `OnValidate` validation
-- `Empty` instances, equality, comparison, `CompareTo`, `ToString`, and implicit conversions
+- `Empty` instances, equality, comparison, `CompareTo`, `ToString` (including the underlying value's `IFormattable` and format overloads), and implicit conversions
+- The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`, `IParsable<T>`, `ISpanParsable<T>`, and `IUtf8SpanParsable<T>` — mirrored per type
 - JSON converters (scalar value objects serialize as their underlying value)
 - Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
 
@@ -174,6 +175,10 @@ the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details fo
   provider conversions.
 - `ValueObjectDeserializationMode` controls which factory JSON deserialization uses (`Hydrate` by default,
   `Strict` re-runs validation).
+- A scalar mirrors the underlying value's standard interfaces (`IEquatable<T>`, `IFormattable` and the format
+  overloads, `ISpanFormattable`/`IUtf8SpanFormattable`, and `IParsable<T>`/`ISpanParsable<T>`/
+  `IUtf8SpanParsable<T>`), so it behaves like that type in equality, sorting, formatting, and parsing contexts.
+  `Parse` validates through `Create`; `TryParse` returns `false` through `TryCreate`.
 - Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance
   through `ValueObjectContext<TOwner>`.
 

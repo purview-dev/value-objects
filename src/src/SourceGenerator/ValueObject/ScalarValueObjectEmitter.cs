@@ -37,6 +37,8 @@ static partial class ScalarValueObjectEmitter
 		EmitOperators(writer, model);
 		EmitConversions(writer, model);
 		EmitToString(writer, model);
+		EmitSpanFormatting(writer, model);
+		EmitParsing(writer, model);
 		EmitJsonConverter(writer, model);
 		EmitEF(writer, model, emitEF);
 	}
@@ -77,12 +79,45 @@ static partial class ScalarValueObjectEmitter
 			TypeLibrary.Purview.ValueObjects.IScalarValueObject.MakeGeneric(valueObjectType, model.ScalarTypeReference)
 		);
 
-		if (!model.IsReferenceType && !model.ImplementsSelfEquatable)
+		// Mirror the underlying value's equatable surface. IEquatable<TSelf> is added for every shape that
+		// does not already implement it (records synthesize it, so they are skipped); the earlier
+		// `!IsReferenceType` gate left non-record classes without it even though they declare Equals(TSelf).
+		if (model.MirrorIEquatableSelf)
 			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(valueObjectType));
 
+		if (model.MirrorIEquatableValue)
+			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(model.ScalarTypeReference));
+
 		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(valueObjectType));
-		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
+		// IComparable<TValue> (comparison against the primitive) is the extra comparable surface
+		// GenerateComparable controls; IComparable<TSelf> and IComparable are required by IScalarValueObject
+		// and are always present.
+		if (model.Options.GenerateComparable)
+			builder.Add(TypeLibrary.System.IComparable.MakeGeneric(model.ScalarTypeReference));
 		builder.Add(TypeLibrary.System.IComparable);
+
+		// Expose the underlying value's formatting surface (for example a decimal's "N2") through the
+		// generated ToString overload, but only when the scalar type actually supports it and the author has
+		// not already implemented the interface.
+		if (model.ScalarImplementsIFormattable && !model.FormattedToStringExists)
+			builder.Add(TypeLibrary.System.IFormattable.AsTypeReference());
+
+		// Mirror the underlying value's span-formatting and parsing interfaces so the value object can be
+		// formatted and parsed in the same generic/span-based APIs as the type it wraps.
+		if (model.MirrorISpanFormattable)
+			builder.Add(TypeLibrary.System.ISpanFormattable.AsTypeReference());
+
+		if (model.MirrorIUtf8SpanFormattable)
+			builder.Add(TypeLibrary.System.IUtf8SpanFormattable.AsTypeReference());
+
+		if (model.MirrorIParsable)
+			builder.Add(TypeLibrary.System.IParsable.MakeGeneric(valueObjectType));
+
+		if (model.MirrorISpanParsable)
+			builder.Add(TypeLibrary.System.ISpanParsable.MakeGeneric(valueObjectType));
+
+		if (model.MirrorIUtf8SpanParsable)
+			builder.Add(TypeLibrary.System.IUtf8SpanParsable.MakeGeneric(valueObjectType));
 
 		if (emitEF && model.IsEFReferenced && (model.Options.GenerateEFConverter || model.Options.GenerateEFComparer))
 			builder.Add(
@@ -130,6 +165,16 @@ static partial class ScalarValueObjectEmitter
 				},
 				body =>
 				{
+					if (
+						ValueObjectEmitterHelpers.StringNormalization.Expression(
+							"value",
+							model.NormalizeTrim,
+							model.NormalizeCasing
+						) is
+						{ } normalization
+					)
+						body.Assignment("value", normalization);
+
 					body.MethodCall("OnNormalize", "ref value");
 
 					if (model.HasZodSchemaValidation)

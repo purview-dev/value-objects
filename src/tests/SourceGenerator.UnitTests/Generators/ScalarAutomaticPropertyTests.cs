@@ -49,8 +49,8 @@ public sealed class ScalarAutomaticPropertyTests : ValueObjectSourceGeneratorTes
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.Harness")!;
-		var id = System.Guid.NewGuid();
-		var roundTrip = (System.Guid)harnessType.GetMethod("RoundTrip")!.Invoke(null, [id])!;
+		var id = Guid.NewGuid();
+		var roundTrip = (Guid)harnessType.GetMethod("RoundTrip")!.Invoke(null, [id])!;
 		var rejectsEmpty = (bool)harnessType.GetMethod("RejectsEmpty")!.Invoke(null, null)!;
 
 		await Assert.That(roundTrip).IsEqualTo(id);
@@ -266,8 +266,8 @@ public sealed class ScalarAutomaticPropertyTests : ValueObjectSourceGeneratorTes
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.Harness")!;
-		var id = System.Guid.NewGuid();
-		var roundTrip = (System.Guid)harnessType.GetMethod("RoundTrip")!.Invoke(null, [id])!;
+		var id = Guid.NewGuid();
+		var roundTrip = (Guid)harnessType.GetMethod("RoundTrip")!.Invoke(null, [id])!;
 
 		await Assert.That(roundTrip).IsEqualTo(id);
 	}

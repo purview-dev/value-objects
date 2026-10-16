@@ -28,5 +28,6 @@
 		<Project Path="tests/ValueObjects.IntegrationTests/ValueObjects.IntegrationTests.csproj" />
 		<Project Path="tests/ValueObjects.EFCompatibility.IntegrationTests/ValueObjects.EFCompatibility.IntegrationTests.csproj" />
 		<Project Path="tests/ValueObjects.UnitTests/ValueObjects.UnitTests.csproj" />
+		<Project Path="tests/Repository.UnitTests/Repository.UnitTests.csproj" />
 	</Folder>
 </Solution>

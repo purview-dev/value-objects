@@ -98,11 +98,12 @@ remain safe for provider values such as `Guid`, strings, enums, and other EF-map
 build their converter from the generated `ValueObjectConverter<TSelf, TProvider>`, which accepts either the
 value object or an already provider-shaped value.
 
-> **Limitation.** Referenced value objects are discovered through their marker interfaces when the declaring
-> assembly references EF Core, or through their attributes when it does not. A complex value object in
-> another assembly is only discovered when it opted into at least one EF feature (a comparer, a complex-type
-> mapping, or a JSON column converter); a complex type with `EFMapping` set but both `GenerateEFComparer = false`
-> and no JSON mapping is not auto-discovered across assemblies — configure it manually on the entity.
+> **Discovery.** Referenced value objects are discovered through their marker interfaces when the declaring
+> assembly references EF Core, or through their attributes when it does not. A complex value object is
+> discovered when it opted into a mapping (complex-type or JSON) or a comparer, including a complex type with
+> the default `ComplexType` mapping and `GenerateEFComparer = false`. Only a complex type that opted out
+> entirely (`EFMapping = None` and `GenerateEFComparer = false`) is not auto-discovered across assemblies —
+> configure it manually on the entity if you need it mapped.
 
 ### Configure from DI registration (`AddDbContext`, `AddDbContextFactory`, `AddDbContextPool`)
 

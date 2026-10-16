@@ -155,6 +155,36 @@ static class ScalarValueObjectModelBuilder
 		var enumPropertiesEnabled = scalarOptions.GenerateEnumProperties && scalarType.TypeKind == TypeKind.Enum;
 		var enumFieldNames = enumPropertiesEnabled ? BuildEnumFieldNames(typeSymbol, scalarType) : [];
 		var toStringExists = ValueObjectSymbolInspector.HasParameterlessMethod(typeSymbol, "ToString");
+		// Mirror the underlying value's formatting overloads per type. The scalar is unwrapped first so a
+		// nullable value type (`int?`) resolves the overloads declared by its underlying type (`int`), not by
+		// `Nullable<int>`. Each generated overload is suppressed when the author already declared it, because
+		// a duplicate member would be CS0111 in generated code the consumer cannot edit.
+		var effectiveScalarType = ValueObjectSymbolInspector.UnwrapNullable(scalarType);
+		var stringType = compilation.GetSpecialType(SpecialType.System_String);
+		var formatProviderType = compilation.GetTypeByMetadataName("System.IFormatProvider");
+		var scalarImplementsIFormattable = ValueObjectSymbolInspector.ImplementsIFormattable(effectiveScalarType);
+		var formattedToStringExists =
+			formatProviderType is not null
+			&& ValueObjectSymbolInspector.DeclaresToString(typeSymbol, [stringType, formatProviderType]);
+		var scalarHasFormatToString = ValueObjectSymbolInspector.DeclaresToString(effectiveScalarType, [stringType]);
+		var formatToStringExists = ValueObjectSymbolInspector.DeclaresToString(typeSymbol, [stringType]);
+		// Mirror the underlying value's other standard interfaces (equatable, span formatting, and parsing)
+		// so the value object behaves like the type it wraps in equality, sorting, formatting, and parsing
+		// contexts. An interface is skipped when the author already declared one of its members, because a
+		// duplicate member would be CS0111 in generated code the consumer cannot edit.
+		var mirroring = ResolveInterfaceMirroring(
+			typeSymbol,
+			effectiveScalarType,
+			compilation,
+			stringType,
+			formatProviderType
+		);
+		var equalityMirroring = ResolveEqualityMirroring(
+			typeSymbol,
+			scalarType,
+			equalsSelfExists,
+			equalsPrimitiveExists
+		);
 		var hasJsonConverterAttribute = ValueObjectSymbolInspector.HasAttribute(
 			typeSymbol,
 			TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute
@@ -170,6 +200,19 @@ static class ScalarValueObjectModelBuilder
 			"OnValidate",
 			1,
 			includeRef: false
+		);
+
+		var (normalizeTrim, normalizeCasing) = ResolveStringNormalization(
+			typeSymbol,
+			scalarAttribute,
+			scalarOptions,
+			attributes,
+			scalarTypeName,
+			scalarPropertyName,
+			ValueObjectSymbolInspector.HasDeclaredStaticFactory(typeSymbol, "Create", [scalarType]),
+			location,
+			diagnosticsList,
+			cancellationToken
 		);
 
 		if (scalarOptions.DeserializationMode == ValueObjectSymbolInspector.StrictModeName && !createExists)
@@ -236,6 +279,10 @@ static class ScalarValueObjectModelBuilder
 			typeSymbol.IsReadOnly,
 			typeSymbol.DeclaredAccessibility.ToTypeDeclarationAccessibility(),
 			TypeReference.Create(scalarType),
+			// The nullable annotation is dropped: a static abstract parsing interface is closed over the
+			// non-nullable type (`IParsable<string>`, not `IParsable<string?>`), so the helper's type argument
+			// must be `string`, and a nullable value type's `int?` must unwrap to `int`.
+			TypeReference.Create(effectiveScalarType.WithNullableAnnotation(NullableAnnotation.NotAnnotated)),
 			createExists,
 			hydrateExists,
 			tryCreateExists,
@@ -255,6 +302,17 @@ static class ScalarValueObjectModelBuilder
 			enumPropertiesEnabled,
 			enumFieldNames,
 			toStringExists,
+			scalarImplementsIFormattable,
+			formattedToStringExists,
+			scalarHasFormatToString,
+			formatToStringExists,
+			equalityMirroring.IEquatableValue,
+			equalityMirroring.IEquatableSelf,
+			mirroring.SpanFormattable,
+			mirroring.Utf8SpanFormattable,
+			mirroring.Parsable,
+			mirroring.SpanParsable,
+			mirroring.Utf8SpanParsable,
 			hasJsonConverterAttribute,
 			declareOnNormalize,
 			declareOnValidate,
@@ -276,10 +334,88 @@ static class ScalarValueObjectModelBuilder
 			efHydrateCastTypeName,
 			efValueGeneratorEnabled,
 			// Complex-type mapping and the compiled-model converter members need Entity Framework Core 8.
-			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
+			ValueObjectSymbolInspector.IsEF8Referenced(compilation),
+			normalizeTrim,
+			normalizeCasing
 		);
 
 		return GeneratorResult<ScalarValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
+	}
+
+	/// <summary>
+	/// Resolves the built-in string normalization for a scalar. It is only meaningful for a
+	/// string-backed scalar; an explicit request on any other scalar is reported and dropped, while an
+	/// assembly-level default is applied silently to string scalars only. The option is only applied by
+	/// the generated <c>Create</c>, so a hand-written <c>OnNormalize</c> hook or a hand-written
+	/// <c>Create</c> takes precedence and the option is reported and dropped.
+	/// </summary>
+	static (bool Trim, string Casing) ResolveStringNormalization(
+		INamedTypeSymbol typeSymbol,
+		AttributeData scalarAttribute,
+		ScalarAttributeData scalarOptions,
+		ImmutableArray<AttributeData> attributes,
+		string scalarTypeName,
+		string scalarPropertyName,
+		bool createExists,
+		Location location,
+		List<ReportableDiagnostic> diagnostics,
+		CancellationToken cancellationToken
+	)
+	{
+		var normalizeTrim = scalarOptions.Trim;
+		var normalizeCasing = scalarOptions.Casing;
+
+		if (!normalizeTrim && !ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(normalizeCasing))
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+
+		var explicitlySet =
+			ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Trim")
+			|| ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Casing");
+
+		if (!ValueObjectEmitterHelpers.StringNormalization.IsStringTypeName(scalarTypeName))
+		{
+			if (explicitlySet)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.StringNormalizationRequiresString,
+						isBlocking: false,
+						scalarAttribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation()
+							?? location,
+						typeSymbol.Name,
+						scalarPropertyName
+					)
+				);
+			}
+
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+		}
+
+		var ignoredReason =
+			ValueObjectSymbolInspector.HasHookImplementation(typeSymbol, "OnNormalize", 1) ? "implements 'OnNormalize'"
+			: createExists ? "declares its own 'Create'"
+			: null;
+		if (ignoredReason is not null)
+		{
+			// A hook or a hand-written Create always wins. Only an explicit option is reported, so an
+			// assembly-level default does not warn on every type that owns its own normalization.
+			if (explicitlySet)
+			{
+				diagnostics.Add(
+					ReportableDiagnostic.Create(
+						DiagnosticLibrary.StringNormalizationIgnored,
+						isBlocking: false,
+						location,
+						typeSymbol.Name,
+						ignoredReason
+					)
+				);
+			}
+
+			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
+		}
+
+		return (normalizeTrim, normalizeCasing);
 	}
 
 	/// <summary>
@@ -509,4 +645,175 @@ static class ScalarValueObjectModelBuilder
 
 		return builder.ToImmutable();
 	}
+
+	/// <summary>
+	/// The equality interfaces the generated value object mirrors.
+	/// </summary>
+	readonly record struct EqualityMirroring(bool IEquatableValue, bool IEquatableSelf);
+
+	/// <summary>
+	/// Resolves the equality interfaces the generated value object mirrors. IEquatable&lt;TValue&gt; is
+	/// checked against the property type, not the unwrapped type: the generated Equals(TValue) takes the
+	/// property type, so a nullable value type (`int?`) cannot satisfy IEquatable&lt;int&gt; and is left
+	/// alone. When the author declared the Equals overload, the interface is only added if their parameter is
+	/// nullability-compatible; a non-nullable reference parameter would report CS8767, so the interface is
+	/// left to the author.
+	/// </summary>
+	static EqualityMirroring ResolveEqualityMirroring(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol scalarType,
+		bool equalsSelfExists,
+		bool equalsPrimitiveExists
+	)
+	{
+		var iEquatableValue =
+			ValueObjectSymbolInspector.ImplementsGenericInterface(scalarType, "IEquatable", scalarType)
+			&& (
+				!equalsPrimitiveExists
+				|| ValueObjectSymbolInspector.HasNullabilityCompatibleEquals(typeSymbol, scalarType)
+			);
+		var iEquatableSelf =
+			!ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol)
+			&& (!equalsSelfExists || ValueObjectSymbolInspector.HasNullabilityCompatibleEquals(typeSymbol, typeSymbol));
+
+		return new EqualityMirroring(iEquatableValue, iEquatableSelf);
+	}
+
+	/// <summary>
+	/// The set of standard interfaces the generated value object mirrors from its underlying scalar value.
+	/// </summary>
+	readonly record struct InterfaceMirroring(
+		bool SpanFormattable,
+		bool Utf8SpanFormattable,
+		bool Parsable,
+		bool SpanParsable,
+		bool Utf8SpanParsable
+	);
+
+	/// <summary>
+	/// The parsing interfaces the generated value object mirrors.
+	/// </summary>
+	readonly record struct ParsingMirroring(bool Parsable, bool SpanParsable, bool Utf8SpanParsable);
+
+	/// <summary>
+	/// Resolves which of the underlying scalar value's standard interfaces the generated value object should
+	/// mirror. Detection is against the underlying type (unwrapped from <see cref="Nullable{T}"/>), so the
+	/// value object behaves like the type it wraps; an interface is skipped when the author already declared
+	/// one of its members.
+	/// </summary>
+	static InterfaceMirroring ResolveInterfaceMirroring(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol effectiveScalarType,
+		Compilation compilation,
+		ITypeSymbol stringType,
+		ITypeSymbol? formatProviderType
+	)
+	{
+		var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+		var charType = compilation.GetSpecialType(SpecialType.System_Char);
+		var byteType = compilation.GetSpecialType(SpecialType.System_Byte);
+		var spanOfChar = compilation.GetTypeByMetadataName("System.Span`1")?.Construct(charType);
+		var spanOfByte = compilation.GetTypeByMetadataName("System.Span`1")?.Construct(byteType);
+		var readOnlySpanOfChar = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")?.Construct(charType);
+		var readOnlySpanOfByte = compilation.GetTypeByMetadataName("System.ReadOnlySpan`1")?.Construct(byteType);
+
+		var spanFormattable =
+			ValueObjectSymbolInspector.ImplementsInterface(effectiveScalarType, "ISpanFormattable")
+			&& !DeclaresTryFormat(typeSymbol, spanOfChar, intType, readOnlySpanOfChar, formatProviderType);
+
+		var utf8SpanFormattable =
+			ValueObjectSymbolInspector.ImplementsInterface(effectiveScalarType, "IUtf8SpanFormattable")
+			&& !DeclaresTryFormat(typeSymbol, spanOfByte, intType, readOnlySpanOfChar, formatProviderType);
+
+		var parsing = ResolveParsingMirroring(
+			typeSymbol,
+			effectiveScalarType,
+			stringType,
+			formatProviderType,
+			readOnlySpanOfChar,
+			readOnlySpanOfByte
+		);
+
+		return new InterfaceMirroring(
+			spanFormattable,
+			utf8SpanFormattable,
+			parsing.Parsable,
+			parsing.SpanParsable,
+			parsing.Utf8SpanParsable
+		);
+	}
+
+	static ParsingMirroring ResolveParsingMirroring(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol effectiveScalarType,
+		ITypeSymbol stringType,
+		ITypeSymbol? formatProviderType,
+		ITypeSymbol? readOnlySpanOfChar,
+		ITypeSymbol? readOnlySpanOfByte
+	)
+	{
+		var parsable =
+			formatProviderType is not null
+			&& ValueObjectSymbolInspector.ImplementsGenericInterface(
+				effectiveScalarType,
+				"IParsable",
+				effectiveScalarType
+			)
+			&& !DeclaresParseMember(typeSymbol, stringType, formatProviderType);
+
+		// ISpanParsable<T> extends IParsable<T>, so it can only be mirrored when the string members are
+		// generated too; IUtf8SpanParsable<T> is standalone.
+		var spanParsable =
+			parsable
+			&& readOnlySpanOfChar is not null
+			&& ValueObjectSymbolInspector.ImplementsGenericInterface(
+				effectiveScalarType,
+				"ISpanParsable",
+				effectiveScalarType
+			)
+			&& !DeclaresParseMember(typeSymbol, readOnlySpanOfChar, formatProviderType);
+
+		var utf8SpanParsable =
+			readOnlySpanOfByte is not null
+			&& formatProviderType is not null
+			&& ValueObjectSymbolInspector.ImplementsGenericInterface(
+				effectiveScalarType,
+				"IUtf8SpanParsable",
+				effectiveScalarType
+			)
+			&& !DeclaresParseMember(typeSymbol, readOnlySpanOfByte, formatProviderType);
+
+		return new ParsingMirroring(parsable, spanParsable, utf8SpanParsable);
+	}
+
+	static bool DeclaresTryFormat(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol? destinationType,
+		ITypeSymbol intType,
+		ITypeSymbol? readOnlySpanOfChar,
+		ITypeSymbol? formatProviderType
+	) =>
+		destinationType is not null
+		&& readOnlySpanOfChar is not null
+		&& formatProviderType is not null
+		&& ValueObjectSymbolInspector.HasInstanceMethod(
+			typeSymbol,
+			"TryFormat",
+			[destinationType, intType, readOnlySpanOfChar, formatProviderType]
+		);
+
+	static bool DeclaresParseMember(
+		INamedTypeSymbol typeSymbol,
+		ITypeSymbol inputType,
+		ITypeSymbol? formatProviderType
+	) =>
+		formatProviderType is not null
+		&& (
+			ValueObjectSymbolInspector.HasStaticMethod(typeSymbol, "Parse", [inputType, formatProviderType])
+			|| ValueObjectSymbolInspector.HasStaticMethod(
+				typeSymbol,
+				"TryParse",
+				[inputType, formatProviderType, typeSymbol]
+			)
+		);
 }

@@ -43,6 +43,7 @@ The generator adds:
 - `EmailAddress.TryCreate(string, out EmailAddress)` – returns `false` instead of throwing.
 - `EmailAddress.Empty` – a default instance.
 - Equality, comparison, `CompareTo`, `ToString`, implicit conversions, and a JSON converter.
+- The underlying value's standard interfaces (see [Formatting](#formatting) and [Standard interfaces](#standard-interfaces)) when it implements them.
 
 ```csharp
 var email = EmailAddress.Create("  Demo@Example.COM  ");
@@ -54,6 +55,19 @@ bool ok = EmailAddress.TryCreate("not-an-email", out _);
 string json = System.Text.Json.JsonSerializer.Serialize(email);
 // json == "\"demo@example.com\""
 ```
+
+### Built-in string normalization
+
+For the common trim-and-canonicalize case, the generator can apply the normalization for you, so the
+scalar does not need an `OnNormalize` hook:
+
+```csharp
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct EmailAddress { }
+```
+
+`Create` trims and then applies the casing before validation; `Hydrate` is left untouched. See
+[Value object design](Value-Object-Design.md#built-in-string-normalization).
 
 ### Automatic vs manual underlying property
 
@@ -106,6 +120,59 @@ public readonly partial record struct Nickname
 The manual form is the more explicit option when you prefer the type and nullability to appear in a
 property declaration. Both forms are supported, and neither is reported as a diagnostic. Other properties
 are allowed in either form; only the scalar property (and the interface's `Value` forwarding) is reserved.
+
+### Formatting
+
+The generated value object mirrors the underlying value's formatting overloads per type, so it exposes the
+same options as the property it wraps.
+
+- When the underlying value implements `System.IFormattable` (`decimal`, `Guid`, `DateTime`,
+  `DateTimeOffset`, `TimeSpan`, the numeric types, `char`, and enums, but not `string` or `bool`), the value
+  object implements `IFormattable` and forwards `ToString(string? format, IFormatProvider? formatProvider)`.
+- When the underlying value declares a format-only `ToString(string? format)` (`Guid`, `DateTime`,
+  `DateTimeOffset`, `TimeSpan`, the numeric types, and enums), that overload is forwarded too.
+
+```csharp
+[Scalar<decimal>]
+public readonly partial record struct Amount { }
+
+var amount = Amount.Create(1234.5m);
+
+amount.ToString("N2", CultureInfo.InvariantCulture);           // "1,234.50"
+amount.ToString("N2");                                         // current culture
+string.Format(CultureInfo.InvariantCulture, "{0:N2}", amount); // "1,234.50"
+$"{amount:N2}"                                                 // current culture, e.g. "1,234.50"
+```
+
+A null underlying value formats as the empty string, and a scalar whose underlying type declares neither
+overload (`string`, `bool`) is unchanged. If you declare a matching overload yourself, the generator leaves
+your implementation in place.
+
+### Standard interfaces
+
+The generated value object also implements the same standard interfaces as the type it wraps, so it behaves
+like that type in equality, sorting, formatting, and parsing contexts:
+
+- `IEquatable<TValue>` when the underlying type implements it, and `IEquatable<TSelf>` for every shape that
+  does not already synthesize it.
+- `ISpanFormattable` and `IUtf8SpanFormattable` when the underlying type implements them, forwarding
+  `TryFormat`.
+- `IParsable<TSelf>`, `ISpanParsable<TSelf>`, and `IUtf8SpanParsable<TSelf>` when the underlying type
+  implements them. `Parse` validates through `Create`, and `TryParse` returns `false` (through `TryCreate`)
+  for input that does not parse or fails domain validation.
+
+```csharp
+[Scalar<Guid>]
+public readonly partial record struct InstallationId { }
+
+var id = InstallationId.Parse("2f8a...", CultureInfo.InvariantCulture); // Create(...)
+InstallationId.TryParse("not-a-guid", null, out _);                     // false
+```
+
+Detection is per type and per target framework: a scalar only gets the interfaces its underlying type
+actually implements (`string` is parsable but not span-formattable; an enum is span-formattable but not
+parsable). If you declare one of the generated members yourself, the generator leaves that interface alone.
+Numeric and arithmetic interfaces, `IConvertible`, and collection interfaces are intentionally not mirrored.
 
 ## 3. Complex value objects
 

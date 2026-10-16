@@ -93,6 +93,35 @@ static class ValueObjectSymbolInspector
 			);
 	}
 
+	/// <summary>
+	/// True when the author declared, in user source, a public static factory with the given signature.
+	/// Members emitted by the generator (in a <c>*.g.cs</c> tree) are ignored, so an analyzer running over
+	/// the post-generation compilation does not mistake a generated factory for an author-declared one.
+	/// </summary>
+	public static bool HasDeclaredStaticFactory(INamedTypeSymbol typeSymbol, string name, ITypeSymbol[] parameterTypes)
+	{
+		return typeSymbol
+			.GetMembers(name)
+			.OfType<IMethodSymbol>()
+			.Any(method =>
+				method.IsStatic
+				&& method.DeclaredAccessibility == Accessibility.Public
+				&& method.Parameters.Length == parameterTypes.Length
+				&& SymbolEqualityComparer.Default.Equals(method.ReturnType, typeSymbol)
+				&& ParametersMatch(method.Parameters, parameterTypes)
+				&& method.DeclaringSyntaxReferences.Any(static reference =>
+					!IsGeneratedSyntaxTree(reference.SyntaxTree)
+				)
+			);
+	}
+
+	/// <summary>
+	/// True when the syntax tree is a source-generated file, identified by the <c>.g.cs</c> suffix the
+	/// generator uses for its hint names.
+	/// </summary>
+	public static bool IsGeneratedSyntaxTree(SyntaxTree syntaxTree) =>
+		syntaxTree.FilePath.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase);
+
 	public static bool HasTryCreate(INamedTypeSymbol typeSymbol, ITypeSymbol scalarType)
 	{
 		return typeSymbol
@@ -122,6 +151,32 @@ static class ValueObjectSymbolInspector
 				&& method.Parameters.Length == parameterTypes.Count
 				&& ParametersMatch(method.Parameters, parameterTypes)
 			);
+	}
+
+	/// <summary>
+	/// True when <paramref name="typeSymbol"/> declares an instance <c>Equals</c> overload for
+	/// <paramref name="parameterType"/> whose nullability satisfies <c>IEquatable&lt;T&gt;.Equals(T?)</c>.
+	/// A non-nullable reference-type parameter does not, so adding the interface would report CS8767; the
+	/// generator leaves the interface off in that case and lets the author own it.
+	/// </summary>
+	public static bool HasNullabilityCompatibleEquals(INamedTypeSymbol typeSymbol, ITypeSymbol parameterType)
+	{
+		foreach (var method in typeSymbol.GetMembers("Equals").OfType<IMethodSymbol>())
+		{
+			if (method.IsStatic || method.Parameters.Length != 1)
+				continue;
+
+			var parameter = method.Parameters[0];
+			if (!SymbolEqualityComparer.Default.Equals(parameter.Type, parameterType))
+				continue;
+
+			if (parameter.Type.IsReferenceType && parameter.Type.NullableAnnotation != NullableAnnotation.Annotated)
+				continue;
+
+			return true;
+		}
+
+		return false;
 	}
 
 	public static bool HasCompareToObject(INamedTypeSymbol typeSymbol) =>
@@ -517,6 +572,98 @@ static class ValueObjectSymbolInspector
 			&& namedTypeSymbol.TypeArguments.Length == 1
 			&& SymbolEqualityComparer.Default.Equals(namedTypeSymbol.TypeArguments[0], typeSymbol)
 		);
+
+	/// <summary>
+	/// True when the underlying scalar value supports .NET formatting, so the generated value object can
+	/// forward <c>ToString(string?, IFormatProvider?)</c> to it. A nullable value type is unwrapped first,
+	/// because <see cref="Nullable{T}"/> itself implements no interfaces even when <c>T</c> does; a nullable
+	/// reference annotation does not change the implemented set.
+	/// </summary>
+	public static bool ImplementsIFormattable(ITypeSymbol type)
+	{
+		var effectiveType = UnwrapNullable(type);
+
+		return effectiveType.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol.Name == nameof(IFormattable)
+			&& interfaceSymbol.ContainingNamespace.ToDisplayString() == "System"
+		);
+	}
+
+	/// <summary>
+	/// The underlying type behind a nullable value type, or the type itself. A nullable value type is not
+	/// the CLR type whose members matter — <see cref="Nullable{T}"/> declares only its own parameterless
+	/// members — so overloads and interfaces must be resolved against <c>T</c>.
+	/// </summary>
+	public static ITypeSymbol UnwrapNullable(ITypeSymbol type) =>
+		type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+			? nullable.TypeArguments[0]
+			: type;
+
+	/// <summary>
+	/// True when <paramref name="type"/>, or a base type, declares an instance <c>ToString</c> overload whose
+	/// parameters match <paramref name="parameterTypes"/> exactly. The base chain is walked so an enum's
+	/// inherited <c>Enum.ToString(string)</c> and <c>Enum.ToString(string, IFormatProvider)</c> are seen;
+	/// the parameterless <c>object.ToString</c> is not matched by either.
+	/// </summary>
+	public static bool DeclaresToString(ITypeSymbol type, IReadOnlyList<ITypeSymbol> parameterTypes)
+	{
+		for (var current = type as INamedTypeSymbol; current is not null; current = current.BaseType)
+		{
+			foreach (var member in current.GetMembers("ToString"))
+			{
+				if (
+					member is IMethodSymbol { IsStatic: false } method
+					&& method.Parameters.Length == parameterTypes.Count
+					&& ParametersMatch(method.Parameters, parameterTypes)
+				)
+					return true;
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// True when <paramref name="type"/> implements the named <c>System</c> generic interface closed over
+	/// <paramref name="typeArgument"/> (for example <c>IEquatable&lt;T&gt;</c> or <c>IParsable&lt;T&gt;</c>).
+	/// Nullable annotations are ignored, so a nullable reference scalar still matches its non-nullable form.
+	/// </summary>
+	public static bool ImplementsGenericInterface(ITypeSymbol type, string interfaceName, ITypeSymbol typeArgument) =>
+		type.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol is INamedTypeSymbol named
+			&& named.OriginalDefinition.Name == interfaceName
+			&& named.OriginalDefinition.ContainingNamespace.ToDisplayString() == "System"
+			&& named.TypeArguments.Length == 1
+			&& SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], typeArgument)
+		);
+
+	/// <summary>
+	/// True when <paramref name="type"/> implements the named non-generic <c>System</c> interface (for
+	/// example <c>ISpanFormattable</c>).
+	/// </summary>
+	public static bool ImplementsInterface(ITypeSymbol type, string interfaceName) =>
+		type.AllInterfaces.Any(interfaceSymbol =>
+			interfaceSymbol.Name == interfaceName && interfaceSymbol.ContainingNamespace.ToDisplayString() == "System"
+		);
+
+	/// <summary>
+	/// True when <paramref name="typeSymbol"/> declares a static method with the given name whose parameters
+	/// match <paramref name="parameterTypes"/> exactly. Used to avoid emitting a parsing member the author
+	/// already declared (which would be a duplicate member, CS0111, in generated code).
+	/// </summary>
+	public static bool HasStaticMethod(
+		INamedTypeSymbol typeSymbol,
+		string name,
+		IReadOnlyList<ITypeSymbol> parameterTypes
+	) =>
+		typeSymbol
+			.GetMembers(name)
+			.OfType<IMethodSymbol>()
+			.Any(method =>
+				method.IsStatic
+				&& method.Parameters.Length == parameterTypes.Count
+				&& ParametersMatch(method.Parameters, parameterTypes)
+			);
 
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0072:Add missing cases")]
 	public static GeneratedTypeModel? BuildTypeModel(INamedTypeSymbol typeSymbol)

@@ -73,8 +73,9 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 
 ## Runtime project rules
 
-- The runtime targets `net8.0;net9.0;net10.0`. Static abstract interface members (`IScalarValueObject`) require a
-  net7+ floor.
+- The runtime targets `net8.0;net9.0;net10.0;net11.0`, selected through `PurviewTargetFrameworkSet=All` rather
+  than a literal list, so the set moves with `Purview.BuildSdk`. Static abstract interface members
+  (`IScalarValueObject`) require a net7+ floor.
 - `ScalarJsonConverterFactory` uses only reflection over `ScalarAttribute` + `Create`/`Hydrate`/constructor;
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).
@@ -130,7 +131,7 @@ just pipeline-pr
 ```
 
 The repository uses the shared `Purview.Build` pipeline (`purview-build.json` at the root). `just pipeline-pr`
-installs the pinned `Purview.Build` tool to `.tools/purview-build` when missing.
+runs `dotnet tool restore`, which installs the pinned `Purview.Build` from `.config/dotnet-tools.json`.
 
 Local CI-equivalent validation:
 
@@ -166,3 +167,41 @@ Before handing work back:
 - Update all affected docs, samples, analyzer metadata, and release notes when applicable.
 - Run appropriate build, test, formatting, and pack checks in proportion to risk.
 - State exactly what validation ran. If a check was skipped or blocked, give the concrete reason and remaining risk.
+## Agent skills
+
+Authored skills live in the repository-root `skills/` folder. Nothing packs them: `Purview.BuildSdk`
+delivers skills through the skills CLI, which clones the *git* repository and only discovers a root
+`skills/` folder.
+
+`.agents/skills/` is the CLI's install location for skills from **other** repositories, and is
+gitignored. This repository's own skills are never installed into it — that would leave two copies
+to drift apart. Read them at their authored path, `skills/<name>/SKILL.md`.
+
+Install these skills into your agent's directories with:
+
+```bash
+npx skills add purview-dev/value-objects
+```
+
+| Skill | Answers |
+| -- | -- |
+| `skills/purview-value-objects/` | modelling a value object: scalar, complex, contextual, `Create`/`Hydrate`, normalization, typed identifiers |
+| `skills/purview-value-objects-efcore/` | persisting one with EF Core: converters, complex-type vs JSON, keys, generated key values, migrations |
+| `skills/purview-value-objects-zodsharp/` | validating one with ZodSharp: `[ZodSchema]`, `ZodSchemaMode`, `OnZodValidate`, custom rules, Problem Details |
+| `skills/purview-value-objects-diagnostics/` | what a `VO1xxx` means and how to fix it |
+
+Every skill carries the `purview-value-objects` prefix. Skills install into one flat directory per
+agent, shared with every skill a developer has installed from anywhere, so an unprefixed name
+collides and the loser is whichever installed second.
+
+`src/tests/Repository.UnitTests/SkillTests.cs` validates them on every test run, through
+`Purview.Skills.Testing`'s rule set (the Agent Skills specification: frontmatter fields, name and
+description constraints, bundled links, body size). The `[InheritsTests]` attribute on that class is
+load-bearing — TUnit does not walk base types during discovery, so without it the run is green and
+nothing is checked. That project pins `net10.0` rather than taking the repository's `All` set,
+because it asserts something about the repository rather than about the runtime's reach.
+
+A relative link from one `SKILL.md` into another skill's folder is a rule violation: only a skill's
+own folder is installed with it, so such a link works here and nowhere else. Name the other skill in
+prose instead.
+

@@ -794,6 +794,53 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	}
 
 	[Test]
+	public async Task ReferencedComplexValueObject_WithoutComparer_IsStillDiscoveredAndMapped(
+		CancellationToken cancellationToken
+	)
+	{
+		// A complex value object that opted into a complex-type mapping but disabled its comparer must still
+		// carry the IEFComplexValueObject marker, so a consumer's registry discovers and maps it.
+		const string sharedSource = """
+			namespace Shared
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct CurrencyCode
+				{
+					public string Value { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject(GenerateEFComparer = false)]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+
+					public CurrencyCode Currency { get; }
+				}
+			}
+			""";
+
+		var sharedReference = await EmitSharedReferenceAsync(sharedSource, cancellationToken);
+
+		const string consumerSource = """
+			namespace Consumer
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json)]
+				public readonly partial record struct Audit
+				{
+					public System.DateTimeOffset OccurredAt { get; }
+				}
+			}
+			""";
+
+		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+
+		var registry = Normalize(
+			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
+		);
+		await Assert.That(registry).Contains("typeof(global::Shared.Money)");
+	}
+
+	[Test]
 	public async Task ReferencedScalarValueObjects_WithoutEFInDeclaringAssembly_AreMappedWithInlineConversions(
 		CancellationToken cancellationToken
 	)

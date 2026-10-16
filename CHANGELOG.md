@@ -5,16 +5,17 @@ All notable changes to this repository are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). `package.json` is the authoritative version.
 
-Released versions correspond to `v<version>` GitHub releases. Entries below the `Unreleased` heading have not
-been published to NuGet. No stable release has been cut yet; the published line is `1.0.0-prerelease.N`.
+Released versions correspond to `v<version>` GitHub releases. `package.json` is the authoritative version; the
+newest heading below is the version in development. Earlier releases are listed under
+[releases](https://github.com/purview-dev/value-objects/releases).
 
-## Unreleased
+## 1.1.0
 
 ### Added
 
 - Improved ZodSharp integration, including updated generation of Zod rule attributes.
 - MIT `LICENSE.md`.
-- [Diagnostics](docs/Diagnostics.md): a consolidated reference for all 17 `VO1xxx` rules. `VO1002`–`VO1008`
+- [Diagnostics](docs/Diagnostics.md): a consolidated reference for all 19 `VO1xxx` rules. `VO1002`–`VO1008`
   previously appeared only in the analyzer release table, and the Entity Framework and ZodSharp rules were split
   across two guides.
 - **Automatic scalar declaration.** `[Scalar<TValue>]` and `[Scalar(typeof(TValue))]` let the generator
@@ -26,11 +27,41 @@ been published to NuGet. No stable release has been cut yet; the published line 
 - **Nullable scalars round-trip JSON `null`.** The generated converter and `ScalarJsonConverterFactory`
   accept `null` for a nullable scalar (a `T?` reference or value type) and still reject it for a non-nullable
   reference scalar.
-- **ZodSharp integration for the automatic forms.** With `Purview.ZodSharp 2.0.2`, `[Scalar<T>]` /
+- **ZodSharp integration for the automatic forms.** With `Purview.ZodSharp 2.0.2` or later, `[Scalar<T>]` /
   `[Scalar(typeof(T))]` combined with `[ZodSchema]` generate a `{Type}Schema` from the attribute (the
   underlying type and property name) and validate through `Create`, even though the property is not visible
   to the ZodSharp generator. ZodSharp 2.0.2 also ships `[NullOrNonWhiteSpace]` for the nullable
   "null or non-whitespace" rule.
+- **Scalar formatting.** The generated value object now mirrors the underlying value's formatting overloads
+  per type. When the wrapped type implements `System.IFormattable` (for example `decimal`, `Guid`,
+  `DateTime`, or an enum), the value object implements `IFormattable` and forwards
+  `ToString(string? format, IFormatProvider? formatProvider)`. When the wrapped type declares a format-only
+  `ToString(string? format)` (for example `Guid`, `DateTime`, or an enum), that overload is forwarded too.
+  The value object exposes the same formatting options as the property it wraps, so
+  `amount.ToString("N2", CultureInfo.InvariantCulture)`, `id.ToString("N")`, and
+  `string.Format("{0:N2}", amount)` behave as they would on the underlying value. A scalar whose underlying
+  type declares neither overload (`string`, `bool`) is unchanged, a null underlying value formats as the
+  empty string, and an author-declared overload is left untouched.
+- **Scalar interface mirroring.** The generated value object now implements the same standard interfaces as
+  the type it wraps, so it behaves like that type in equality, formatting, and parsing contexts:
+  - `IEquatable<TValue>` when the underlying type implements it, and `IEquatable<TSelf>` for non-record
+    classes (previously only non-record structs and records implemented it).
+  - `ISpanFormattable` / `IUtf8SpanFormattable` when the underlying type implements them, forwarding
+    `TryFormat` (a null underlying value writes nothing and reports success).
+  - `IParsable<TSelf>` / `ISpanParsable<TSelf>` / `IUtf8SpanParsable<TSelf>` when the underlying type
+    implements them; `Parse` validates through `Create`, and `TryParse` returns `false` (through `TryCreate`)
+    for input that does not parse or fails domain validation.
+
+  Detection is per type and per target framework, so a scalar only gets the interfaces its underlying type
+  actually implements; an interface is skipped when the author already declares one of its members. Numeric
+  and arithmetic interfaces, `IConvertible`, and collection interfaces are intentionally not mirrored.
+- **Complex value objects implement `IEquatable<TSelf>`.** A `[ValueObject]` class now implements
+  `IEquatable<TSelf>` (previously only non-record structs and records did), so `EqualityComparer<T>` and
+  generic equality treat it by value. The generated `Equals(TSelf)` accepts a nullable reference, as the
+  interface requires.
+- **NuGet package validation.** The runtime package enables `EnablePackageValidation` against the previous
+  stable release (`1.0.1`), so an accidental breaking change to the public API fails `dotnet pack` rather
+  than shipping.
 
 ### Fixed
 
@@ -99,6 +130,15 @@ been published to NuGet. No stable release has been cut yet; the published line 
   `CompareTo`/`Equals` overload was ambiguous for a nullable value type, and `GetHashCode`/`ToString`
   produced nullable warnings. The generated code now strips the annotation where it is not representable and
   handles null in those members.
+- **`GenerateComparable` now does what its documentation says.** The option claimed to control
+  `IComparable<T>`, but the value object always implements `IComparable<TSelf>`/`IComparable` (and a scalar
+  always exposes `CompareTo(TValue)`) because the runtime contract requires it. `GenerateComparable = false`
+  now drops the extra `IComparable<TValue>` interface as well as the comparison operators, and the
+  documentation on `ScalarOptionsAttribute`, `ValueObjectAttribute`, and `ValueObjectDefaultsAttribute`
+  describes the actual behaviour.
+- **An author-declared `Equals` no longer conflicts with the mirrored `IEquatable` interface.** When a scalar
+  declares `Equals(TValue)`, or a value object declares `Equals(TSelf)`, with a non-nullable reference
+  parameter, the generated `IEquatable<T>` is left off instead of emitting `CS8767` in the consumer's build.
 
 ### Changed — trimming and Native AOT
 
@@ -148,7 +188,7 @@ been published to NuGet. No stable release has been cut yet; the published line 
   value, `ScalarValueObjectEmitter.EmitConstructor` **emits a private one**, which is the documented and
   tested behaviour. The rule as written contradicted the generator. The id now sits with `VO1011`, `VO1012`,
   `VO1014` and `VO1020` as retired and never reused, leaving 17 live rules.
-- **`VO1022` ships in a new `## Release 1.0.1` block** in `AnalyzerReleases.Shipped.md`, for the automatic
+- **`VO1022` ships in a new `## Release 1.1.0` block** in `AnalyzerReleases.Shipped.md`, for the automatic
   scalar forms that declare the underlying property themselves.
 
 ### Versioning and package lineage

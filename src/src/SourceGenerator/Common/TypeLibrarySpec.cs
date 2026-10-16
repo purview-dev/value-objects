@@ -39,6 +39,12 @@ static partial class TypeLibrarySpec
 	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
 	static readonly TypeIdentity ZodSchemaMode = default;
 
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	static readonly TypeIdentity StringCasing = default;
+
+	[TypeRef("Purview.ValueObjects.Serialization", generateFullNameConst: true)]
+	static readonly TypeIdentity StringNormalizeAttribute = default;
+
 	[TypeRef("Microsoft.EntityFrameworkCore")]
 	static readonly TypeIdentity ModelBuilder = default;
 
@@ -68,6 +74,35 @@ static partial class TypeLibrarySpec
 
 	[TypeRef("System.Linq.Expressions", arity: 1)]
 	static readonly TypeIdentity Expression = default;
+
+	// Referenced by the scalar value object's generated IFormattable.ToString overload. The framework's
+	// PurviewTypeLibrary exposes IFormattable but not IFormatProvider, so it is declared here.
+	[TypeRef("System")]
+	static readonly TypeIdentity IFormatProvider = default;
+
+	// Mirrored from the underlying scalar value's standard interfaces. The framework's PurviewTypeLibrary
+	// predates these, so they are declared here and emitted as qualified names; the consuming compilation
+	// resolves them (and the generator only emits the ones the underlying type actually implements).
+	[TypeRef("System")]
+	static readonly TypeIdentity ISpanFormattable = default;
+
+	[TypeRef("System")]
+	static readonly TypeIdentity IUtf8SpanFormattable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity IParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity ISpanParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity IUtf8SpanParsable = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity Span = default;
+
+	[TypeRef("System", arity: 1)]
+	static readonly TypeIdentity ReadOnlySpan = default;
 
 	[TypeRef("Microsoft.EntityFrameworkCore.Metadata", generateFullNameConst: true)]
 	static readonly TypeIdentity IComplexType = default;

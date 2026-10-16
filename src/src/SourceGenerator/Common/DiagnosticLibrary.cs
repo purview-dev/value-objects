@@ -192,4 +192,24 @@ public static class DiagnosticLibrary
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true
 	);
+
+	/// <summary>VO1023: Built-in string normalization is ignored </summary>
+	public static readonly DiagnosticDescriptor StringNormalizationIgnored = new(
+		id: "VO1023",
+		title: "Built-in string normalization is ignored",
+		messageFormat: "Value object '{0}' configures built-in string normalization but {1}; the configured option is ignored",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1024: Built-in string normalization requires a string scalar or member </summary>
+	public static readonly DiagnosticDescriptor StringNormalizationRequiresString = new(
+		id: "VO1024",
+		title: "Built-in string normalization requires a string value",
+		messageFormat: "Value object '{0}' configures built-in string normalization on non-string member '{1}'; the option is ignored",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
 }

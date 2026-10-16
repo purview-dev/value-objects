@@ -17,6 +17,23 @@ var created = EmailAddress.TryCreate("not-an-email", out _);
 Console.WriteLine($"TryCreate invalid -> {created}");
 
 Console.WriteLine();
+Console.WriteLine("== Scalar formatting & parsing ==");
+var customerId = CustomerId.Hydrate(Guid.NewGuid());
+Console.WriteLine(
+	$"CustomerId.ToString(\"N\") -> {customerId.ToString("N", System.Globalization.CultureInfo.InvariantCulture)}"
+);
+Console.WriteLine(
+	$"string.Format(\"{{0:N}}\", customerId) -> {string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:N}", customerId)}"
+);
+
+var parsedId = CustomerId.Parse(
+	"2f8a1f4e-1e3d-4f4a-9c2b-1a2b3c4d5e6f",
+	System.Globalization.CultureInfo.InvariantCulture
+);
+Console.WriteLine($"CustomerId.Parse -> {parsedId.Value:D}");
+Console.WriteLine($"CustomerId.TryParse(\"not-a-guid\") -> {CustomerId.TryParse("not-a-guid", null, out _)}");
+
+Console.WriteLine();
 Console.WriteLine("== Complex value objects ==");
 var money = Money.Create(19.99m, CurrencyCode.Create("usd"));
 Console.WriteLine($"Money -> {money.Amount} {money.Currency.Value}");

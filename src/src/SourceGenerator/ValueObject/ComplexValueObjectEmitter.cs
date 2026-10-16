@@ -72,7 +72,7 @@ static partial class ComplexValueObjectEmitter
 		var builder = ImmutableArray.CreateBuilder<TypeReference>();
 		builder.Add(TypeLibrary.Purview.ValueObjects.IValueObject.MakeGeneric(valueObjectType));
 
-		if (!model.IsReferenceType && !model.ImplementsSelfEquatable)
+		if (model.MirrorIEquatableSelf)
 			builder.Add(TypeLibrary.System.IEquatable.MakeGeneric(valueObjectType));
 
 		builder.Add(TypeLibrary.System.IComparable.MakeGeneric(valueObjectType));
@@ -136,6 +136,20 @@ static partial class ComplexValueObjectEmitter
 			},
 			body =>
 			{
+				foreach (var property in model.Properties)
+				{
+					var parameterName = ValueObjectSymbolInspector.ToCamelCase(property.Name);
+					if (
+						ValueObjectEmitterHelpers.StringNormalization.Expression(
+							parameterName,
+							property.NormalizeTrim,
+							property.NormalizeCasing
+						) is
+						{ } normalization
+					)
+						body.Assignment(parameterName, normalization);
+				}
+
 				body.MethodCall("OnNormalize", normalizeArgs);
 				body.Assignment(
 					"var",

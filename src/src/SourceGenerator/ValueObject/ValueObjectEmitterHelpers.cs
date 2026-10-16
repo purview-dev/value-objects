@@ -226,6 +226,57 @@ static class ValueObjectEmitterHelpers
 			);
 	}
 
+	/// <summary>
+	/// Resolves and emits the built-in string normalization applied by the generated <c>Create</c> path.
+	/// </summary>
+	public static class StringNormalization
+	{
+		/// <summary>
+		/// The enum member name (for example <c>LowerInvariant</c>) of a casing option string, or
+		/// <see langword="null"/> when the string is null, empty, or resolves to <c>None</c>.
+		/// </summary>
+		public static string? CasingMember(string? casingTypeName)
+		{
+			if (casingTypeName is not { Length: > 0 })
+				return null;
+
+			var lastDot = casingTypeName.LastIndexOf('.');
+			var member = lastDot < 0 ? casingTypeName : casingTypeName.Substring(lastDot + 1);
+			return string.Equals(member, "None", StringComparison.Ordinal) ? null : member;
+		}
+
+		/// <summary>
+		/// True when the casing option string selects a non-<c>None</c> member.
+		/// </summary>
+		public static bool IsCasingConfigured(string? casingTypeName) => CasingMember(casingTypeName) is not null;
+
+		/// <summary>
+		/// Builds the null-safe normalization expression for <paramref name="valueExpression"/>, for example
+		/// <c>value?.Trim().ToLowerInvariant()!</c>, or <see langword="null"/> when nothing is configured.
+		/// </summary>
+		public static string? Expression(string valueExpression, bool trim, string? casingTypeName)
+		{
+			var casing = CasingMember(casingTypeName);
+			if (!trim && casing is null)
+				return null;
+
+			var expression = valueExpression + "?";
+			if (trim)
+				expression += ".Trim()";
+			if (string.Equals(casing, "LowerInvariant", StringComparison.Ordinal))
+				expression += ".ToLowerInvariant()";
+			else if (string.Equals(casing, "UpperInvariant", StringComparison.Ordinal))
+				expression += ".ToUpperInvariant()";
+			return expression + "!";
+		}
+
+		/// <summary>
+		/// Whether a fully qualified type name (allowing a nullable annotation) is <see cref="string"/>.
+		/// </summary>
+		public static bool IsStringTypeName(string? typeName) =>
+			typeName is not null && typeName.TrimEnd('?') is "global::System.String" or "string";
+	}
+
 	public static void EmitBinaryOperator(
 		CodeWriter writer,
 		TypeReference leftType,

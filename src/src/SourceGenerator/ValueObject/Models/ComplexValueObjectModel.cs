@@ -13,6 +13,7 @@ sealed record class ComplexValueObjectModel(
 	bool IsReadOnly,
 	TypeDeclarationAccessibility? Accessibility,
 	bool ImplementsSelfEquatable,
+	bool MirrorIEquatableSelf,
 	bool HydrateExists,
 	bool CreateExists,
 	bool CompareToSelfExists,
@@ -38,4 +39,11 @@ sealed record class ComplexValueObjectModel(
 	bool IsEF8Referenced
 );
 
-readonly record struct ComplexPropertyModel(string Name, string TypeName, TypeReference Type);
+readonly record struct ComplexPropertyModel(
+	string Name,
+	string TypeName,
+	TypeReference Type,
+	bool NormalizeTrim,
+	string NormalizeCasing,
+	bool NormalizeExplicit
+);

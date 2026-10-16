@@ -10,19 +10,17 @@ namespace Purview.ValueObjects.Serialization;
 /// duplicating the option set. It is abstract and is never applied directly.
 /// </para>
 /// </remarks>
-public abstract class ScalarOptionsAttribute : Attribute
+/// <remarks>
+/// Initializes the attribute.
+/// </remarks>
+/// <param name="propertyName">The name of the property that holds the underlying scalar value.</param>
+public abstract class ScalarOptionsAttribute(string propertyName) : Attribute
 {
-	/// <summary>
-	/// Initializes the attribute.
-	/// </summary>
-	/// <param name="propertyName">The name of the property that holds the underlying scalar value.</param>
-	protected ScalarOptionsAttribute(string propertyName) => PropertyName = propertyName;
-
 	/// <summary>
 	/// Gets the name of the property that holds the underlying scalar value.
 	/// </summary>
 	/// <value>Defaults to <c>Value</c> when not specified.</value>
-	public string PropertyName { get; }
+	public string PropertyName { get; } = propertyName;
 
 	/// <summary>
 	/// Gets or sets whether the generator declares the underlying property as a nullable reference type.
@@ -44,9 +42,16 @@ public abstract class ScalarOptionsAttribute : Attribute
 	public bool GenerateJsonConverter { get; init; } = true;
 
 	/// <summary>
-	/// Gets or sets whether the value object should implement <see cref="IComparable{T}"/>.
+	/// Gets or sets whether the value object advertises comparison against its underlying value
+	/// (<see cref="IComparable{T}"/> of the primitive) and whether the comparison operators are generated.
 	/// </summary>
 	/// <value>Defaults to <see langword="true"/>.</value>
+	/// <remarks>
+	/// The value object always implements <see cref="IComparable{T}"/> of itself, <see cref="IComparable"/>,
+	/// and <c>CompareTo(TValue)</c>, because the value-object contract requires them. Setting this to
+	/// <see langword="false"/> drops the extra <c>IComparable&lt;TValue&gt;</c> interface and the comparison
+	/// operators; the operators additionally require <see cref="GenerateComparisonOperators"/>.
+	/// </remarks>
 	public bool GenerateComparable { get; init; } = true;
 
 	/// <summary>
@@ -123,6 +128,31 @@ public abstract class ScalarOptionsAttribute : Attribute
 	/// </para>
 	/// </remarks>
 	public bool GenerateEFValueGenerator { get; init; }
+
+	/// <summary>
+	/// Gets or sets whether the string-backed scalar's leading and trailing whitespace should be trimmed
+	/// during normalization, so the scalar does not need a hand-written <c>OnNormalize</c> hook.
+	/// </summary>
+	/// <value>Defaults to <see langword="false"/>.</value>
+	/// <remarks>
+	/// The generated <c>Create</c> path applies the trim before validation. This option only has an
+	/// effect on a <see cref="string"/>-backed scalar; setting it on any other scalar is reported as a
+	/// diagnostic. It is ignored when the scalar implements its own <c>OnNormalize</c> hook or declares
+	/// its own <c>Create</c>.
+	/// </remarks>
+	public bool Trim { get; init; }
+
+	/// <summary>
+	/// Gets or sets the casing canonicalization applied to a string-backed scalar during normalization.
+	/// </summary>
+	/// <value>Defaults to <see cref="StringCasing.None"/>.</value>
+	/// <remarks>
+	/// The generated <c>Create</c> path applies the casing after any configured trim and before
+	/// validation. This option only has an effect on a <see cref="string"/>-backed scalar; setting it on
+	/// any other scalar is reported as a diagnostic. It is ignored when the scalar implements its own
+	/// <c>OnNormalize</c> hook or declares its own <c>Create</c>.
+	/// </remarks>
+	public StringCasing Casing { get; init; } = StringCasing.None;
 
 	/// <summary>
 	/// Gets or sets the deserialization mode used by the generated JSON converter.

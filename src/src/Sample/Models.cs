@@ -22,12 +22,11 @@ readonly partial record struct EmailAddress
 	}
 }
 
-[Scalar]
+// The built-in string normalization replaces a hand-written OnNormalize hook.
+[Scalar(Trim = true, Casing = StringCasing.UpperInvariant)]
 readonly partial record struct CurrencyCode
 {
 	public string Value { get; }
-
-	static partial void OnNormalize(ref string value) => value = value?.Trim().ToUpperInvariant()!;
 
 	static partial void OnValidate(string value)
 	{
@@ -108,4 +107,15 @@ sealed class Order
 	public Money Total { get; set; }
 
 	public OrderStatus Status { get; set; }
+}
+
+// Complex members configure normalization with [StringNormalize] instead of an OnNormalize hook.
+[ValueObject]
+readonly partial record struct ShippingAddress
+{
+	[StringNormalize(Trim = true)]
+	public string Line1 { get; }
+
+	[StringNormalize(Trim = true)]
+	public string City { get; }
 }

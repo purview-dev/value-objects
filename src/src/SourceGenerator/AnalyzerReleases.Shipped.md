@@ -21,10 +21,12 @@ VO1018 | ValueObjects | Warning | Entity Framework complex mapping cannot conver
 VO1019 | ValueObjects | Warning | Entity Framework complex type mapping requires Entity Framework Core 8 or later
 VO1021 | ValueObjects | Warning | Entity Framework key value generation is unavailable for the value object
 
-## Release 1.0.1
+## Release 1.1.0
 
 ### New Rules
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 VO1022 | ValueObjects | Error | The automatic [Scalar<T>]/[Scalar(typeof(T))] form declares the scalar property, so the author must not declare it
+VO1023 | ValueObjects | Warning | Built-in string normalization is ignored because the value object implements OnNormalize or declares its own Create
+VO1024 | ValueObjects | Warning | Built-in string normalization requires a string scalar or member

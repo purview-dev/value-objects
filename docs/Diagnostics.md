@@ -32,6 +32,15 @@ See [ZodSharp validation](ZodSharp-Validation.md) for the integration itself.
 | `VO1013` | Warning | `OnValidate` is declared but never invoked because `ZodSchemaMode.InsteadOfHooks` is set. | Remove `OnValidate`, or choose a `ZodSchemaMode` that keeps the hooks. |
 | `VO1015` | Error | The ZodSharp `SchemaName` is not a valid C# identifier. | Give it a valid identifier. |
 
+## String normalization rules
+
+See [Value object design](Value-Object-Design.md) for the built-in string normalization options.
+
+| Rule | Severity | Reported when | Fix |
+| --- | --- | --- | --- |
+| `VO1023` | Warning | Built-in string normalization is configured but the value object implements `OnNormalize` or declares its own `Create`. | Remove the option, or move the normalization into the hook/`Create`. |
+| `VO1024` | Warning | Built-in string normalization is configured on a non-string scalar or member. | Remove the option; it only applies to `string` values. |
+
 ## Entity Framework rules
 
 See [Entity Framework integration](Entity-Framework.md) for the mapping model.

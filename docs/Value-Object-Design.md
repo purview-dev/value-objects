@@ -21,6 +21,42 @@ Every value object exposes two static factories:
 
 Normalization is deterministic and runs on every `Create`.
 
+### Built-in string normalization
+
+Trimming and casing are common enough to be configured rather than hand-written. On a string-backed
+scalar, set `Trim` and/or `Casing`; on a complex `[ValueObject]`, annotate the string member with
+`[StringNormalize]`:
+
+```csharp
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct EmailAddress { }
+
+[ValueObject]
+public readonly partial record struct Contact
+{
+    [StringNormalize(Trim = true)]
+    public string Email { get; init; }
+
+    public string Name { get; init; }
+}
+```
+
+The generated `Create` applies the trim first, then the casing, before validation. `Hydrate` is never
+normalized, matching the hand-written hook. The option is only meaningful for `string` values; setting it
+on any other scalar or member is reported (`VO1024`) and ignored. The option is applied by the generated
+`Create`, so a hand-written `OnNormalize` hook or a hand-written `Create` takes precedence: a configured
+option alongside either is reported (`VO1023`) and ignored.
+
+An assembly-level default applies to every string-backed scalar and every string member of a
+`[ValueObject]`, and can be overridden per type or per member:
+
+```csharp
+[assembly: ValueObjectDefaults(Trim = true, Casing = StringCasing.LowerInvariant)]
+```
+
+Casing uses the invariant culture only, because a value object's canonical form must not depend on the
+current thread culture.
+
 ## Validation
 
 `OnValidate(T value)` (scalar) or `partial void OnValidate(...)` (complex) enforces invariants and throws
@@ -49,6 +85,27 @@ the default) or is replaced (`InsteadOfHooks`); `OnNormalize` always runs.
 
 `[Scalar]` and `[ValueObject]` default to `ValueObjectDeserializationMode.Hydrate`, so JSON reads do not re-validate.
 Use `Strict` when round-trip fidelity requires re-running validation on read.
+
+## Standard interfaces
+
+A scalar value object wraps one value, so it mirrors that value's standard interfaces and behaves like it in
+generic code — equality, sorting, formatting, and parsing:
+
+| Interface | Mirrored when | Forwarded member |
+| --- | --- | --- |
+| `IEquatable<TValue>` | the underlying type implements it | `Equals(TValue)` |
+| `IFormattable` and `ToString(string?)` | the underlying type implements/declares them | `ToString(format[, provider])` |
+| `ISpanFormattable` / `IUtf8SpanFormattable` | the underlying type implements them | `TryFormat` |
+| `IParsable<T>` / `ISpanParsable<T>` / `IUtf8SpanParsable<T>` | the underlying type implements them | `Parse` / `TryParse` |
+
+`Parse` is a strict creation path (`Create`, so normalization and validation run); `TryParse` returns `false`
+through `TryCreate`. Detection is per type and per target framework, so a scalar only gets the interfaces its
+underlying type actually implements (`string` is parsable but not span-formattable; an enum is span-formattable
+but not parsable), and an interface is skipped when you declare one of its members yourself.
+
+The value object always implements `IComparable<TSelf>` and `IComparable` (and a scalar always exposes
+`CompareTo(TValue)`) because the value-object contract requires it. Numeric and arithmetic interfaces,
+`IConvertible`, and collection interfaces are intentionally not mirrored.
 
 ## Contextual value objects
 

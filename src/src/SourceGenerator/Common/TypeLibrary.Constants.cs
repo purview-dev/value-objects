@@ -29,6 +29,10 @@ public static partial class TypeLibrary
 
 	public const string ZodSchemaModeFullTypeName = SerializationNamespace + ".ZodSchemaMode";
 
+	public const string StringCasingFullTypeName = SerializationNamespace + ".StringCasing";
+
+	public const string StringNormalizeAttributeFullTypeName = SerializationNamespace + ".StringNormalizeAttribute";
+
 	// ZodSharp's runtime and generator-emitted types. The ZodSharp attribute and schema types are produced
 	// by the ZodSharp source generator, so these names are matched and emitted as qualified text rather than
 	// resolved as symbols (the value object generator must keep working when ZodSharp is not referenced).
