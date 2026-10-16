@@ -73,8 +73,9 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 
 ## Runtime project rules
 
-- The runtime targets `net8.0;net9.0;net10.0`. Static abstract interface members (`IScalarValueObject`) require a
-  net7+ floor.
+- The runtime targets `net8.0;net9.0;net10.0;net11.0`, selected through `PurviewTargetFrameworkSet=All` rather
+  than a literal list, so the set moves with `Purview.BuildSdk`. Static abstract interface members
+  (`IScalarValueObject`) require a net7+ floor.
 - `ScalarJsonConverterFactory` uses only reflection over `ScalarAttribute` + `Create`/`Hydrate`/constructor;
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).

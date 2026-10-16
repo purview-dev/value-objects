@@ -15,7 +15,7 @@ newest heading below is the version in development. Earlier releases are listed 
 
 - Improved ZodSharp integration, including updated generation of Zod rule attributes.
 - MIT `LICENSE.md`.
-- [Diagnostics](docs/Diagnostics.md): a consolidated reference for all 17 `VO1xxx` rules. `VO1002`–`VO1008`
+- [Diagnostics](docs/Diagnostics.md): a consolidated reference for all 19 `VO1xxx` rules. `VO1002`–`VO1008`
   previously appeared only in the analyzer release table, and the Entity Framework and ZodSharp rules were split
   across two guides.
 - **Automatic scalar declaration.** `[Scalar<TValue>]` and `[Scalar(typeof(TValue))]` let the generator
@@ -27,7 +27,7 @@ newest heading below is the version in development. Earlier releases are listed 
 - **Nullable scalars round-trip JSON `null`.** The generated converter and `ScalarJsonConverterFactory`
   accept `null` for a nullable scalar (a `T?` reference or value type) and still reject it for a non-nullable
   reference scalar.
-- **ZodSharp integration for the automatic forms.** With `Purview.ZodSharp 2.0.2`, `[Scalar<T>]` /
+- **ZodSharp integration for the automatic forms.** With `Purview.ZodSharp 2.0.2` or later, `[Scalar<T>]` /
   `[Scalar(typeof(T))]` combined with `[ZodSchema]` generate a `{Type}Schema` from the attribute (the
   underlying type and property name) and validate through `Create`, even though the property is not visible
   to the ZodSharp generator. ZodSharp 2.0.2 also ships `[NullOrNonWhiteSpace]` for the nullable
