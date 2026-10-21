@@ -342,7 +342,10 @@ static class ValueObjectSymbolInspector
 			return true;
 
 		var attributes = type.GetAttributes();
-		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+
+		// The defaults resolved here include any build-generated defaults the declaring assembly baked in,
+		// which is what its generated code was compiled against.
+		var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(
 			type.ContainingAssembly?.GetAttributes() ?? []
 		);
 
@@ -563,6 +566,29 @@ static class ValueObjectSymbolInspector
 					&& string.Equals(parameter.Name, property.Name, StringComparison.OrdinalIgnoreCase)
 				)
 		);
+
+	/// <summary>
+	/// True when the property is one of the value object's value members: the members the generated
+	/// equality, comparison, JSON, and normalization paths operate on. The analyzer and the complex-model
+	/// builder share this predicate so their diagnostics cannot disagree about what a member is.
+	/// </summary>
+	public static bool IsValueObjectMember(INamedTypeSymbol typeSymbol, IPropertySymbol property) =>
+		!property.IsStatic
+		&& !property.IsIndexer
+		&& property.GetMethod is not null
+		&& SymbolEqualityComparer.Default.Equals(property.ContainingType, typeSymbol)
+		&& IsValueObjectPropertyCandidate(typeSymbol, property);
+
+	/// <summary>
+	/// Returns the applied <c>[StringNormalize]</c> attribute, or <see langword="null"/> when the member
+	/// does not carry one.
+	/// </summary>
+	public static AttributeData? FindStringNormalizeAttribute(IPropertySymbol property) =>
+		property
+			.GetAttributes()
+			.FirstOrDefault(attribute =>
+				attribute.AttributeClass?.ToDisplayString() == TypeLibrary.StringNormalizeAttributeFullTypeName
+			);
 
 	public static bool ImplementsSelfEquatable(INamedTypeSymbol typeSymbol) =>
 		typeSymbol.AllInterfaces.Any(interfaceSymbol =>

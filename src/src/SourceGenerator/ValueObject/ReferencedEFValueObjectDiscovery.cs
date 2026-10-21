@@ -146,7 +146,7 @@ static class ReferencedEFValueObjectDiscovery
 		var attributes = type.GetAttributes();
 		if (ScalarAttributeParser.Find(attributes) is { } scalarAttribute)
 		{
-			var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+			var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(
 				type.ContainingAssembly.GetAttributes()
 			);
 			var options = ValueObjectDefaultsHelper.Apply(
@@ -196,7 +196,7 @@ static class ReferencedEFValueObjectDiscovery
 			)
 		)
 		{
-			var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+			var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(
 				type.ContainingAssembly.GetAttributes()
 			);
 			var options = ValueObjectDefaultsHelper.Apply(
@@ -243,7 +243,7 @@ static class ReferencedEFValueObjectDiscovery
 
 		var options = ValueObjectDefaultsHelper.Apply(
 			ScalarAttributeParser.Parse(scalarAttribute),
-			ValueObjectDefaultsAttributeData.FromAttributeData(type.ContainingAssembly.GetAttributes()),
+			ValueObjectDefaultsHelper.ResolveAssemblyDefaults(type.ContainingAssembly.GetAttributes()),
 			attributes
 		);
 
@@ -275,7 +275,7 @@ static class ReferencedEFValueObjectDiscovery
 	static string ResolveEFMapping(INamedTypeSymbol type)
 	{
 		var attributes = type.GetAttributes();
-		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
+		var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(
 			type.ContainingAssembly.GetAttributes()
 		);
 		var options = ValueObjectDefaultsHelper.Apply(

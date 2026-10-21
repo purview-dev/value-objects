@@ -212,4 +212,34 @@ public static class DiagnosticLibrary
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true
 	);
+
+	/// <summary>VO1025: [StringNormalize] is only supported on a complex value object member </summary>
+	public static readonly DiagnosticDescriptor StringNormalizeRequiresValueObject = new(
+		id: "VO1025",
+		title: "[StringNormalize] is only supported on a value object member",
+		messageFormat: "Type '{0}' applies [StringNormalize] to member '{1}' but {2}; the attribute has no effect",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1026: An assembly default repeats the project default </summary>
+	public static readonly DiagnosticDescriptor AssemblyDefaultIsRedundant = new(
+		id: "VO1026",
+		title: "Assembly default is already configured by the project",
+		messageFormat: "[ValueObjectDefaults] sets '{0}' to '{1}', which is already the project default; remove the argument or change the value",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1027: A value object option repeats the assembly default </summary>
+	public static readonly DiagnosticDescriptor ValueObjectOptionIsRedundant = new(
+		id: "VO1027",
+		title: "Value object option is already the assembly default",
+		messageFormat: "[{0}] sets '{1}' to '{2}', which is already the assembly default; remove the option or change the value",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
 }

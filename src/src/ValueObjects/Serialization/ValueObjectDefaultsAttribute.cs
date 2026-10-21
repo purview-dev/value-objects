@@ -5,7 +5,25 @@ namespace Purview.ValueObjects.Serialization;
 /// These defaults apply to every <c>[Scalar]</c>/<c>[ValueObject]</c> type in the assembly and can be
 /// overridden on individual <see cref="ScalarAttribute"/> / <see cref="ValueObjectAttribute"/> attributes.
 /// </summary>
-[AttributeUsage(AttributeTargets.Assembly)]
+/// <remarks>
+/// <para>
+/// The same options can be supplied from MSBuild with the <c>ValueObjectsDefault&lt;Property&gt;</c>
+/// properties (for example <c>ValueObjectsDefaultTrim</c>). The packaged targets emit a second,
+/// build-generated instance of this attribute for those values, so the attribute allows multiple
+/// applications. An option named explicitly on an author-declared attribute wins over the MSBuild value,
+/// and both are overridden by a per-type or per-member option.
+/// </para>
+/// <para>
+/// An argument whose value repeats the project-level default is reported as <c>VO1026</c>, and a
+/// <c>[Scalar]</c>/<c>[ValueObject]</c> option that repeats the effective assembly default is reported as
+/// <c>VO1027</c>: keep each option in one place.
+/// </para>
+/// <para>
+/// Do not declare a second attribute by hand to express alternatives: the first author-declared
+/// attribute wins. Set the MSBuild property instead.
+/// </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
 public sealed class ValueObjectDefaultsAttribute : Attribute
 {
 	/// <summary>

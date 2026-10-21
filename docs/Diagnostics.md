@@ -40,6 +40,14 @@ See [Value object design](Value-Object-Design.md) for the built-in string normal
 | --- | --- | --- | --- |
 | `VO1023` | Warning | Built-in string normalization is configured but the value object implements `OnNormalize` or declares its own `Create`. | Remove the option, or move the normalization into the hook/`Create`. |
 | `VO1024` | Warning | Built-in string normalization is configured on a non-string scalar or member. | Remove the option; it only applies to `string` values. |
+| `VO1025` | Error | `[StringNormalize]` is applied to a member of a `[Scalar]`, or of a type that is neither `[Scalar]` nor `[ValueObject]`, or to a property that is not a value member. | Move the attribute to a string member of a complex `[ValueObject]`. On a scalar, set `Trim`/`Casing` on `[Scalar]` instead. |
+| `VO1026` | Error | An author-declared `[assembly: ValueObjectDefaults]` sets an option to the value the packaged targets already supplied from a `ValueObjectsDefault*` MSBuild property. | Remove the argument from the assembly attribute, or set a different value. |
+| `VO1027` | Error | A `[Scalar]` or `[ValueObject]` sets an option to the effective assembly default. | Remove the option from the attribute; it repeats the inherited value. |
+
+Restating an option that the assembly defaults (or `ValueObjectsDefault*` MSBuild properties) already set is a
+no-op. `VO1026`/`VO1027` report that redundancy for assembly, `[Scalar]` and `[ValueObject]` options, so the
+configuration has a single source of truth. `[StringNormalize]` is a per-member override and is not included in
+that check.
 
 ## Entity Framework rules
 

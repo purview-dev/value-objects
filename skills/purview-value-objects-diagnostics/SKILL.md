@@ -39,6 +39,13 @@ failure to the missing member.
 | --- | --- | --- | --- |
 | `VO1023` | Warning | Built-in string normalization is configured but the type implements `OnNormalize` or declares its own `Create`. | Remove the option, or move the normalization into the hook/`Create`. The hand-written path wins either way. |
 | `VO1024` | Warning | Built-in string normalization is configured on a non-string scalar or member. | Remove the option; `Trim`/`Casing` apply only to `string`. |
+| `VO1025` | Error | `[StringNormalize]` is on a member of a `[Scalar]`, on a type that is neither `[Scalar]` nor `[ValueObject]`, or on a property that is not a value member. | Move it to a string member of a complex `[ValueObject]`; on a scalar set `Trim`/`Casing` on `[Scalar]`. |
+| `VO1026` | Error | An author-declared `[assembly: ValueObjectDefaults]` repeats a value already supplied by the packaged targets from `ValueObjectsDefault*` MSBuild properties. | Remove the argument, or set a different value. |
+| `VO1027` | Error | A `[Scalar]`/`[ValueObject]` option repeats the effective assembly default. | Remove the option; it repeats the inherited value. |
+
+Restating an assembly or type default is reported as `VO1026`/`VO1027` so each option has a single source of
+truth. Only `[StringNormalize]` remains a per-member override outside that check; a value that changes the
+effective configuration still raises `VO1023`/`VO1024` where those rules apply.
 
 ## ZodSharp validation rules
 

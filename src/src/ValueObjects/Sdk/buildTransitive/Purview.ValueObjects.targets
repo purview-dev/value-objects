@@ -1,13 +1,136 @@
 <Project>
-	<ItemGroup Label="Compiler Visible SDK Properties">
-		<CompilerVisibleProperty Include="DisableValueObjectsSourceGenerator">
-			<Description>When true, the Purview.ValueObjects source generator is disabled.</Description>
-		</CompilerVisibleProperty>
-		<CompilerVisibleProperty Include="DisableValueObjectsEFGeneration">
-			<Description>When true, the Purview.ValueObjects source generator does not emit Entity Framework Core mapping members or the value object EF registry.</Description>
-		</CompilerVisibleProperty>
-		<CompilerVisibleProperty Include="DisableValueObjectsEFRegistry">
-			<Description>When true, the Purview.ValueObjects source generator does not emit the assembly-level value object EF registry (ConfigureValueObjects/UseValueObjects/ValueObjectModelCustomizer). Per-type Entity Framework Core mapping members are still emitted.</Description>
-		</CompilerVisibleProperty>
-	</ItemGroup>
+	<!-- The default options are declared in Purview.ValueObjects.props. This file validates them and turns
+	     the configured ones into a build-generated assembly-level [ValueObjectDefaults]. The generator treats
+	     an unparseable value as unset, so fail the build instead of silently falling back to the built-in
+	     default. -->
+	<Target
+		Name="_ValidateValueObjectsDefaultProperties"
+		BeforeTargets="BeforeCompile;CoreCompile"
+		Condition="'$(ValueObjectsDefaultGenerateJsonConverter)$(ValueObjectsDefaultGenerateComparable)$(ValueObjectsDefaultGenerateComparisonOperators)$(ValueObjectsDefaultGenerateEnumProperties)$(ValueObjectsDefaultGenerateImplicitFromPrimitive)$(ValueObjectsDefaultGenerateImplicitToPrimitive)$(ValueObjectsDefaultGenerateEmpty)$(ValueObjectsDefaultGenerateConstructor)$(ValueObjectsDefaultEFMapping)$(ValueObjectsDefaultGenerateEFConverter)$(ValueObjectsDefaultGenerateEFComparer)$(ValueObjectsDefaultGenerateEFValueGenerator)$(ValueObjectsDefaultTrim)$(ValueObjectsDefaultCasing)$(ValueObjectsDefaultDeserializationMode)$(ValueObjectsDefaultZodSchemaMode)' != ''"
+	>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateJsonConverter)' != '' and '$(ValueObjectsDefaultGenerateJsonConverter)' != 'true' and '$(ValueObjectsDefaultGenerateJsonConverter)' != 'false'"
+			Text="ValueObjectsDefaultGenerateJsonConverter must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateComparable)' != '' and '$(ValueObjectsDefaultGenerateComparable)' != 'true' and '$(ValueObjectsDefaultGenerateComparable)' != 'false'"
+			Text="ValueObjectsDefaultGenerateComparable must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateComparisonOperators)' != '' and '$(ValueObjectsDefaultGenerateComparisonOperators)' != 'true' and '$(ValueObjectsDefaultGenerateComparisonOperators)' != 'false'"
+			Text="ValueObjectsDefaultGenerateComparisonOperators must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateEnumProperties)' != '' and '$(ValueObjectsDefaultGenerateEnumProperties)' != 'true' and '$(ValueObjectsDefaultGenerateEnumProperties)' != 'false'"
+			Text="ValueObjectsDefaultGenerateEnumProperties must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateImplicitFromPrimitive)' != '' and '$(ValueObjectsDefaultGenerateImplicitFromPrimitive)' != 'true' and '$(ValueObjectsDefaultGenerateImplicitFromPrimitive)' != 'false'"
+			Text="ValueObjectsDefaultGenerateImplicitFromPrimitive must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateImplicitToPrimitive)' != '' and '$(ValueObjectsDefaultGenerateImplicitToPrimitive)' != 'true' and '$(ValueObjectsDefaultGenerateImplicitToPrimitive)' != 'false'"
+			Text="ValueObjectsDefaultGenerateImplicitToPrimitive must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateEmpty)' != '' and '$(ValueObjectsDefaultGenerateEmpty)' != 'true' and '$(ValueObjectsDefaultGenerateEmpty)' != 'false'"
+			Text="ValueObjectsDefaultGenerateEmpty must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateConstructor)' != '' and '$(ValueObjectsDefaultGenerateConstructor)' != 'true' and '$(ValueObjectsDefaultGenerateConstructor)' != 'false'"
+			Text="ValueObjectsDefaultGenerateConstructor must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultEFMapping)' != '' and '$(ValueObjectsDefaultEFMapping)' != 'ComplexType' and '$(ValueObjectsDefaultEFMapping)' != 'Json' and '$(ValueObjectsDefaultEFMapping)' != 'None'"
+			Text="ValueObjectsDefaultEFMapping must be 'ComplexType', 'Json', or 'None'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateEFConverter)' != '' and '$(ValueObjectsDefaultGenerateEFConverter)' != 'true' and '$(ValueObjectsDefaultGenerateEFConverter)' != 'false'"
+			Text="ValueObjectsDefaultGenerateEFConverter must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateEFComparer)' != '' and '$(ValueObjectsDefaultGenerateEFComparer)' != 'true' and '$(ValueObjectsDefaultGenerateEFComparer)' != 'false'"
+			Text="ValueObjectsDefaultGenerateEFComparer must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultGenerateEFValueGenerator)' != '' and '$(ValueObjectsDefaultGenerateEFValueGenerator)' != 'true' and '$(ValueObjectsDefaultGenerateEFValueGenerator)' != 'false'"
+			Text="ValueObjectsDefaultGenerateEFValueGenerator must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultTrim)' != '' and '$(ValueObjectsDefaultTrim)' != 'true' and '$(ValueObjectsDefaultTrim)' != 'false'"
+			Text="ValueObjectsDefaultTrim must be 'true' or 'false'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultCasing)' != '' and '$(ValueObjectsDefaultCasing)' != 'None' and '$(ValueObjectsDefaultCasing)' != 'LowerInvariant' and '$(ValueObjectsDefaultCasing)' != 'UpperInvariant'"
+			Text="ValueObjectsDefaultCasing must be 'None', 'LowerInvariant', or 'UpperInvariant'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultDeserializationMode)' != '' and '$(ValueObjectsDefaultDeserializationMode)' != 'Hydrate' and '$(ValueObjectsDefaultDeserializationMode)' != 'Strict'"
+			Text="ValueObjectsDefaultDeserializationMode must be 'Hydrate' or 'Strict'."
+		/>
+		<Error
+			Condition="'$(ValueObjectsDefaultZodSchemaMode)' != '' and '$(ValueObjectsDefaultZodSchemaMode)' != 'InAdditionToHooks' and '$(ValueObjectsDefaultZodSchemaMode)' != 'InsteadOfHooks'"
+			Text="ValueObjectsDefaultZodSchemaMode must be 'InAdditionToHooks' or 'InsteadOfHooks'."
+		/>
+	</Target>
+
+	<!-- Emit the project-wide defaults as an assembly attribute so the generator and analyzer read them
+	     from the compilation, exactly like an author-declared [ValueObjectDefaults]. The generator
+	     identifies this attribute by the file name (see TypeLibrary.BuildDefaultsFileName); keep the two
+	     in step. An option named explicitly on an author-declared attribute wins over these values. -->
+	<Target
+		Name="_EmitValueObjectsBuildDefaults"
+		BeforeTargets="BeforeCompile;CoreCompile"
+		Condition="'$(ValueObjectsDefaultGenerateJsonConverter)$(ValueObjectsDefaultGenerateComparable)$(ValueObjectsDefaultGenerateComparisonOperators)$(ValueObjectsDefaultGenerateEnumProperties)$(ValueObjectsDefaultGenerateImplicitFromPrimitive)$(ValueObjectsDefaultGenerateImplicitToPrimitive)$(ValueObjectsDefaultGenerateEmpty)$(ValueObjectsDefaultGenerateConstructor)$(ValueObjectsDefaultEFMapping)$(ValueObjectsDefaultGenerateEFConverter)$(ValueObjectsDefaultGenerateEFComparer)$(ValueObjectsDefaultGenerateEFValueGenerator)$(ValueObjectsDefaultTrim)$(ValueObjectsDefaultCasing)$(ValueObjectsDefaultDeserializationMode)$(ValueObjectsDefaultZodSchemaMode)' != ''"
+	>
+		<PropertyGroup>
+			<_ValueObjectsBuildDefaultsFile>$(IntermediateOutputPath)Purview.ValueObjects.BuildDefaults.g.cs</_ValueObjectsBuildDefaultsFile>
+			<_ValueObjectsBuildDefaultsArguments></_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateJsonConverter)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateJsonConverter = $(ValueObjectsDefaultGenerateJsonConverter),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateComparable)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateComparable = $(ValueObjectsDefaultGenerateComparable),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateComparisonOperators)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateComparisonOperators = $(ValueObjectsDefaultGenerateComparisonOperators),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateEnumProperties)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateEnumProperties = $(ValueObjectsDefaultGenerateEnumProperties),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateImplicitFromPrimitive)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateImplicitFromPrimitive = $(ValueObjectsDefaultGenerateImplicitFromPrimitive),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateImplicitToPrimitive)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateImplicitToPrimitive = $(ValueObjectsDefaultGenerateImplicitToPrimitive),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateEmpty)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateEmpty = $(ValueObjectsDefaultGenerateEmpty),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateConstructor)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateConstructor = $(ValueObjectsDefaultGenerateConstructor),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultEFMapping)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)EFMapping = global::Purview.ValueObjects.Serialization.EntityFrameworkMapping.$(ValueObjectsDefaultEFMapping),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateEFConverter)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateEFConverter = $(ValueObjectsDefaultGenerateEFConverter),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateEFComparer)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateEFComparer = $(ValueObjectsDefaultGenerateEFComparer),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultGenerateEFValueGenerator)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)GenerateEFValueGenerator = $(ValueObjectsDefaultGenerateEFValueGenerator),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultTrim)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)Trim = $(ValueObjectsDefaultTrim),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultCasing)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)Casing = global::Purview.ValueObjects.Serialization.StringCasing.$(ValueObjectsDefaultCasing),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultDeserializationMode)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)DeserializationMode = global::Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.$(ValueObjectsDefaultDeserializationMode),</_ValueObjectsBuildDefaultsArguments>
+			<_ValueObjectsBuildDefaultsArguments Condition="'$(ValueObjectsDefaultZodSchemaMode)' != ''"
+				>$(_ValueObjectsBuildDefaultsArguments)ZodSchemaMode = global::Purview.ValueObjects.Serialization.ZodSchemaMode.$(ValueObjectsDefaultZodSchemaMode),</_ValueObjectsBuildDefaultsArguments>
+		</PropertyGroup>
+		<PropertyGroup>
+			<_ValueObjectsBuildDefaultsArguments>$([System.String]::Copy('$(_ValueObjectsBuildDefaultsArguments)').TrimEnd(','))</_ValueObjectsBuildDefaultsArguments>
+		</PropertyGroup>
+		<WriteLinesToFile
+			File="$(_ValueObjectsBuildDefaultsFile)"
+			Lines="// &lt;auto-generated/&gt;;[assembly: global::Purview.ValueObjects.Serialization.ValueObjectDefaults($(_ValueObjectsBuildDefaultsArguments))]"
+			Overwrite="true"
+			WriteOnlyWhenDifferent="true"
+		/>
+		<ItemGroup>
+			<Compile Include="$(_ValueObjectsBuildDefaultsFile)" />
+			<FileWrites Include="$(_ValueObjectsBuildDefaultsFile)" />
+		</ItemGroup>
+	</Target>
 </Project>

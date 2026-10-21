@@ -516,6 +516,348 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
 	}
 
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnNonValueObjectType_ReportsRequiresValueObject(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public sealed class Contact
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public string Email { get; init; } = string.Empty;
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizeRequiresValueObject);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnScalar_ReportsRequiresValueObject(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar]
+				public readonly partial record struct EmailAddress
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public string Value { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizeRequiresValueObject);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnNonMemberProperty_ReportsRequiresValueObject(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Contact
+				{
+					public string Email { get; }
+
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public static string Domain => "example.com";
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizeRequiresValueObject);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnValueObjectMember_DoesNotReportRequiresValueObject(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Contact
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public string Email { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizeRequiresValueObject);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeOnNonStringMember_ReportsRequiresStringOnly(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Order
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public System.Guid Id { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationRequiresString);
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizeRequiresValueObject);
+	}
+
+	[Test]
+	public async Task Generate_GivenStringNormalizeRequiresValueObject_IsReportedAsError()
+	{
+		await Assert
+			.That(DiagnosticLibrary.StringNormalizeRequiresValueObject.DefaultSeverity)
+			.IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+	}
+
+	[Test]
+	public async Task Generate_GivenRedundantScalarNormalizationWithHook_ReportsNoIgnored(
+		CancellationToken cancellationToken
+	)
+	{
+		// The assembly default already trims; restating it on the type is redundant and is reported.
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(Trim = true)]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+
+					static partial void OnNormalize(ref string value) => value = value?.Trim()!;
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectOptionIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenScalarNormalizationOverridingDefaultWithHook_ReportsIgnored(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar(Trim = false, Casing = Purview.ValueObjects.Serialization.StringCasing.LowerInvariant)]
+				public readonly partial record struct EmailAddress
+				{
+					public string Value { get; }
+
+					static partial void OnNormalize(ref string value) => value = value?.Trim()!;
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+	}
+
+	[Test]
+	public async Task Generate_GivenRedundantNonStringScalarNormalization_ReportsNoRequiresString(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<System.Guid>(Trim = true)]
+				public readonly partial record struct InstallationId { }
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationRequiresString);
+	}
+
+	[Test]
+	public async Task Generate_GivenRedundantMemberNormalizationWithHook_ReportsNoIgnored(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct Contact
+				{
+					[Purview.ValueObjects.Serialization.StringNormalize(Trim = true)]
+					public string Email { get; }
+
+					partial void OnNormalize(ref string email) => email = email?.Trim();
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.StringNormalizationIgnored);
+	}
+
+	[Test]
+	public async Task Generate_GivenAssemblyDefaultRepeatsBuildDefault_ReportsAssemblyDefaultIsRedundant(
+		CancellationToken cancellationToken
+	)
+	{
+		const string authorSource = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(
+				Trim = true,
+				DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+			""";
+		const string buildSource = """
+			// <auto-generated/>
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(
+				Trim = true,
+				DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+			""";
+
+		var result = await AnalyzeAsync(
+			[authorSource, buildSource],
+			new AnalyzerTestOptions { IncludeDefaultNamespaces = false },
+			cancellationToken
+		);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.AssemblyDefaultIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenAssemblyDefaultDiffersFromBuildDefault_DoesNotReportAssemblyDefaultIsRedundant(
+		CancellationToken cancellationToken
+	)
+	{
+		const string authorSource = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = false)]
+			""";
+		const string buildSource = """
+			// <auto-generated/>
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+			""";
+
+		var result = await AnalyzeAsync(
+			[authorSource, buildSource],
+			new AnalyzerTestOptions { IncludeDefaultNamespaces = false },
+			cancellationToken
+		);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.AssemblyDefaultIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenScalarOptionRepeatsAssemblyDefault_ReportsValueObjectOptionIsRedundant(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>(Trim = true)]
+				public readonly partial record struct TenantKey;
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectOptionIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenScalarOptionDiffersFromAssemblyDefault_DoesNotReportValueObjectOptionIsRedundant(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(Trim = true)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.Scalar<string>(Trim = false)]
+				public readonly partial record struct TenantKey;
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).DoesNotHaveDiagnostic(DiagnosticLibrary.ValueObjectOptionIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenValueObjectOptionRepeatsAssemblyDefault_ReportsValueObjectOptionIsRedundant(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			[assembly: Purview.ValueObjects.Serialization.ValueObjectDefaults(
+				DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(
+					DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict)]
+				public readonly partial record struct Contact
+				{
+					public string Email { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(source, cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectOptionIsRedundant);
+	}
+
+	[Test]
+	public async Task Generate_GivenDefaultsDiagnostics_AreErrors()
+	{
+		await Assert
+			.That(DiagnosticLibrary.AssemblyDefaultIsRedundant.DefaultSeverity)
+			.IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+		await Assert
+			.That(DiagnosticLibrary.ValueObjectOptionIsRedundant.DefaultSeverity)
+			.IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+	}
+
 	protected override AnalyzerTestOptions OnBeforeRun(
 		IEnumerable<string> sources,
 		AnalyzerTestOptions options,

@@ -9,6 +9,30 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
+## Unreleased
+
+### Added
+
+- **`VO1025`: `[StringNormalize]` placement is enforced.** The attribute is only read for a string member of a
+  complex `[ValueObject]`. On a `[Scalar]` (where `Trim`/`Casing` on the `[Scalar]` attribute is the supported
+  mechanism), on any type that is neither `[Scalar]` nor `[ValueObject]`, or on a property that is not a value
+  member, it previously compiled and did nothing; it is now the error `VO1025`, reported at the attribute.
+- **MSBuild-configurable assembly defaults.** Every `[ValueObjectDefaults]` option now has a matching
+  `ValueObjectsDefault<Property>` MSBuild property (for example `ValueObjectsDefaultTrim`,
+  `ValueObjectsDefaultCasing`, `ValueObjectsDefaultGenerateConstructor`). The packaged targets turn the values
+  into a build-generated assembly-level `[ValueObjectDefaults]` under `obj/`, and the build props declares each
+  property (conditionally, so an earlier value is never overwritten) for IDE completion. The generator and
+  analyzer read the result through the compilation, so a referenced assembly keeps the defaults it was built
+  with. Precedence is built-in default → MSBuild property → an option named on your own `[ValueObjectDefaults]`
+  → per-type or per-member option. Unrecognised values fail the build with the allowed values in the message.
+- **Redundant defaults are reported.** An author-declared `[assembly: ValueObjectDefaults]` argument that
+  repeats a value supplied by a `ValueObjectsDefault*` MSBuild property is the error `VO1026`; a
+  `[Scalar]`/`[ValueObject]` option that repeats the effective assembly default is the error `VO1027`.
+  `[StringNormalize]` remains a per-member override and is not part of that check. The rules keep each
+  option in one place instead of silently accepting two sources of truth. `[ValueObjectDefaults]` still
+  allows multiple applications so the build-generated attribute and an author-declared attribute can
+  coexist for the options the author deliberately overrides.
+
 ## 1.1.0
 
 ### Added

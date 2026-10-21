@@ -98,7 +98,10 @@ public readonly partial record struct Contact
 Trim runs first, then casing, then validation — and only inside the generated `Create`. Casing is
 invariant-culture only, deliberately: a canonical form that depends on the ambient thread culture is
 not canonical. A hand-written `OnNormalize` or `Create` wins and the option is ignored (`VO1023`);
-the option on a non-string is ignored (`VO1024`).
+the option on a non-string is ignored (`VO1024`); restating a value the assembly default already sets
+is reported as redundant (`VO1026`/`VO1027`). `[StringNormalize]` itself only belongs on a complex value
+object member — on a `[Scalar]` or any other type it is the error `VO1025`, and MSBuild can supply the
+assembly defaults with `ValueObjectsDefaultTrim` / `ValueObjectsDefaultCasing`.
 
 ## Complex value objects
 

@@ -47,12 +47,26 @@ on any other scalar or member is reported (`VO1024`) and ignored. The option is 
 `Create`, so a hand-written `OnNormalize` hook or a hand-written `Create` takes precedence: a configured
 option alongside either is reported (`VO1023`) and ignored.
 
+Setting an option to the value it already has is a no-op and is reported as redundant: with an assembly
+default of `Trim = true`, `[Scalar(Trim = true)]` is reported as `VO1027`, and an author-declared
+`[assembly: ValueObjectDefaults(Trim = true)]` that repeats a `ValueObjectsDefaultTrim` value is reported as
+`VO1026`. `[StringNormalize(Trim = true)]` is a per-member override and is not part of that check.
+
+`[StringNormalize]` belongs on a string member of a complex `[ValueObject]`. On a `[Scalar]` — where
+`Trim`/`Casing` on the `[Scalar]` attribute is the supported mechanism — or on any type that is neither
+`[Scalar]` nor `[ValueObject]`, the attribute can never take effect and is reported as the error `VO1025`.
+
 An assembly-level default applies to every string-backed scalar and every string member of a
 `[ValueObject]`, and can be overridden per type or per member:
 
 ```csharp
 [assembly: ValueObjectDefaults(Trim = true, Casing = StringCasing.LowerInvariant)]
 ```
+
+The same defaults can be supplied from MSBuild with the `ValueObjectsDefault<Property>` properties
+(`ValueObjectsDefaultTrim`, `ValueObjectsDefaultCasing`, and one for every other `[ValueObjectDefaults]`
+option). An option named explicitly on the attribute wins over the MSBuild value. See
+[Getting Started](Getting-Started.md#setting-defaults-from-msbuild) for the full list.
 
 Casing uses the invariant culture only, because a value object's canonical form must not depend on the
 current thread culture.
