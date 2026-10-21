@@ -12,7 +12,7 @@ public sealed class BuildDefaultsTargetsTests
 	{
 		// The props is what gives the properties IDE completion and a value before the project body runs.
 		var props = ReadSdkFile("Purview.ValueObjects.props");
-		var missing = typeof(Purview.ValueObjects.Serialization.ValueObjectDefaultsAttribute)
+		var missing = typeof(ValueObjectDefaultsAttribute)
 			.GetProperties(
 				System.Reflection.BindingFlags.Public
 					| System.Reflection.BindingFlags.Instance
@@ -34,7 +34,7 @@ public sealed class BuildDefaultsTargetsTests
 	public async Task Targets_ExposeOneBuildPropertyPerValueObjectDefaultsOption()
 	{
 		var targets = ReadSdkFile("Purview.ValueObjects.targets");
-		var missing = typeof(Purview.ValueObjects.Serialization.ValueObjectDefaultsAttribute)
+		var missing = typeof(ValueObjectDefaultsAttribute)
 			.GetProperties(
 				System.Reflection.BindingFlags.Public
 					| System.Reflection.BindingFlags.Instance

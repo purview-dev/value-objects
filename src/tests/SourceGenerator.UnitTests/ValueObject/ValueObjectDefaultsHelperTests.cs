@@ -102,9 +102,7 @@ public sealed class ValueObjectDefaultsHelperTests
 			.. platform
 				.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
 				.Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path)),
-			MetadataReference.CreateFromFile(
-				typeof(Purview.ValueObjects.Serialization.ValueObjectDefaultsAttribute).Assembly.Location
-			),
+			MetadataReference.CreateFromFile(typeof(ValueObjectDefaultsAttribute).Assembly.Location),
 		];
 	}
 }

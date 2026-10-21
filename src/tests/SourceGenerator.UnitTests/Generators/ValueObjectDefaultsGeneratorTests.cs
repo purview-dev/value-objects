@@ -26,7 +26,7 @@ public sealed class ValueObjectDefaultsGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result.Generated().HasClass("EmailAddressJsonConverter", "Testing")).IsFalse();
 	}
@@ -51,7 +51,7 @@ public sealed class ValueObjectDefaultsGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result.Generated().HasClass("EmailAddressJsonConverter", "Testing")).IsTrue();
 	}
@@ -82,7 +82,7 @@ public sealed class ValueObjectDefaultsGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var money = result.Generated().GetRecord("Money", "Testing");
 		await Assert.That(money.TryGetConstructor(out _, [])).IsFalse();
@@ -114,7 +114,7 @@ public sealed class ValueObjectDefaultsGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var money = result.Generated().GetRecord("Money", "Testing");
 		await Assert.That(money.TryGetConstructor(out _, [])).IsTrue();
@@ -171,7 +171,11 @@ public sealed class ValueObjectDefaultsGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;

@@ -48,7 +48,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -102,7 +106,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -142,7 +150,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -199,7 +211,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 		var query = result.Generated();
 
 		var emailAddress = query.GetRecord("EmailAddress", "Testing");
@@ -263,7 +279,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 		var query = result.Generated();
 
 		var money = query.GetRecord("Money", "Testing");
@@ -307,7 +327,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Default,
+			cancellationToken
+		);
 
 		await Assert.That(result).HasDiagnostic("VO1013");
 	}
@@ -354,7 +378,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var query = result.Generated();
 		await Assert.That(query.GetClass("CorporateEmailSchema", "Testing").Node).IsNotNull();
@@ -431,7 +459,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;
@@ -502,7 +534,11 @@ public sealed class ZodSchemaValidationGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ZodSchemaValidationGeneratorTestOptions.Compile, cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ZodSchemaValidationGeneratorTestOptions.Compile,
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly!.GetType("Testing.Harness")!;

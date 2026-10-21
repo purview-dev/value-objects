@@ -61,7 +61,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	[Test]
 	public async Task ScalarEFGeneration_EmitsEFClassConverterAndComparer(CancellationToken cancellationToken)
 	{
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			ScalarSource,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -92,7 +92,11 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	[Test]
 	public async Task ScalarEFGeneration_UsesHydrateFactoryByDefault(CancellationToken cancellationToken)
 	{
-		var result = await GenerateAsync(ScalarSource, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(
+			ScalarSource,
+			ValueObjectsEFGeneratorTestOptions.Default,
+			cancellationToken
+		);
 
 		var query = result.Generated();
 		var emailAddress = query.GetRecord("EmailAddress", "Testing");
@@ -112,7 +116,11 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	public async Task ScalarEFGeneration_ConverterAcceptsProviderShapedValues(CancellationToken cancellationToken)
 	{
 		// Arrange
-		var result = await GenerateAsync(ScalarSource, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(
+			ScalarSource,
+			ValueObjectsEFGeneratorTestOptions.Default,
+			cancellationToken
+		);
 
 		// Act
 		var emailAddress = Normalize(result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString());
@@ -163,7 +171,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var record = Normalize(result.Generated().GetRecord("OrderStatus", "Testing").Node.ToString());
 
@@ -207,7 +215,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
 		var registry = Normalize(
@@ -244,7 +252,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			""";
 
 		// Arrange
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		// Act
 		var query = result.Generated();
@@ -280,7 +288,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			""";
 
 		// Arrange
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			source,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -318,7 +326,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var emailAddress = Normalize(result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString());
 
@@ -342,7 +350,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsFalse();
@@ -354,7 +362,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	[Test]
 	public async Task ComplexEFGeneration_EmitsComparerAndComplexTypeMarker(CancellationToken cancellationToken)
 	{
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			ComplexSource,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -384,7 +392,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			source,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -419,7 +427,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsFalse();
@@ -431,7 +439,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	[Test]
 	public async Task EFRegistry_EmittedWithConfigureValueObjectsExtension(CancellationToken cancellationToken)
 	{
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			ScalarSource,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -486,7 +494,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			""";
 
 		// Act
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			source,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -537,7 +545,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
 		var registry = Normalize(
@@ -566,7 +574,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		// Referenced assemblies (e.g. shared models with EF value objects) can cause the registry to be
 		// emitted, but the opted-out local type must not be mapped by it.
@@ -589,7 +597,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			),
 		};
 
-		var result = await GenerateAsync(ScalarSource, options, cancellationToken);
+		using var result = await GenerateAsync(ScalarSource, options, cancellationToken);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsFalse();
@@ -612,7 +620,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			source,
 			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
 			cancellationToken
@@ -640,7 +648,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsFalse();
@@ -656,7 +664,11 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	[Test]
 	public async Task EFRegistry_EmitsUseValueObjectsAndModelCustomizer(CancellationToken cancellationToken)
 	{
-		var result = await GenerateAsync(ScalarSource, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(
+			ScalarSource,
+			ValueObjectsEFGeneratorTestOptions.Default,
+			cancellationToken
+		);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("ValueObjectModelCustomizer", "Microsoft.EntityFrameworkCore")).IsTrue();
@@ -697,7 +709,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1010");
 	}
@@ -736,7 +748,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -784,7 +796,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -832,7 +844,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -878,7 +890,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -930,7 +942,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -968,7 +980,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -1023,7 +1035,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -1062,7 +1074,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
+		using var result = await GenerateAsync(consumerSource, WithSharedReference(sharedReference), cancellationToken);
 
 		var registry = Normalize(
 			result.Generated().GetClass("ValueObjectEFExtensions", "Microsoft.EntityFrameworkCore").Node.ToString()
@@ -1083,7 +1095,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			),
 		};
 
-		var result = await GenerateAsync(ScalarSource, options, cancellationToken);
+		using var result = await GenerateAsync(ScalarSource, options, cancellationToken);
 
 		var query = result.Generated();
 		await Assert.That(query.HasClass("EF")).IsTrue();
@@ -1099,7 +1111,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	{
 		// Compiles a stub assembly against the same reference set the test framework uses, so the stub only
 		// adds the types it declares.
-		var probe = await GenerateAsync(
+		using var probe = await GenerateAsync(
 			"namespace Probe { }",
 			ValueObjectsEFGeneratorTestOptions.Default,
 			cancellationToken
@@ -1151,7 +1163,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 	{
 		// Reuse the framework to obtain the full reference set, then drop Entity Framework so the value
 		// object provider assembly is generated without any EF members or marker interfaces.
-		var probe = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var probe = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 		var references = probe
 			.CompilationResult.Compilation.References.Where(static reference =>
 				!IsEntityFrameworkReference(reference.Display)
@@ -1209,7 +1221,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 		var generated = result.Generated();
 
 		// The value object's EF class carries the generator pair.
@@ -1253,7 +1265,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 		var generated = result.Generated();
 
 		// The value object's EF class carries a generator pair per ordering strategy.
@@ -1316,7 +1328,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		// The helper is public so application code in another assembly can mint the key a value object should
 		// be saved with, before the round trip that would otherwise have generated it.
@@ -1364,7 +1376,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert
 			.That(result.Generated().GetRecord("TenantId", "Testing").Node.ToString())
@@ -1387,7 +1399,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1021");
 		await Assert
@@ -1411,7 +1423,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1021");
 	}
@@ -1435,7 +1447,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1017");
 	}
@@ -1456,7 +1468,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1018");
 	}
@@ -1479,7 +1491,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic("VO1018");
 	}
@@ -1519,7 +1531,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result).DoesNotHaveDiagnostic("VO1018");
 		await Assert.That(result).HasNoErrorDiagnostics();
@@ -1572,7 +1584,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, WithSharedReference(ef7Stub), cancellationToken);
+		using var result = await GenerateAsync(source, WithSharedReference(ef7Stub), cancellationToken);
 
 		// The complex-type mapping needs the Entity Framework Core 8 API, so the generator reports VO1019
 		// and the reference set describes what is missing.
@@ -1616,7 +1628,7 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsEFGeneratorTestOptions.Default, cancellationToken);
 
 		var auditStamp = Normalize(result.Generated().GetRecord("AuditStamp", "Testing").Node.ToString());
 		await Assert.That(auditStamp).Contains("JsonReaderWriter");

@@ -25,7 +25,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
@@ -54,7 +58,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Email", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
@@ -84,7 +92,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("CurrencyCode", "Testing").GetMethod("Create").Node.Body?.ToString()
@@ -115,7 +127,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly.GetType("Testing.NameHarness")!;
@@ -141,7 +157,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harness = assembly.GetType("Testing.NameHarness")!;
@@ -181,7 +201,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
@@ -230,7 +254,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
@@ -265,7 +293,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
@@ -313,7 +345,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var createBody =
 			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()

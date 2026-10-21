@@ -52,7 +52,11 @@ public sealed class ScalarCustomPropertyNameTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		// The assembly is only non-null when the generated code compiled, which is the actual assertion.
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
@@ -92,7 +96,11 @@ public sealed class ScalarCustomPropertyNameTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.DefaultNameHarness")!;

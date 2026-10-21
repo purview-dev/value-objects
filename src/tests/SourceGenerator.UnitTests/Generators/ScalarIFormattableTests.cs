@@ -35,7 +35,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var generated = result.Generated().GetRecord("Money", "Testing").Node.ToString();
 		await Assert.That(generated).Contains("global::System.IFormattable");
@@ -77,7 +81,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var generated = result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString();
 		await Assert.That(generated).DoesNotContain("IFormattable");
@@ -110,7 +118,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.OptionalQuantityHarness")!;
 
@@ -155,7 +167,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.MoneyLabelHarness")!;
 
@@ -194,7 +210,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.PriorityHarness")!;
 
@@ -231,7 +251,11 @@ public sealed class ScalarIFormattableTests : ValueObjectSourceGeneratorTestBase
 
 		// The assembly is only non-null when the generated partial did not collide with the author's
 		// method (CS0111), which is the actual assertion.
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.AuthorFormattingHarness")!;
 

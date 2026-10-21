@@ -25,7 +25,7 @@ public sealed class ZodSharpScalarRuleAdapterGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default, cancellationToken);
 
 		var adapter = await Assert.That(result.GetSource(TypeLibrary.ScalarRuleAdapterHintName)).IsNotNull();
 
@@ -85,7 +85,7 @@ public sealed class ZodSharpScalarRuleAdapterGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(
+		using var result = await GenerateAsync(
 			source,
 			ValueObjectsGeneratorTestOptions.Default with
 			{
@@ -134,7 +134,7 @@ public sealed class ZodSharpScalarRuleAdapterGeneratorTests
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default, cancellationToken);
+		using var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default, cancellationToken);
 
 		await Assert.That(result.GetSource(TypeLibrary.ScalarRuleAdapterHintName)).IsNull();
 	}

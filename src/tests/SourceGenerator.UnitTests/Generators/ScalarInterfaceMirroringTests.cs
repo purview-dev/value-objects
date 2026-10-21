@@ -71,7 +71,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.InstallationIdHarness")!;
 		var id = Guid.NewGuid();
@@ -115,7 +119,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.OrderCodeHarness")!;
 
@@ -144,7 +152,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.OptionalQuantityHarness")!;
 
@@ -189,7 +201,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.TenantIdHarness")!;
 
@@ -227,7 +243,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.EmailAddressHarness")!;
 
@@ -273,7 +293,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.PriorityHarness")!;
 
@@ -313,7 +337,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.WrapperHarness")!;
 
@@ -348,7 +376,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			""";
 
 		// The assembly is only non-null when the generated partial did not collide with the author's method.
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.CustomCodeHarness")!;
 
@@ -381,7 +413,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 
 		// The generated code must not report CS8767 (the author's non-nullable parameter cannot satisfy
 		// IEquatable<string>.Equals(string?)), so the interface is left to the author.
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.CodeHarness")!;
 
@@ -411,7 +447,11 @@ public sealed class ScalarInterfaceMirroringTests : ValueObjectSourceGeneratorTe
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.CodeHarness")!;
 
