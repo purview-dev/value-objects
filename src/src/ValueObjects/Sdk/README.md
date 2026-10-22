@@ -63,7 +63,9 @@ public readonly partial record struct EmailAddress { }
 ```
 
 A complex member uses `[StringNormalize(Trim = true)]`, and `[assembly: ValueObjectDefaults(Trim = true)]`
-applies to every string scalar and member. `Hydrate` is never normalized.
+applies to every string scalar and member. `Hydrate` is never normalized. The same defaults can be set from
+MSBuild with `ValueObjectsDefaultTrim`, `ValueObjectsDefaultCasing`, and one property per
+`[ValueObjectDefaults]` option; an option named on the attribute wins over the property.
 
 `[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members. The manual `[Scalar]` form
 declares the underlying property; the automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the

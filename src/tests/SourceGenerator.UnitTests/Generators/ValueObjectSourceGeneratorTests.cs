@@ -76,7 +76,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.ValueObjectHarness")!;
@@ -134,7 +138,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var blobUri = query.GetRecord("BlobUri", "Testing");
@@ -170,7 +174,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var phoneNumber = query.GetRecord("PhoneNumber", "Testing");
 		var ctor = phoneNumber.GetConstructor(TypeRefs.String);
@@ -201,7 +209,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var blobUri = query.GetRecord("BlobUri", "Testing");
@@ -232,7 +240,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var emailAddress = query.GetRecord("EmailAddress", "Testing");
 		var toString = emailAddress.GetMethod("ToString");
@@ -260,7 +272,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result.Generated().GetRecord("BlobUri", "Testing").HasProperty("Empty")).IsFalse();
 	}
@@ -306,7 +318,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var projectId = query.GetRecord("ProjectId", "Testing");
 		var ctor = projectId.GetConstructor(TypeRefs.String);
@@ -338,7 +354,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ScalarShouldBeRecordStruct);
 	}
@@ -362,7 +378,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			""";
 
 		var generatorOnlyOptions = ValueObjectsGeneratorTestOptions.Default with { AnalyzerTypes = [] };
-		var result = await GenerateAsync(source, generatorOnlyOptions, cancellationToken);
+		using var result = await GenerateAsync(source, generatorOnlyOptions, cancellationToken);
 
 		await Assert
 			.That(result.AllSyntaxTrees.Length)
@@ -387,7 +403,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ScalarPropertyMissing);
 		await Assert
@@ -427,7 +443,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var reportProcessingStatus = query.GetRecord("ReportProcessingStatus", "Testing");
 		var statusType = TypeRefs.Named("ReportProcessingStatus", "Testing");
@@ -468,7 +488,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var reportProcessingStatus = query.GetRecord("ReportProcessingStatus", "Testing");
@@ -546,7 +566,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.ComplexHarness")!;
@@ -587,7 +611,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var address = query.GetClass("Address", "Testing");
 		var addressType = TypeRefs.Named("Address", "Testing");
@@ -625,7 +653,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var userDetails = query.GetClass("UserDetails", "Testing");
@@ -654,7 +682,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var userCaptureStruct = query.GetStruct("UserCaptureStruct", "Testing");
 		await Assert.That(userCaptureStruct.Node.BaseList?.ToString()).Contains("IEquatable");
@@ -686,7 +718,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var moneyAmount = query.GetClass("MoneyAmount", "Testing");
 		await Assert.That(moneyAmount.Node.BaseList?.ToString()).Contains("IEquatable");
@@ -724,7 +760,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var emptyValueObject = query.GetClass("EmptyValueObject", "Testing");
 		var create = emptyValueObject.GetMethod("Create");
@@ -759,7 +799,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result.Generated().GetClass("UserDetails", "Testing").HasProperty("Empty")).IsFalse();
 	}
@@ -794,7 +834,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var converter = query.GetClass("StrictEmailAddressJsonConverter", "Testing");
 		await Assert.That(converter.GetMethod("Read").Node.Body?.ToString()).Contains("return Create(value);");
@@ -843,7 +887,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var name = query.GetRecord("Name", "Testing");
@@ -916,7 +960,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var reportProcessingStatus = query.GetStruct("ReportProcessingStatus", "Testing");
 		await Assert
@@ -954,7 +1002,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var name = query.GetRecord("Name", "Testing");
@@ -985,7 +1033,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var query = result.Generated();
 		var name = query.GetRecord("Name", "Testing");
@@ -1030,7 +1082,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		var query = result.Generated();
 		var money = query.GetRecord("Money", "Testing");
@@ -1141,7 +1193,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.UserDetailsHarness")!;
@@ -1220,7 +1276,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var query = result.Generated();
 		var recordCtor = query.GetRecord("UserCaptureRecord", "Testing").GetConstructor();
@@ -1312,7 +1372,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 
 		var harnessType = assembly.GetType("Testing.UserDetailsNormalizeHarness")!;
@@ -1369,7 +1433,11 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var query = result.Generated();
 		var onValidate = query
 			.GetRecord("UserDetails", "Testing")
@@ -1460,7 +1528,7 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			}
 			""";
 
-		var result = await GenerateAsync(source, cancellationToken);
+		using var result = await GenerateAsync(source, cancellationToken);
 
 		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ZodSchemaNameInvalid);
 		await Assert

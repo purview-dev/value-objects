@@ -41,7 +41,7 @@ static class ComplexValueObjectModelBuilder
 			return GeneratorResult<ComplexValueObjectModel>.Create([.. diagnosticsList]);
 		}
 
-		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(compilation.Assembly.GetAttributes());
+		var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(compilation.Assembly.GetAttributes());
 		var valueObjectOptions = ValueObjectDefaultsHelper.Apply(
 			ValueObjectAttributeData.FromAttributeData(attributes),
 			assemblyDefaults,
@@ -55,15 +55,11 @@ static class ComplexValueObjectModelBuilder
 		var properties = typeSymbol
 			.GetMembers()
 			.OfType<IPropertySymbol>()
-			.Where(property =>
-				!property.IsStatic
-				&& !property.IsIndexer
-				&& property.GetMethod is not null
-				&& ValueObjectSymbolInspector.IsValueObjectPropertyCandidate(typeSymbol, property)
-				&& SymbolEqualityComparer.Default.Equals(property.ContainingType, typeSymbol)
-			)
+			.Where(property => ValueObjectSymbolInspector.IsValueObjectMember(typeSymbol, property))
 			.OrderBy(property => property.Locations.FirstOrDefault()?.SourceSpan.Start ?? int.MaxValue)
 			.ToArray();
+
+		CollectStringNormalizePlacementDiagnostics(typeSymbol, properties, diagnosticsList, cancellationToken);
 
 		var ctorExists = typeSymbol
 			.Constructors.Where(static ctor => !ctor.IsStatic)
@@ -343,12 +339,18 @@ static class ComplexValueObjectModelBuilder
 		var trim = attributeData.Exists ? attributeData.Trim : assemblyDefaults.Trim;
 		var casing = attributeData.Exists ? attributeData.Casing : assemblyDefaults.Casing;
 
+		// A configured option is only "explicit" when it changes the effective default. Restating an
+		// assembly-level (or MSBuild-level) value is a no-op, so it must not be reported as ignored.
+		var normalizeExplicit =
+			trim != assemblyDefaults.Trim
+			|| !ValueObjectDefaultsHelper.AreEquivalentEnumValues(casing, assemblyDefaults.Casing);
+
 		if (!trim && !ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(casing))
 			return (false, TypeLibrary.StringCasingFullTypeName + ".None", false);
 
 		if (!ValueObjectEmitterHelpers.StringNormalization.IsStringTypeName(propertyTypeName))
 		{
-			if (attributeData.Exists)
+			if (normalizeExplicit)
 			{
 				diagnostics.Add(
 					ReportableDiagnostic.Create(
@@ -365,7 +367,41 @@ static class ComplexValueObjectModelBuilder
 			return (false, TypeLibrary.StringCasingFullTypeName + ".None", false);
 		}
 
-		return (trim, casing, attributeData.Exists);
+		return (trim, casing, normalizeExplicit);
+	}
+
+	/// <summary>
+	/// Reports <c>[StringNormalize]</c> on a property of a complex value object that is not one of its
+	/// value members (static, indexer, no getter, or declared elsewhere), where the attribute can never
+	/// have an effect.
+	/// </summary>
+	static void CollectStringNormalizePlacementDiagnostics(
+		INamedTypeSymbol typeSymbol,
+		IPropertySymbol[] properties,
+		List<ReportableDiagnostic> diagnostics,
+		CancellationToken cancellationToken
+	)
+	{
+		foreach (var property in typeSymbol.GetMembers().OfType<IPropertySymbol>())
+		{
+			if (properties.Contains(property, SymbolEqualityComparer.Default))
+				continue;
+
+			if (ValueObjectSymbolInspector.FindStringNormalizeAttribute(property) is not { } attribute)
+				continue;
+
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.StringNormalizeRequiresValueObject,
+					isBlocking: false,
+					attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation()
+						?? property.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					property.Name,
+					"the member is not a value member of the value object"
+				)
+			);
+		}
 	}
 
 	/// <summary>

@@ -182,6 +182,24 @@ the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details fo
 - Contextual value objects (`IContextualValueObject<TSelf, TValue, TOwner>`) validate against the owning instance
   through `ValueObjectContext<TOwner>`.
 
+## Assembly-wide defaults from MSBuild
+
+Every `[ValueObjectDefaults]` option has a matching `ValueObjectsDefault<Property>` MSBuild property, so the
+defaults can live once in `Directory.Build.props` instead of an assembly attribute in every project:
+
+```xml
+<PropertyGroup>
+    <ValueObjectsDefaultTrim>true</ValueObjectsDefaultTrim>
+    <ValueObjectsDefaultCasing>LowerInvariant</ValueObjectsDefaultCasing>
+</PropertyGroup>
+```
+
+The packaged targets emit the values as a build-generated assembly-level `[ValueObjectDefaults]`, which the
+generator and analyzer read like any other attribute. Precedence is: built-in default, then the MSBuild property,
+then a named argument on your own `[ValueObjectDefaults]`, then a per-type or per-member option. Unknown values
+fail the build. See [Assembly-level defaults](docs/Getting-Started.md#6-assembly-level-defaults) for the full
+property list.
+
 ## Disabling the generator
 
 Set `DisableValueObjectsSourceGenerator` to `true` in your project:

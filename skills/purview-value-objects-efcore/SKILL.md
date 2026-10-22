@@ -18,7 +18,9 @@ EF dependency, so a domain assembly stays free of Entity Framework while the per
 gets the converters, comparers and conventions.
 
 Everything is opt-in per feature with a three-level opt-out: the `DisableValueObjectsEFGeneration`
-MSBuild property, then assembly defaults, then per-type options.
+MSBuild property, then assembly defaults (the attribute, or the `ValueObjectsDefaultEFMapping`,
+`ValueObjectsDefaultGenerateEFConverter`, `ValueObjectsDefaultGenerateEFComparer` and
+`ValueObjectsDefaultGenerateEFValueGenerator` properties), then per-type options.
 
 ## Wiring it up
 

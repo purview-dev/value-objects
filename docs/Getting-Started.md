@@ -263,6 +263,50 @@ Use `[ValueObjectDefaults]` to set generic defaults for the whole assembly. Ever
 Assembly defaults apply to every value object in the assembly; an option explicitly set on an individual
 `[Scalar]`/`[ValueObject]` attribute always overrides it.
 
+### Setting defaults from MSBuild
+
+Every `[ValueObjectDefaults]` option also has a matching `ValueObjectsDefault<Property>` MSBuild property, so a
+repository can configure the defaults once in `Directory.Build.props` without adding an attribute to each
+project. Unset properties fall through to the attribute and then to the built-in default.
+
+```xml
+<PropertyGroup>
+    <ValueObjectsDefaultTrim>true</ValueObjectsDefaultTrim>
+    <ValueObjectsDefaultCasing>LowerInvariant</ValueObjectsDefaultCasing>
+    <ValueObjectsDefaultGenerateJsonConverter>false</ValueObjectsDefaultGenerateJsonConverter>
+</PropertyGroup>
+```
+
+| Property | Allowed values |
+| --- | --- |
+| `ValueObjectsDefaultGenerateJsonConverter` | `true` / `false` |
+| `ValueObjectsDefaultGenerateComparable` | `true` / `false` |
+| `ValueObjectsDefaultGenerateComparisonOperators` | `true` / `false` |
+| `ValueObjectsDefaultGenerateEnumProperties` | `true` / `false` |
+| `ValueObjectsDefaultGenerateImplicitFromPrimitive` | `true` / `false` |
+| `ValueObjectsDefaultGenerateImplicitToPrimitive` | `true` / `false` |
+| `ValueObjectsDefaultGenerateEmpty` | `true` / `false` |
+| `ValueObjectsDefaultGenerateConstructor` | `true` / `false` |
+| `ValueObjectsDefaultEFMapping` | `ComplexType`, `Json`, `None` |
+| `ValueObjectsDefaultGenerateEFConverter` | `true` / `false` |
+| `ValueObjectsDefaultGenerateEFComparer` | `true` / `false` |
+| `ValueObjectsDefaultGenerateEFValueGenerator` | `true` / `false` |
+| `ValueObjectsDefaultTrim` | `true` / `false` |
+| `ValueObjectsDefaultCasing` | `None`, `LowerInvariant`, `UpperInvariant` |
+| `ValueObjectsDefaultDeserializationMode` | `Hydrate`, `Strict` |
+| `ValueObjectsDefaultZodSchemaMode` | `InAdditionToHooks`, `InsteadOfHooks` |
+
+The packaged targets turn the properties into a build-generated assembly-level `[ValueObjectDefaults]` under
+`obj/`, so the generator and analyzer read them exactly like an attribute you declared yourself. The package
+declares the properties in its build props, so IDEs offer them while you edit the project file; the declarations
+are conditional and never overwrite a value set earlier. An option named explicitly on your own
+`[ValueObjectDefaults]` wins over the MSBuild value, and a per-type or per-member option wins over both. An
+unrecognised value fails the build instead of silently falling back to the built-in default.
+
+Because the attribute is compiled into the assembly, the defaults a project generates with are part of its
+public contract: a value object declared in a referenced assembly keeps the defaults its own project built it
+with.
+
 ## 7. Validate with ZodSharp
 
 [Purview.ZodSharp](https://www.nuget.org/packages/Purview.ZodSharp) is a C# port of Zod that can validate

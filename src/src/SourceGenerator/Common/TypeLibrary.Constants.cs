@@ -17,6 +17,13 @@ public static partial class TypeLibrary
 	public const string ValueObjectDefaultsAttributeFullTypeName =
 		SerializationNamespace + ".ValueObjectDefaultsAttribute";
 
+	/// <summary>
+	/// The file name the packaged targets use for the build-generated <c>[assembly: ValueObjectDefaults]</c>.
+	/// The generator identifies that attribute by this file name, so the targets and the generator must
+	/// agree on it.
+	/// </summary>
+	public const string BuildDefaultsFileName = "Purview.ValueObjects.BuildDefaults.g.cs";
+
 	public const string ScalarAttributeFullTypeName = SerializationNamespace + ".ScalarAttribute";
 
 	/// <summary>The metadata name of the automatic (generic) scalar attribute, <c>[Scalar&lt;T&gt;]</c>.</summary>

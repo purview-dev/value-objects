@@ -46,13 +46,13 @@ static class ScalarValueObjectModelBuilder
 			return GeneratorResult<ScalarValueObjectModel>.Create([.. diagnosticsList]);
 		}
 
-		var assemblyDefaults = ValueObjectDefaultsAttributeData.FromAttributeData(
-			typeSymbol.ContainingAssembly.GetAttributes()
-		);
+		var assemblyDefaults = ValueObjectDefaultsHelper.ResolveAssemblyDefaults(compilation.Assembly.GetAttributes());
 
 		var scalarAttribute = ScalarAttributeParser.Find(attributes);
 		if (scalarAttribute is null)
 			return GeneratorResult<ScalarValueObjectModel>.Create([.. diagnosticsList]);
+
+		CollectStringNormalizePlacementDiagnostics(typeSymbol, diagnosticsList, cancellationToken);
 
 		var scalarOptions = ValueObjectDefaultsHelper.Apply(
 			ScalarAttributeParser.Parse(scalarAttribute),
@@ -206,7 +206,7 @@ static class ScalarValueObjectModelBuilder
 			typeSymbol,
 			scalarAttribute,
 			scalarOptions,
-			attributes,
+			assemblyDefaults,
 			scalarTypeName,
 			scalarPropertyName,
 			ValueObjectSymbolInspector.HasDeclaredStaticFactory(typeSymbol, "Create", [scalarType]),
@@ -343,6 +343,36 @@ static class ScalarValueObjectModelBuilder
 	}
 
 	/// <summary>
+	/// Reports <c>[StringNormalize]</c> applied to a member of a <c>[Scalar]</c> type. Normalization for a
+	/// scalar is configured through <c>Trim</c>/<c>Casing</c> on <c>[Scalar]</c> or the assembly defaults;
+	/// the member attribute is never read.
+	/// </summary>
+	static void CollectStringNormalizePlacementDiagnostics(
+		INamedTypeSymbol typeSymbol,
+		List<ReportableDiagnostic> diagnostics,
+		CancellationToken cancellationToken
+	)
+	{
+		foreach (var property in typeSymbol.GetMembers().OfType<IPropertySymbol>())
+		{
+			if (ValueObjectSymbolInspector.FindStringNormalizeAttribute(property) is not { } attribute)
+				continue;
+
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.StringNormalizeRequiresValueObject,
+					isBlocking: false,
+					attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation()
+						?? property.Locations.FirstOrDefault(),
+					typeSymbol.Name,
+					property.Name,
+					"is a [Scalar], which configures normalization through 'Trim'/'Casing' on the [Scalar] attribute"
+				)
+			);
+		}
+	}
+
+	/// <summary>
 	/// Resolves the built-in string normalization for a scalar. It is only meaningful for a
 	/// string-backed scalar; an explicit request on any other scalar is reported and dropped, while an
 	/// assembly-level default is applied silently to string scalars only. The option is only applied by
@@ -353,7 +383,7 @@ static class ScalarValueObjectModelBuilder
 		INamedTypeSymbol typeSymbol,
 		AttributeData scalarAttribute,
 		ScalarAttributeData scalarOptions,
-		ImmutableArray<AttributeData> attributes,
+		ValueObjectDefaultsAttributeData assemblyDefaults,
 		string scalarTypeName,
 		string scalarPropertyName,
 		bool createExists,
@@ -368,9 +398,11 @@ static class ScalarValueObjectModelBuilder
 		if (!normalizeTrim && !ValueObjectEmitterHelpers.StringNormalization.IsCasingConfigured(normalizeCasing))
 			return (false, TypeLibrary.StringCasingFullTypeName + ".None");
 
+		// A configured option is only "explicit" when it changes the effective default. Restating an
+		// assembly-level (or MSBuild-level) value is a no-op, so it must not be reported.
 		var explicitlySet =
-			ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Trim")
-			|| ValueObjectDefaultsHelper.IsScalarPropertyExplicitlySet(attributes, "Casing");
+			normalizeTrim != assemblyDefaults.Trim
+			|| !ValueObjectDefaultsHelper.AreEquivalentEnumValues(normalizeCasing, assemblyDefaults.Casing);
 
 		if (!ValueObjectEmitterHelpers.StringNormalization.IsStringTypeName(scalarTypeName))
 		{

@@ -25,7 +25,11 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var generated = result.Generated().GetRecord("InstallationId", "Testing").Node.ToString();
 		await Assert.That(generated).Contains("string? format");
@@ -67,7 +71,11 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.PriorityHarness")!;
 
@@ -98,7 +106,11 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.OptionalQuantityHarness")!;
 
@@ -128,7 +140,11 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 			}
 			""";
 
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 
 		var generated = result.Generated().GetRecord("EmailAddress", "Testing").Node.ToString();
 		await Assert.That(generated).DoesNotContain("string? format");
@@ -165,7 +181,11 @@ public sealed class ScalarToStringOverloadTests : ValueObjectSourceGeneratorTest
 			""";
 
 		// The assembly is only non-null when the generated partial did not collide with the author's method.
-		var result = await GenerateAsync(source, ValueObjectsGeneratorTestOptions.Default.Compile(), cancellationToken);
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
 		var harnessType = assembly.GetType("Testing.CodeHarness")!;
 
