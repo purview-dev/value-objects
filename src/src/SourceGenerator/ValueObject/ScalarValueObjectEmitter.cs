@@ -29,6 +29,7 @@ static partial class ScalarValueObjectEmitter
 		EmitScalarInterfaceValue(writer, model);
 		EmitFactories(writer, model);
 		EmitEmpty(writer, model);
+		EmitNullFactory(writer, model);
 		EmitTryCreate(writer, model);
 		EmitComparison(writer, model);
 		EmitConstructor(writer, model);
@@ -302,6 +303,27 @@ static partial class ScalarValueObjectEmitter
 				ExpressionBody = $"Hydrate({model.EmptyValueExpression})",
 			}
 		);
+	}
+
+	static void EmitNullFactory(CodeWriter writer, ScalarValueObjectModel model)
+	{
+		// Only a nullable scalar has a "null" domain value; a non-nullable value type's default
+		// (DateTimeOffset.MinValue, 0, ...) is a real value, not an unknown one.
+		if (!model.ScalarValueIsNullable || model.NullFactoryExists)
+			return;
+
+		writer
+			.XmlSummary(
+				"Creates the value object for the unknown (null) value. Never runs validation; use",
+				$"{model.TypeModel.Name}.Create(null) when null is input that must be validated."
+			)
+			.MethodExpression(
+				new("Null", ValueObjectType(model), TypeDeclarationAccessibility.Public)
+				{
+					IsStatic = true,
+					ExpressionBody = "Hydrate(null)",
+				}
+			);
 	}
 
 	static void EmitTryCreate(CodeWriter writer, ScalarValueObjectModel model)

@@ -40,7 +40,9 @@ public sealed class ScalarAttribute : ScalarOptionsAttribute
 	/// <param name="valueType">
 	/// The underlying value type, for example <c>typeof(string)</c> or <c>typeof(int?)</c>. A nullable
 	/// reference type cannot be a <c>typeof</c> operand (CS8639); use <see cref="ScalarOptionsAttribute.Nullable"/>
-	/// for those, for example <c>[Scalar(typeof(string), Nullable = true)]</c>.
+	/// for those, for example <c>[Scalar(typeof(string), Nullable = true)]</c>. The option also wraps a
+	/// non-nullable value type, so <c>[Scalar(typeof(int), Nullable = true)]</c> declares an <c>int?</c>
+	/// property.
 	/// </param>
 	/// <param name="propertyName">The name of the property the generator declares.</param>
 	public ScalarAttribute(Type valueType, string propertyName = "Value")

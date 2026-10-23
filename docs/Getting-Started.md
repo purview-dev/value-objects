@@ -88,22 +88,27 @@ public readonly partial record struct InstallationId
 }
 ```
 
-Use `Nullable` when the automatic property should be a nullable reference type. Nullable reference types
+Use `Nullable` when the automatic property should be nullable. For a reference type it adds the nullable
+annotation; for a non-nullable value type it wraps the type in `Nullable<T>`. Nullable reference types
 cannot be generic attribute arguments (`[Scalar<string?>]` does not compile — `CS8970`) or `typeof`
 operands (`typeof(string?)` does not compile — `CS8639`), so express nullability on the attribute:
 
 ```csharp
 [Scalar<string>(Nullable = true)]              // emits `public string? Value { get; init; }`
 [Scalar(typeof(string), Nullable = true)]      // same
+[Scalar<DateTimeOffset>(Nullable = true)]      // emits `public DateTimeOffset? Value { get; init; }`
 public readonly partial record struct Handle { }
 ```
 
-Nullable value types are written directly, for example `[Scalar<int?>]` or `[Scalar(typeof(int?))]`.
+Nullable value types can also be written directly, for example `[Scalar<int?>]` or `[Scalar(typeof(int?))]`.
+`Nullable = true` is idempotent for an already-nullable value type, so the two spellings are equivalent — and,
+for an otherwise identical declaration, the automatic form generates the same members as the manual
+`[Scalar]` form with a nullable property.
 
-A nullable scalar round-trips JSON `null`: `[Scalar<string>(Nullable = true)]` and `[Scalar<int?>]`
-deserialize `null` and serialize back to `null`. A non-nullable reference scalar still rejects `null` with
-a `JsonException`. Validation is yours to write, so make it null-tolerant — for a value that must be
-`null` or non-whitespace:
+A nullable scalar round-trips JSON `null`: `[Scalar<string>(Nullable = true)]`, `[Scalar<int?>]`, and
+`[Scalar<DateTimeOffset>(Nullable = true)]` deserialize `null` and serialize back to `null`. A non-nullable
+reference scalar still rejects `null` with a `JsonException`. Validation is yours to write, so make it
+null-tolerant — for a value that must be `null` or non-whitespace:
 
 ```csharp
 [Scalar<string>(Nullable = true)]
@@ -116,6 +121,10 @@ public readonly partial record struct Nickname
     }
 }
 ```
+
+A nullable scalar also exposes `Null()`, which creates the “unknown” value without validating —
+`Nickname.Null()` is equivalent to `Nickname.Hydrate(null)`. Use `Create(null)` instead when `null` is
+input that should go through normalization and validation.
 
 The manual form is the more explicit option when you prefer the type and nullability to appear in a
 property declaration. Both forms are supported, and neither is reported as a diagnostic. Other properties

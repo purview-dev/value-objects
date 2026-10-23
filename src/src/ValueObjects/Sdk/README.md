@@ -69,7 +69,8 @@ MSBuild with `ValueObjectsDefaultTrim`, `ValueObjectsDefaultCasing`, and one pro
 
 `[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members. The manual `[Scalar]` form
 declares the underlying property; the automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the
-generator declare it (and `[Scalar<string>(Nullable = true)]` expresses a nullable reference scalar).
+generator declare it (and `[Scalar<string>(Nullable = true)]` or `[Scalar<DateTimeOffset>(Nullable = true)]`
+expresses a nullable scalar).
 
 ## Formatting and parsing
 

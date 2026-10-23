@@ -54,6 +54,7 @@ sealed record class ScalarValueObjectModel(
 	bool DeclareOnValidate,
 	bool ImplementsSelfEquatable,
 	bool EmptyExists,
+	bool NullFactoryExists,
 	string EmptyValueExpression,
 	bool HasPrimitiveToValueObjectConversion,
 	bool HasValueObjectToPrimitiveConversion,
