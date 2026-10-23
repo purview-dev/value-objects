@@ -25,12 +25,26 @@ public static class CodeFixTestHarness
 	)
 		where TAnalyzer : DiagnosticAnalyzer, new()
 		where TCodeFix : CodeFixProvider, new() =>
+		ApplyAsync<TAnalyzer, TCodeFix>(source, actionIndex: 0, cancellationToken);
+
+	/// <summary>
+	/// Applies the code fix at <paramref name="actionIndex"/> (in registration order), so a provider that
+	/// offers several repairs can be exercised one at a time.
+	/// </summary>
+	public static Task<HarnessResult> ApplyAsync<TAnalyzer, TCodeFix>(
+		string source,
+		int actionIndex,
+		CancellationToken cancellationToken
+	)
+		where TAnalyzer : DiagnosticAnalyzer, new()
+		where TCodeFix : CodeFixProvider, new() =>
 		RunAsync(
 			source,
 			new Generators.ValueObjectSourceGenerator(),
 			new TAnalyzer(),
 			new TCodeFix(),
 			fixAll: false,
+			actionIndex,
 			cancellationToken
 		);
 
@@ -46,6 +60,7 @@ public static class CodeFixTestHarness
 			new TAnalyzer(),
 			new TCodeFix(),
 			fixAll: true,
+			actionIndex: 0,
 			cancellationToken
 		);
 
@@ -59,7 +74,7 @@ public static class CodeFixTestHarness
 		DiagnosticAnalyzer analyzer,
 		CodeFixProvider provider,
 		CancellationToken cancellationToken
-	) => RunAsync(source, generator, analyzer, provider, fixAll: false, cancellationToken);
+	) => RunAsync(source, generator, analyzer, provider, fixAll: false, actionIndex: 0, cancellationToken);
 
 	/// <summary>Applies every registered code fix using components supplied by the caller.</summary>
 	public static Task<HarnessResult> ApplyFixAllAsync(
@@ -68,7 +83,7 @@ public static class CodeFixTestHarness
 		DiagnosticAnalyzer analyzer,
 		CodeFixProvider provider,
 		CancellationToken cancellationToken
-	) => RunAsync(source, generator, analyzer, provider, fixAll: true, cancellationToken);
+	) => RunAsync(source, generator, analyzer, provider, fixAll: true, actionIndex: 0, cancellationToken);
 
 	static async Task<HarnessResult> RunAsync(
 		string source,
@@ -76,6 +91,7 @@ public static class CodeFixTestHarness
 		DiagnosticAnalyzer analyzer,
 		CodeFixProvider provider,
 		bool fixAll,
+		int actionIndex,
 		CancellationToken cancellationToken
 	)
 	{
@@ -103,7 +119,8 @@ public static class CodeFixTestHarness
 
 		if (!fixAll)
 		{
-			var fixedDocument = await ApplySingleActionAsync(document, codeActions[0], cancellationToken);
+			var selected = codeActions[Math.Min(actionIndex, codeActions.Count - 1)];
+			var fixedDocument = await ApplySingleActionAsync(document, selected, cancellationToken);
 			return new HarnessResult(
 				(await fixedDocument.GetTextAsync(cancellationToken)).ToString(),
 				[.. applicable.Select(static diagnostic => diagnostic.Id)]

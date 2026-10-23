@@ -32,6 +32,9 @@ failure to the missing member.
 | `VO1008` | Error | `[Scalar]` and `[ValueObject]` are both applied to one type. | Pick one: a scalar wraps a single primitive, a value object composes members. |
 | `VO1016` | Warning | A value object member is mutable. | Make it `readonly`/`init`-only — a mutable member breaks immutability and makes equality unstable. |
 | `VO1022` | Error | A `[Scalar<T>]` type declares a member with the name of the property the generator owns. | Remove the declaration, or use `[Scalar]` without a type argument and own the property yourself. |
+| `VO1028` | Error | `[Scalar<T>(Nullable = true)]` is combined with a declared `Value`, so nullability has two sources. | Remove the declared property; convert to the manual `[Scalar]` form; or remove `Nullable = true`. The code fix offers all three. |
+| `VO1029` | Error | Explicit `Nullable = false` contradicts a declared nullable `Value`. | Remove the declared `Value`, or use the manual `[Scalar]` form. |
+| `VO1030` | Error | The automatic form's declared `Value` type does not match the underlying type. | Remove the declaration, or use the manual `[Scalar]` form with a matching type. |
 
 ## String normalization rules
 
@@ -64,6 +67,7 @@ effective configuration still raises `VO1023`/`VO1024` where those rules apply.
 | `VO1018` | Warning | EF complex mapping cannot convert one of the members. | Simplify the member, or map it explicitly. |
 | `VO1019` | Warning | EF complex-type mapping is requested but the project resolves to EF Core 7 or earlier. | Target EF Core 8+, or choose a different `EntityFrameworkMapping`. |
 | `VO1021` | Warning | EF key value generation is unavailable for the value object. | Assign keys explicitly rather than relying on store generation. |
+| `VO1031` | Warning | A nullable scalar is used as a non-nullable property on an entity or complex-type-mapped `[ValueObject]`. EF Core maps that to a required column and cannot persist the scalar's `Null()`. | Declare the property as `T?`, or use a non-nullable scalar behind a nullable property. The rule only runs where EF Core is referenced and only for entity/complex types the compilation can see; DTOs are not reported. |
 
 ## Retired identifiers — never reused
 

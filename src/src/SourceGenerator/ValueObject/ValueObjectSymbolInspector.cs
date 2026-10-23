@@ -240,7 +240,10 @@ static class ValueObjectSymbolInspector
 			.OfType<IMethodSymbol>()
 			.Any(method =>
 				method.MethodKind == MethodKind.Conversion
-				&& method.Name == "op_Implicit"
+				// Either direction counts: declaring an `explicit` conversion where the generator would
+				// otherwise emit an `implicit` one (or the reverse) is still the same source/target pair,
+				// so emitting another would be CS0557.
+				&& method.Name is "op_Implicit" or "op_Explicit"
 				&& (
 					fromPrimitive
 						? method.Parameters.Length == 1
@@ -624,6 +627,79 @@ static class ValueObjectSymbolInspector
 		type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
 			? nullable.TypeArguments[0]
 			: type;
+
+	/// <summary>
+	/// True when <paramref name="type"/> represents the absence of a value: a nullable reference type
+	/// (<c>string?</c>) or a nullable value type (<c>Nullable&lt;T&gt;</c>). This is the single
+	/// nullability definition every generated member, the Entity Framework mapping and the diagnostics
+	/// use. A non-nullable reference type is not "nullable" here even though it can hold null at runtime:
+	/// the domain contract says it must not.
+	/// </summary>
+	public static bool IsNullableScalarType(ITypeSymbol type) =>
+		type.NullableAnnotation == NullableAnnotation.Annotated
+		|| type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+
+	/// <summary>
+	/// Applies <c>Nullable = true</c> to the automatic form's declared value type. A reference type gains
+	/// the nullable annotation; a non-nullable value type is wrapped in <see cref="Nullable{T}"/>, which is
+	/// how nullability is represented for a value type. An already-nullable value type is left alone so
+	/// <c>[Scalar&lt;int?&gt;(Nullable = true)]</c> does not double-wrap, and a ref-like struct is left alone
+	/// because <see cref="Nullable{T}"/> cannot be constructed over a <c>ref struct</c>.
+	/// </summary>
+	public static ITypeSymbol ApplyNullableOption(ITypeSymbol declaredType, bool nullable, Compilation compilation)
+	{
+		if (!nullable)
+			return declaredType;
+
+		if (declaredType.IsReferenceType)
+			return declaredType.WithNullableAnnotation(NullableAnnotation.Annotated);
+
+		if (
+			!declaredType.IsValueType
+			|| declaredType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+			|| declaredType is INamedTypeSymbol { IsRefLikeType: true }
+		)
+		{
+			return declaredType;
+		}
+
+		// The type is a non-nullable value type, so wrap it in Nullable<T> to represent nullability.
+		return compilation.GetSpecialType(SpecialType.System_Nullable_T).Construct(declaredType);
+	}
+
+	/// <summary>
+	/// Resolves whether a scalar value object can represent null, from whichever form declares it:
+	/// the automatic form's <c>Nullable</c> option (or an already-nullable type argument), or the
+	/// manual form's declared scalar property. Returns false for a type that is not a <c>[Scalar]</c>
+	/// or whose declaration is incomplete; the model builder reports those separately.
+	/// </summary>
+	public static bool TryGetScalarIsNullable(INamedTypeSymbol scalarType, Compilation compilation, out bool isNullable)
+	{
+		isNullable = false;
+
+		var attributes = scalarType.GetAttributes();
+		var scalarAttribute = ScalarAttributeParser.Find(attributes);
+		if (scalarAttribute is null)
+			return false;
+
+		if (ScalarAttributeParser.GetValueType(scalarAttribute) is { } declaredType)
+		{
+			isNullable = IsNullableScalarType(
+				ApplyNullableOption(declaredType, ScalarAttributeParser.GetNullable(scalarAttribute), compilation)
+			);
+			return true;
+		}
+
+		var scalarProperty = scalarType
+			.GetMembers(ScalarAttributeParser.Parse(scalarAttribute).PropertyName)
+			.OfType<IPropertySymbol>()
+			.FirstOrDefault(property => !property.IsStatic && property.GetMethod is not null);
+		if (scalarProperty is null)
+			return false;
+
+		isNullable = IsNullableScalarType(scalarProperty.Type);
+		return true;
+	}
 
 	/// <summary>
 	/// True when <paramref name="type"/>, or a base type, declares an instance <c>ToString</c> overload whose

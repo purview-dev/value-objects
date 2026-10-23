@@ -74,9 +74,16 @@ public abstract class ScalarOptionsAttribute(string propertyName) : Attribute
 	public bool GenerateImplicitFromPrimitive { get; init; } = true;
 
 	/// <summary>
-	/// Gets or sets whether an implicit conversion to the primitive value should be generated.
+	/// Gets or sets whether a conversion to the primitive value should be generated.
 	/// </summary>
 	/// <value>Defaults to <see langword="true"/>.</value>
+	/// <remarks>
+	/// The conversion is implicit for a non-nullable scalar, and <c>explicit</c> for a nullable one.
+	/// Keeping the nullable scalar's extraction explicit is what makes <c>value == null</c> resolve to
+	/// the operators against the underlying value instead of being ambiguous with the synthesized
+	/// <c>(TSelf, TSelf)</c> equality. The conversion from the primitive remains implicit for both and
+	/// goes through <see cref="IScalarValueObject{TSelf, TValue}.Create"/>.
+	/// </remarks>
 	public bool GenerateImplicitToPrimitive { get; init; } = true;
 
 	/// <summary>

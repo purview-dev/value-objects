@@ -41,6 +41,39 @@ newest heading below is the version in development. Earlier releases are listed 
   `public static TSelf Null()`, equivalent to `Hydrate(null)`, so the unknown value is explicit and does not
   depend on `Empty`. It is not generated when the author declares a member named `Null`, and non-nullable
   scalars are unchanged.
+- **`HasValue` for null-capable scalars.** A nullable scalar, and any reference-backed scalar (whose
+  `Empty`/`Hydrate(null!)` value is null even when the domain contract says non-null), exposes
+  `public bool HasValue`. It reports whether the underlying value is null without validating or
+  normalizing, is not generated for a non-nullable value-type scalar, and is skipped when the author
+  declares `HasValue`.
+- **Nullable scalars map to nullable Entity Framework Core columns.** The generated registry unwraps
+  `Nullable<T>` before matching the converter, so a `NullableString?` property uses the generated
+  `ValueConverter<NullableString, string>` with no hand-written converter, and both `T` and `T?`
+  properties are mapped. `ScalarMapping` now carries the scalar's nullability; the registry marks a
+  mapped property optional where EF Core accepts it, never overrides an explicit `.IsRequired(...)` or
+  `[Required]`, and never marks a key nullable. EF Core cannot mark a non-nullable struct property
+  optional (`CannotBeNullable`), so a nullable scalar used as a non-nullable entity property stays a
+  required column; the new `VO1031` warning reports that at compile time. The Entity Framework guide
+  documents the `T?` shape and the two-scalar (`NonNullableString?` + nullable DTO scalar) pattern,
+  and `src/src/Sample` demonstrates it for `string`, `DateTimeOffset`, and `int`.
+- **Nullability conflicts are reported specifically.** A `[Scalar<T>(Nullable = true)]` combined with a
+  declared `Value` is `VO1028` (with a code fix offering three repairs: remove the property, convert to
+  the manual `[Scalar]` form, or remove only `Nullable = true`); explicit `Nullable = false` with a
+  nullable `Value` is `VO1029`; a declared `Value` whose type does not match the underlying type is
+  `VO1030`. The fully manual `[Scalar]` form with a nullable property remains valid.
+- **`VO1031`** — a nullable scalar used as a non-nullable property on an entity or complex-type-mapped
+  `[ValueObject]`. Scoped to types the compilation can see being mapped, so DTO properties of nullable
+  scalars are not reported.
+
+### Changed
+
+- **Extraction is explicit for nullable scalars only.** A nullable scalar emits
+  `explicit operator TValue(TSelf)`, so `value == null`, `value != null`, `null == value`, and
+  comparisons with the underlying value are unambiguous against the record's synthesized
+  `(TSelf, TSelf)` equality, and they read the underlying value directly — no normalization or
+  validation. Extraction for a nullable scalar is `(TValue)value` or `value.Value`. A **non-nullable**
+  scalar keeps the implicit conversion, so `string raw = value;` and passing the value object where its
+  underlying primitive is expected continue to work.
 
 ## 1.1.0
 

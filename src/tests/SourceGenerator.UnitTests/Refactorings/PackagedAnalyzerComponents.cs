@@ -35,6 +35,9 @@ public sealed class PackagedAnalyzerComponents : IDisposable
 	const string CodeFixTypeName =
 		"Purview.ValueObjects.SourceGenerator.Refactorings.AddPartialModifierCodeFixProvider";
 
+	const string ScalarNullabilityCodeFixTypeName =
+		"Purview.ValueObjects.SourceGenerator.Refactorings.ScalarNullabilityCodeFixProvider";
+
 	const string MergedArtifactDirectoryName = "purview-merged";
 
 	readonly PackagedAnalyzerLoadContext _loadContext;
@@ -43,13 +46,15 @@ public sealed class PackagedAnalyzerComponents : IDisposable
 		PackagedAnalyzerLoadContext loadContext,
 		IIncrementalGenerator generator,
 		DiagnosticAnalyzer analyzer,
-		CodeFixProvider codeFix
+		CodeFixProvider codeFix,
+		CodeFixProvider scalarNullabilityCodeFix
 	)
 	{
 		_loadContext = loadContext;
 		Generator = generator;
 		Analyzer = analyzer;
 		CodeFix = codeFix;
+		ScalarNullabilityCodeFix = scalarNullabilityCodeFix;
 	}
 
 	/// <summary>Gets the value-object source generator loaded from the packaged analyzer artifact.</summary>
@@ -60,6 +65,9 @@ public sealed class PackagedAnalyzerComponents : IDisposable
 
 	/// <summary>Gets the code-fix provider loaded from the packaged code-fix component.</summary>
 	public CodeFixProvider CodeFix { get; }
+
+	/// <summary>Gets the scalar-nullability code-fix provider loaded from the packaged component.</summary>
+	public CodeFixProvider ScalarNullabilityCodeFix { get; }
 
 	/// <summary>Loads the packaged analyzer and code-fix components for the current build configuration.</summary>
 	public static PackagedAnalyzerComponents Load()
@@ -77,7 +85,8 @@ public sealed class PackagedAnalyzerComponents : IDisposable
 				loadContext,
 				(IIncrementalGenerator)CreateComponent(analyzerAssembly, GeneratorTypeName),
 				(DiagnosticAnalyzer)CreateComponent(analyzerAssembly, AnalyzerTypeName),
-				(CodeFixProvider)CreateComponent(codeFixAssembly, CodeFixTypeName)
+				(CodeFixProvider)CreateComponent(codeFixAssembly, CodeFixTypeName),
+				(CodeFixProvider)CreateComponent(codeFixAssembly, ScalarNullabilityCodeFixTypeName)
 			);
 		}
 		catch

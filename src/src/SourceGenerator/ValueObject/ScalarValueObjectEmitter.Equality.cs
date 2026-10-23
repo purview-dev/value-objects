@@ -61,7 +61,7 @@ static partial class ScalarValueObjectEmitter
 					// (string? or int?) still hashes null as 0 at runtime, so the annotation is suppressed
 					// rather than branched.
 					ExpressionBody =
-						$"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.GetHashCode({model.ScalarPropertyName}{(model.ScalarValueIsNullable ? "!" : string.Empty)})",
+						$"global::System.Collections.Generic.EqualityComparer<{model.ScalarTypeName}>.Default.GetHashCode({model.ScalarPropertyName}{(model.IsNullable ? "!" : string.Empty)})",
 				}
 			);
 		}
@@ -70,6 +70,11 @@ static partial class ScalarValueObjectEmitter
 	static void EmitOperators(CodeWriter writer, ScalarValueObjectModel model)
 	{
 		var valueObjectType = ValueObjectType(model);
+		// A reference scalar's comparison parameter is annotated nullable so `value == null` does not
+		// warn under nullable reference types (CS8625) and so null is a legal operand; the parameter is
+		// annotation-only, so the CLR signature is unchanged. A nullable value type already names its
+		// own `T?` parameter.
+		var primitiveOperand = ScalarComparableParameter(model, writer);
 
 		if (!model.SameTypeEqualityOperatorExists)
 		{
@@ -98,7 +103,7 @@ static partial class ScalarValueObjectEmitter
 			ValueObjectEmitterHelpers.EmitBinaryOperator(
 				writer,
 				valueObjectType,
-				model.ScalarTypeReference,
+				primitiveOperand,
 				"==",
 				model.IsReferenceType ? "left is null ? false : left.Equals(right)" : "left.Equals(right)"
 			);
@@ -109,7 +114,7 @@ static partial class ScalarValueObjectEmitter
 			ValueObjectEmitterHelpers.EmitBinaryOperator(
 				writer,
 				valueObjectType,
-				model.ScalarTypeReference,
+				primitiveOperand,
 				"!=",
 				"!(left == right)"
 			);
@@ -119,7 +124,7 @@ static partial class ScalarValueObjectEmitter
 		{
 			ValueObjectEmitterHelpers.EmitBinaryOperator(
 				writer,
-				model.ScalarTypeReference,
+				primitiveOperand,
 				valueObjectType,
 				"==",
 				model.IsReferenceType ? "right is not null && right.Equals(left)" : "right.Equals(left)"
@@ -130,7 +135,7 @@ static partial class ScalarValueObjectEmitter
 		{
 			ValueObjectEmitterHelpers.EmitBinaryOperator(
 				writer,
-				model.ScalarTypeReference,
+				primitiveOperand,
 				valueObjectType,
 				"!=",
 				"!(left == right)"
@@ -153,7 +158,14 @@ static partial class ScalarValueObjectEmitter
 					)
 					{
 						Accessibility = TypeDeclarationAccessibility.Public,
-						Kind = OperatorDeclarationKind.ImplicitConversion,
+						// A nullable scalar's extraction is explicit: `value == null` must resolve to the
+						// operators against the underlying value instead of being ambiguous with the
+						// record's (T, T) equality, and it must not run Create. A non-nullable scalar keeps
+						// the ergonomic implicit conversion, where comparing to null is not a valid
+						// operation in the first place.
+						Kind = model.IsNullable
+							? OperatorDeclarationKind.ExplicitConversion
+							: OperatorDeclarationKind.ImplicitConversion,
 						ExpressionBody = $"valueObject.{model.ScalarPropertyName}",
 					}
 				)
@@ -219,7 +231,7 @@ static partial class ScalarValueObjectEmitter
 	static void EmitFormatToString(CodeWriter writer, ScalarValueObjectModel model)
 	{
 		var value = model.ScalarPropertyName;
-		var expressionBody = model.ScalarValueIsNullable
+		var expressionBody = model.IsNullable
 			? model.ScalarIsReferenceType
 				? $"{value}?.ToString(format) ?? string.Empty"
 				: $"{value}.HasValue ? {value}.GetValueOrDefault().ToString(format) : string.Empty"
@@ -250,7 +262,7 @@ static partial class ScalarValueObjectEmitter
 		var formattableValue = $"((global::System.IFormattable){value})";
 		var formatCall = $"{formattableValue}.ToString(format, formatProvider)";
 
-		var expressionBody = model.ScalarValueIsNullable
+		var expressionBody = model.IsNullable
 			? model.ScalarIsReferenceType
 				? $"{value} is null ? string.Empty : {formatCall}"
 				: $"{value}.HasValue ? {formatCall} : string.Empty"
@@ -314,7 +326,7 @@ static partial class ScalarValueObjectEmitter
 
 						// A nullable scalar (`string?`, `int?`) round-trips JSON null; only a non-nullable
 						// reference scalar rejects it.
-						if (model.ScalarCanBeNull && !model.ScalarValueIsNullable)
+						if (model.ScalarCanBeNull && !model.IsNullable)
 						{
 							methodBody.IfBlock(
 								"value is null",

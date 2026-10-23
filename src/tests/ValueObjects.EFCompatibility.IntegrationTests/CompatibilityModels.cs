@@ -42,6 +42,34 @@ public readonly partial record struct CompatibilityCode
 [Scalar<int?>]
 public readonly partial record struct CompatibilityScore { }
 
+/// <summary>A nullable string scalar: null is a valid domain value and it round-trips JSON <c>null</c>.</summary>
+[Scalar<string>(Nullable = true)]
+public readonly partial record struct CompatibilityNickname { }
+
+/// <summary>
+/// The non-nullable counterpart of <see cref="CompatibilityNickname"/>. Mapping an entity property as
+/// <c>CompatibilityName?</c> gives a nullable column whose <c>NULL</c> means "absent", while the DTO
+/// keeps the nullable scalar and its <c>Null()</c> value.
+/// </summary>
+[Scalar<string>(Trim = true)]
+public readonly partial record struct CompatibilityName { }
+
+/// <summary>A nullable timestamp scalar, exercising the nullable value-type provider type.</summary>
+[Scalar<DateTimeOffset>(Nullable = true)]
+public readonly partial record struct CompatibilityObservedAt { }
+
+/// <summary>The non-nullable counterpart of <see cref="CompatibilityObservedAt"/>.</summary>
+[Scalar<DateTimeOffset>]
+public readonly partial record struct CompatibilityRecordedAt { }
+
+/// <summary>A nullable integer scalar.</summary>
+[Scalar<int?>]
+public readonly partial record struct CompatibilityQuantity { }
+
+/// <summary>The non-nullable counterpart of <see cref="CompatibilityQuantity"/>.</summary>
+[Scalar<int>]
+public readonly partial record struct CompatibilityCount { }
+
 /// <summary>
 /// A complex value object mapped to a JSON column. This mapping is a value converter, so it works on every
 /// Entity Framework Core version the package supports.
@@ -83,7 +111,40 @@ sealed class CompatibilityEntity
 	public CompatibilityCode Code { get; set; }
 
 	/// <summary>Gets or sets the nullable value-type scalar column.</summary>
-	public CompatibilityScore Score { get; set; }
+	public CompatibilityScore? Score { get; set; }
+
+	/// <summary>Gets or sets the direct nullable-scalar shape: a <c>T?</c> property.</summary>
+	public CompatibilityNickname? Nickname { get; set; }
+
+	/// <summary>
+	/// Gets or sets a nullable scalar on a non-nullable property. Entity Framework Core cannot mark a
+	/// non-nullable struct property optional, so this stays a required column; <c>VO1031</c> reports it,
+	/// which this deliberately exercises.
+	/// </summary>
+#pragma warning disable VO1031
+	public CompatibilityNickname RequiredNickname { get; set; }
+#pragma warning restore VO1031
+
+	/// <summary>Gets or sets the two-scalar shape: a non-nullable scalar behind a nullable property.</summary>
+	public CompatibilityName? PreferredName { get; set; }
+
+	/// <summary>Gets or sets a nullable timestamp scalar through a nullable property.</summary>
+	public CompatibilityObservedAt? ObservedAt { get; set; }
+
+	/// <summary>Gets or sets a required timestamp scalar.</summary>
+	public CompatibilityRecordedAt RecordedAt { get; set; }
+
+	/// <summary>Gets or sets a nullable integer scalar through a nullable property.</summary>
+	public CompatibilityQuantity? OptionalQuantity { get; set; }
+
+	/// <summary>Gets or sets a required integer scalar.</summary>
+	public CompatibilityCount Count { get; set; }
+
+	/// <summary>
+	/// Gets or sets a nullable scalar whose optionality is configured explicitly. The generated registry
+	/// must leave that explicit configuration alone.
+	/// </summary>
+	public CompatibilityNickname? MandatoryNickname { get; set; }
 
 	/// <summary>Gets or sets the JSON column.</summary>
 	public CompatibilityStamp Stamp { get; set; }
@@ -133,6 +194,9 @@ sealed class CompatibilityDbContext(DbContextOptions<CompatibilityDbContext> opt
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
+		// Configured before the registry, so the explicit requirement is the one that must survive.
+		modelBuilder.Entity<CompatibilityEntity>().Property(entity => entity.MandatoryNickname).IsRequired();
+
 		modelBuilder.ConfigureValueObjects();
 	}
 }

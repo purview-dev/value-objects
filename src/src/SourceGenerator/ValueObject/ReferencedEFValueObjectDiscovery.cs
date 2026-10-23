@@ -118,7 +118,8 @@ static class ReferencedEFValueObjectDiscovery
 					// The declaring assembly owns the generator; the consumer only references it, so the
 					// option is read from that assembly's attribute and the emitted member is verified.
 					GenerateEFValueGenerator: HasEFMember(type, TypeLibrary.EFValueGeneratorFactoryMemberName)
-						&& IsValueGenerationEnabled(type, scalarMarker.TypeArguments[1])
+						&& IsValueGenerationEnabled(type, scalarMarker.TypeArguments[1]),
+					IsNullable: ValueObjectSymbolInspector.IsNullableScalarType(scalarMarker.TypeArguments[1])
 				)
 			);
 			return;
@@ -183,7 +184,8 @@ static class ReferencedEFValueObjectDiscovery
 						&& options.GenerateEFConverter
 						&& ValueObjectSymbolInspector.IsGuidProviderType(scalarProperty.Type),
 					ProviderTypeIsNullableReference: scalarProperty.Type.IsReferenceType
-						&& scalarProperty.Type.NullableAnnotation == NullableAnnotation.Annotated
+						&& scalarProperty.Type.NullableAnnotation == NullableAnnotation.Annotated,
+					IsNullable: ValueObjectSymbolInspector.IsNullableScalarType(scalarProperty.Type)
 				)
 			);
 			return;

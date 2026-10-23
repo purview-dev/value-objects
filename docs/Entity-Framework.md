@@ -140,6 +140,113 @@ What the mapping does:
 - Complex value objects with `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` map to a single JSON column using the
   generated JSON converter.
 
+## Nullable scalars and nullable columns
+
+A scalar can represent null (`[Scalar<string>(Nullable = true)]`, `[Scalar<int?>]`, or a manual
+`[Scalar]` with a nullable `Value` property). Entity Framework Core derives a **column's** nullability
+from the CLR property type, so the registry:
+
+- unwraps `Nullable<T>` before matching the converter, so a `T?` property uses the generated `T`
+  converter — no hand-written `ValueConverter` is needed;
+- marks a mapped property optional when the scalar is nullable (or the property is `T?`) **where EF
+  Core permits it**, never overrides an explicit `.IsRequired(...)`/`[Required]`, and never marks a key
+  nullable.
+
+| Entity property | Column | What a database `NULL` means |
+| --- | --- | --- |
+| `NullableString` (a non-nullable struct) | required | impossible; `VO1031` reports it |
+| `NullableString?` | nullable | both a CLR `null` and `NullableString.Null()` |
+| `NonNullableString?` (two-scalar pattern) | nullable | absence only; no value can collapse into it |
+
+`HasValue` is generated for a nullable scalar and for any reference-backed scalar, so
+`dto.Email.HasValue` inspects the value without constructing one through `Create`.
+
+EF Core cannot mark a non-nullable struct property optional: `Property.SetIsNullable(true)` throws
+`CannotBeNullable`. A nullable scalar on the non-nullable shape therefore stays a required column (and
+`NullableString.Null()` cannot be persisted through it); `VO1031` reports that at compile time. The
+fix is one of:
+
+1. declare the entity property as `T?`; or
+2. keep a non-nullable scalar in the entity (`NonNullableString?`) and map the nullable DTO scalar at
+   the boundary.
+
+### Keeping "absent" distinct from "null"
+
+The two-scalar pattern is the stricter option: the entity stores a non-nullable scalar behind a
+nullable property, so a database `NULL` can only mean "no value", and the domain's `Null()` value lives
+in the DTO:
+
+```csharp
+// Persistence scalar: never null, and Create canonicalises input.
+[Scalar<string>(Trim = true, Casing = StringCasing.LowerInvariant)]
+public readonly partial record struct NonNullableString { }
+
+// Domain/DTO scalar: null is a value.
+[Scalar<string>(Nullable = true)]
+public readonly partial record struct NullableString { }
+
+public sealed class Customer
+{
+    public NonNullableString? Email { get; set; }   // nullable column, generated T converter
+}
+
+public sealed record CustomerDto
+{
+    public NullableString Email { get; init; }      // Null() = explicitly no value
+}
+```
+
+Map at the boundary; `Hydrate` is the replay path (no re-validation), `Create` applies the
+non-nullable scalar's normalization and validation:
+
+```csharp
+static CustomerDto ToDto(Customer entity) => new()
+{
+    Email = entity.Email is null
+        ? NullableString.Null()
+        : NullableString.Hydrate(entity.Email.Value.Value),
+};
+
+static Customer ToEntity(CustomerDto dto) => new()
+{
+    Email = dto.Email.HasValue
+        ? NonNullableString.Create(dto.Email.Value!)
+        : (NonNullableString?)null,
+};
+```
+
+Because `HasValue` is a computed property, the compiler does not narrow `Value`; use `Value!` (or
+`GetValueOrDefault()` for a value-type underlying) after the check.
+
+> **The cast on the null branch matters for a reference-backed scalar.** A bare `null` is convertible
+> to `NonNullableString` through the generated implicit creation operator, so the conditional would
+> produce a *populated* scalar whose `Value` is null instead of a null `Nullable<T>`. Write
+> `(NonNullableString?)null` (or branch with an `if`). A value-type-backed scalar (`int`,
+> `DateTimeOffset`) does not have this problem because `null` is not convertible to its underlying
+> type.
+
+The conversion can also be expressed with explicit operators declared in one scalar's partial:
+
+```csharp
+[Scalar<string>(Nullable = true)]
+public readonly partial record struct NullableString
+{
+    public static explicit operator NullableString(NonNullableString? value) =>
+        value is null ? Null() : Hydrate(value.Value.Value);
+
+    public static explicit operator NonNullableString?(NullableString value) =>
+        value.Value is null ? (NonNullableString?)null : NonNullableString.Create(value.Value);
+}
+
+dto.Email = (NullableString)entity.Email;
+entity.Email = (NonNullableString?)dto.Email;
+```
+
+The generator does not emit cross-scalar conversions: the pairing and the `Create`/`Hydrate` policy
+belong to the boundary. The runnable [sample](../src/src/Sample) demonstrates the pattern for
+`string`, `DateTimeOffset`, and `int`; the tests are in
+`src/tests/ValueObjects.EFCompatibility.IntegrationTests`.
+
 ## Queries — no `.Value` required
 
 Because scalar value objects convert to their underlying primitive column, queries compare the value object
@@ -342,6 +449,9 @@ modelBuilder.Entity<Tenant>().HasQueryFilter(tenant => tenant.Id == Platform.Sys
 - A scalar value object is a **single column** of its provider primitive, so `dotnet ef migrations add`
   sees the primitive: renaming the value object's property does not change the schema, and changing the
   underlying type is a column type change you review like any other.
+- A nullable scalar is a **nullable column only when the entity property is nullable** (`T?`): EF Core
+  derives a column's nullability from the CLR property type, not from the scalar's own ability to hold
+  null. A non-nullable struct property is a required column (`VO1031`), even for a nullable scalar.
 - A complex value object mapped as a complex type is a **set of columns** named after its members, and one
   mapped with `EFMapping = Json` is a **single JSON column**. Moving a value object between those shapes is
   a schema change: add a migration and consider the data path (a JSON column usually needs a data migration
@@ -438,6 +548,9 @@ value-object provider assemblies referenced by EF consumers:
   property manually.
 - `VO1021` — `GenerateEFValueGenerator` was requested for a value object that is not Guid-backed, or whose
   Entity Framework converter is disabled; no value generator is emitted.
+- `VO1031` — a nullable scalar is used as a non-nullable property on an entity or complex type. EF Core
+  maps that to a required column and cannot persist the scalar's `Null()`; declare the property as `T?`
+  (or use the two-scalar pattern above).
 
 ## Notes
 

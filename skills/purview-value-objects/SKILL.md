@@ -74,7 +74,15 @@ public readonly partial record struct EmailAddress
 - `Nullable = true` makes the automatic property nullable for both reference and non-nullable value
   types (`[Scalar<DateTimeOffset>(Nullable = true)]` emits `DateTimeOffset? Value`). A nullable scalar
   round-trips JSON `null` and exposes `Null()`, which is `Hydrate(null)` for the unknown case and never
-  validates; use `Create(null)` when `null` is input that must be checked.
+  validates, plus `HasValue` for a non-validating null check; use `Create(null)` when `null` is input
+  that must be checked.
+- The automatic form cannot also declare `Value`: that is `VO1022`, or `VO1028` when
+  `Nullable = true`, `VO1029` when explicit `Nullable = false` contradicts a nullable `Value`, and
+  `VO1030` when the declared type does not match. `VO1028` has a code fix offering all three repairs.
+- A nullable scalar compares with `null` and with the underlying value in either order
+  (`value == null`, `null == value`, `value == "x"`). `is null` is impossible on a struct (`CS0037`).
+  Extraction is explicit for a nullable scalar (`(string?)value` or `value.Value`) and implicit for a
+  non-nullable one; creation stays implicit and goes through `Create`.
 - The default property name is `Value`; `ScalarAttribute.PropertyName` changes it. A `[Scalar]` type
   with no matching property is `VO1004`.
 - Prefer `readonly record struct`. Anything else is `VO1006`, because equality, immutability and

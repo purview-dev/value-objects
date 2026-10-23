@@ -63,8 +63,8 @@ static class ValueObjectEFRegistryEmitter
 						EmitUseValueObjectKeyGenerators(body);
 					EmitInlineConverterFields(body, scalarDefinition);
 					EmitInlineConverterFields(body, inlineJsonDefinitions);
-					EmitHelperClass(body, "ScalarMapping", hasProviderMappable: true);
-					EmitHelperClass(body, "JsonMapping", hasProviderMappable: false);
+					EmitHelperClass(body, "ScalarMapping", hasProviderMappable: true, hasIsNullable: true);
+					EmitHelperClass(body, "JsonMapping", hasProviderMappable: false, hasIsNullable: false);
 					EmitInlineConverters(body, scalarDefinition, isEF8Referenced);
 					EmitInlineConverters(body, inlineJsonDefinitions, isEF8Referenced);
 					EmitInlineKeyValueGenerators(body, keyValueGenerators, isEF8Referenced);
@@ -213,7 +213,7 @@ static class ValueObjectEFRegistryEmitter
 		var scalarEntries = string.Join(
 			", ",
 			scalars.Select(descriptor =>
-				$"[typeof({descriptor.TypeName})] = new ScalarMapping({ConverterExpression(descriptor, inlineScalarConverters)}, {ComparerExpression(descriptor)}, {Bool(descriptor.ProviderMappable)})"
+				$"[typeof({descriptor.TypeName})] = new ScalarMapping({ConverterExpression(descriptor, inlineScalarConverters)}, {ComparerExpression(descriptor)}, {Bool(descriptor.ProviderMappable)}, {Bool(descriptor.IsNullable)})"
 			)
 		);
 		var jsonEntries = string.Join(
@@ -352,15 +352,35 @@ static class ValueObjectEFRegistryEmitter
 				entityType.Block(
 					"foreach (var property in entityType.ClrType.GetProperties().Where(p => IsMappableValueObjectProperty(entityType, p)))",
 					property =>
+					{
+						// A nullable value object property is Nullable<T>; match the underlying type so the
+						// same T converter maps both T and T? properties.
+						property.Comment(
+							"A T? property arrives as Nullable<T>; match the underlying type so the same",
+							"converter maps both T and T? properties."
+						);
+						property.Assignment(
+							"var",
+							"propertyType",
+							"global::System.Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType"
+						);
 						property.IfElse(
-							"scalarMappings.TryGetValue(property.PropertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
-							scalar => ApplyConverterAndComparer(writer, "scalar", "property", "entityType.ClrType!"),
+							"scalarMappings.TryGetValue(propertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
+							scalar =>
+								ApplyConverterAndComparer(
+									writer,
+									"scalar",
+									"property",
+									"entityType.ClrType!",
+									nullabilityExpression: "scalar.IsNullable"
+								),
 							elseBody =>
 								elseBody.IfBlock(
-									"jsonMappings.TryGetValue(property.PropertyType, out var json) && json.Converter is not null",
+									"jsonMappings.TryGetValue(propertyType, out var json) && json.Converter is not null",
 									json => ApplyConverterAndComparer(writer, "json", "property", "entityType.ClrType!")
 								)
-						)
+						);
+					}
 				)
 		);
 	}
@@ -422,28 +442,57 @@ static class ValueObjectEFRegistryEmitter
 	/// inherited property is declared by a base type that is usually not an entity type at all, and asking the
 	/// model builder for it would add a new entity type while the registry is walking the model.
 	/// </param>
+	/// <param name="nullabilityExpression">
+	/// The expression telling whether the mapping's scalar can represent null (for example
+	/// <c>scalar.IsNullable</c>), or <see langword="null"/> when the mapping carries no such information.
+	/// </param>
 	static void ApplyConverterAndComparer(
 		CodeWriter writer,
 		string mappingName,
 		string propertyName,
-		string entityTypeExpression
+		string entityTypeExpression,
+		string? nullabilityExpression = null
 	)
 	{
 		// The builder API is used so the property is configured regardless of convention discovery order.
+		var builderName = $"{mappingName}Builder";
 		var builderExpression =
 			$"modelBuilder.Entity({entityTypeExpression}).Property({propertyName}.PropertyType, {propertyName}.Name)";
+		writer.Assignment("var", builderName, builderExpression);
 		writer.IfElse(
 			$"{mappingName}.Comparer is not null",
 			withComparer =>
 				withComparer.MethodCall(
 					"HasConversion",
 					[$"{mappingName}.Converter", $"{mappingName}.Comparer"],
-					receiver: builderExpression
+					receiver: builderName
 				),
 			withoutComparer =>
-				withoutComparer.MethodCall("HasConversion", [$"{mappingName}.Converter"], receiver: builderExpression)
+				withoutComparer.MethodCall("HasConversion", [$"{mappingName}.Converter"], receiver: builderName)
 		);
+
+		if (nullabilityExpression is not null)
+		{
+			writer.IfBlock(
+				EmittedNullabilityCondition(nullabilityExpression, propertyName, builderName),
+				body => body.MethodCall("IsRequired", ["false"], receiver: builderName)
+			);
+		}
 	}
+
+	/// <summary>
+	/// The emitted guard for making a mapped property optional. A nullable scalar says the column must be
+	/// nullable, but Entity Framework Core only accepts <c>IsRequired(false)</c> for a nullable CLR type:
+	/// a non-nullable struct property throws <c>CannotBeNullable</c>. The guard therefore skips those
+	/// (the scalar's <c>Null()</c> cannot be persisted through a non-nullable property either way), never
+	/// marks a key nullable, and leaves an explicit or data-annotated nullability configuration in place.
+	/// </summary>
+	static string EmittedNullabilityCondition(string nullabilityExpression, string propertyName, string builderName) =>
+		$"({nullabilityExpression} || global::System.Nullable.GetUnderlyingType({propertyName}.PropertyType) is not null)"
+		+ $" && (!{propertyName}.PropertyType.IsValueType || global::System.Nullable.GetUnderlyingType({propertyName}.PropertyType) is not null)"
+		+ $" && !{builderName}.Metadata.IsKey()"
+		+ $" && ((global::Microsoft.EntityFrameworkCore.Metadata.IConventionProperty){builderName}.Metadata)"
+		+ ".GetIsNullableConfigurationSource() is null or global::Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource.Convention";
 
 	static void EmitComplexMember(CodeWriter writer)
 	{
@@ -451,10 +500,16 @@ static class ValueObjectEFRegistryEmitter
 		// objects additionally receive a value conversion.
 		var memberBuilder =
 			"modelBuilder.Entity(entityType.ClrType!).ComplexProperty(complexProperty.ComplexType.ClrType, complexProperty.Name).Property(member.PropertyType, member.Name)";
+		writer.Assignment(
+			"var",
+			"memberType",
+			"global::System.Nullable.GetUnderlyingType(member.PropertyType) ?? member.PropertyType"
+		);
 		writer.Assignment("var", "memberBuilder", memberBuilder);
 		writer.IfElse(
-			"scalarMappings.TryGetValue(member.PropertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
+			"scalarMappings.TryGetValue(memberType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
 			scalar =>
+			{
 				scalar.IfElse(
 					"scalar.Comparer is not null",
 					withComparer =>
@@ -465,10 +520,15 @@ static class ValueObjectEFRegistryEmitter
 						),
 					withoutComparer =>
 						withoutComparer.MethodCall("HasConversion", ["scalar.Converter"], receiver: "memberBuilder")
-				),
+				);
+				scalar.IfBlock(
+					EmittedNullabilityCondition("scalar.IsNullable", "member", "memberBuilder"),
+					body => body.MethodCall("IsRequired", ["false"], receiver: "memberBuilder")
+				);
+			},
 			elseBody =>
 				elseBody.IfBlock(
-					"jsonMappings.TryGetValue(member.PropertyType, out var json) && json.Converter is not null",
+					"jsonMappings.TryGetValue(memberType, out var json) && json.Converter is not null",
 					json =>
 						json.IfElse(
 							"json.Comparer is not null",
@@ -489,7 +549,7 @@ static class ValueObjectEFRegistryEmitter
 		);
 	}
 
-	static void EmitHelperClass(CodeWriter writer, string className, bool hasProviderMappable)
+	static void EmitHelperClass(CodeWriter writer, string className, bool hasProviderMappable, bool hasIsNullable)
 	{
 		var valueConverterType = TypeLibrary.Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter;
 		var valueComparerType = TypeLibrary.Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer;
@@ -508,6 +568,8 @@ static class ValueObjectEFRegistryEmitter
 				parameterList.Add(new("comparer", valueComparerType.MakeNullable(writer)));
 				if (hasProviderMappable)
 					parameterList.Add(new("providerMappable", PurviewTypeLibrary.System.Boolean));
+				if (hasIsNullable)
+					parameterList.Add(new("isNullable", PurviewTypeLibrary.System.Boolean));
 
 				body.Constructor(
 						new ConstructorDeclarationOptions(className, TypeDeclarationAccessibility.Public)
@@ -520,6 +582,8 @@ static class ValueObjectEFRegistryEmitter
 							ctor.Assignment("Comparer", "comparer");
 							if (hasProviderMappable)
 								ctor.Assignment("ProviderMappable", "providerMappable");
+							if (hasIsNullable)
+								ctor.Assignment("IsNullable", "isNullable");
 						}
 					)
 					.Property(
@@ -548,6 +612,20 @@ static class ValueObjectEFRegistryEmitter
 					body.Property(
 						new PropertyDeclarationOptions(
 							"ProviderMappable",
+							PurviewTypeLibrary.System.Boolean,
+							TypeDeclarationAccessibility.Public
+						)
+						{
+							HasGetter = true,
+						}
+					);
+				}
+
+				if (hasIsNullable)
+				{
+					body.Property(
+						new PropertyDeclarationOptions(
+							"IsNullable",
 							PurviewTypeLibrary.System.Boolean,
 							TypeDeclarationAccessibility.Public
 						)

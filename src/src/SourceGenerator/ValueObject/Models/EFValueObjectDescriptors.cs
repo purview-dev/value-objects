@@ -25,7 +25,10 @@ readonly record struct EFScalarDescriptor(
 	// True when the scalar's underlying property is a nullable reference type. The provider type is the
 	// non-nullable CLR type (a nullable annotation is not representable in typeof), so the inline
 	// conversion reads the property with the null-forgiving operator.
-	bool ProviderTypeIsNullableReference = false
+	bool ProviderTypeIsNullableReference = false,
+	// True when the scalar itself can represent null (`Nullable = true` or a `T?` underlying value).
+	// The registry uses it to make a mapped property optional where Entity Framework Core permits it.
+	bool IsNullable = false
 );
 
 /// <summary>
