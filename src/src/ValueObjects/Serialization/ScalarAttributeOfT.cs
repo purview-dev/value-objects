@@ -17,10 +17,12 @@ namespace Purview.ValueObjects.Serialization;
 /// <b>Nullability.</b> A nullable reference type cannot be used as a generic attribute argument (the
 /// compiler reports <c>CS8970</c> because nullable annotations are not representable in attribute
 /// metadata), so <c>[Scalar&lt;string?&gt;]</c> does not compile. Set
-/// <see cref="ScalarOptionsAttribute.Nullable"/> to have the generator declare the property as a nullable
-/// reference type: <c>[Scalar&lt;string&gt;(Nullable = true)]</c> produces
-/// <c>public string? Value { get; init; }</c>. This applies to reference types only; nullable value types
-/// are written directly, for example <c>[Scalar&lt;int?&gt;]</c>.
+/// <see cref="ScalarOptionsAttribute.Nullable"/> to have the generator declare the property as nullable:
+/// <c>[Scalar&lt;string&gt;(Nullable = true)]</c> produces <c>public string? Value { get; init; }</c>, and
+/// <c>[Scalar&lt;DateTimeOffset&gt;(Nullable = true)]</c> produces
+/// <c>public DateTimeOffset? Value { get; init; }</c>. Nullable value types can also be written directly,
+/// for example <c>[Scalar&lt;int?&gt;]</c>. A nullable scalar exposes an additional
+/// <c>Null()</c> factory, equivalent to <c>Hydrate(null)</c>.
 /// </para>
 /// <para>
 /// <b>Readability.</b> The automatic form is concise, but the underlying type and nullability are

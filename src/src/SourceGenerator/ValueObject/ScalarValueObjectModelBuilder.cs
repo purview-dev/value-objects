@@ -65,6 +65,7 @@ static class ScalarValueObjectModelBuilder
 				typeSymbol,
 				scalarOptions,
 				scalarAttribute,
+				compilation,
 				location,
 				diagnosticsList,
 				out var scalarType,
@@ -318,6 +319,7 @@ static class ScalarValueObjectModelBuilder
 			declareOnValidate,
 			ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol),
 			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "Empty"),
+			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "Null"),
 			ValueObjectSymbolInspector.GetEmptyValueExpression(scalarType),
 			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: true),
 			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: false),
@@ -510,12 +512,16 @@ static class ScalarValueObjectModelBuilder
 	/// <remarks>
 	/// The manual <c>[Scalar]</c> form requires the author to declare the named property (<c>VO1004</c>);
 	/// the automatic <c>[Scalar&lt;T&gt;]</c> form derives the type from the attribute argument and forbids
-	/// a declared member with that name (<c>VO1022</c>).
+	/// a declared member with that name (<c>VO1022</c>). <c>Nullable = true</c> only affects the automatic
+	/// form: it annotates a reference type or wraps a non-nullable value type in <see cref="Nullable{T}"/>,
+	/// so <c>[Scalar&lt;DateTimeOffset&gt;(Nullable = true)]</c> emits the same property as the manual form
+	/// declaring a <c>DateTimeOffset?</c> member.
 	/// </remarks>
 	static bool TryResolveScalarTarget(
 		INamedTypeSymbol typeSymbol,
 		ScalarAttributeData scalarOptions,
 		AttributeData scalarAttribute,
+		Compilation compilation,
 		Location location,
 		List<ReportableDiagnostic> diagnostics,
 		out ITypeSymbol scalarType,
@@ -531,10 +537,11 @@ static class ScalarValueObjectModelBuilder
 
 		if (ScalarAttributeParser.GetValueType(scalarAttribute) is { } declaredType)
 		{
-			scalarType =
-				ScalarAttributeParser.GetNullable(scalarAttribute) && declaredType.IsReferenceType
-					? declaredType.WithNullableAnnotation(NullableAnnotation.Annotated)
-					: declaredType;
+			scalarType = ApplyNullableOption(
+				declaredType,
+				ScalarAttributeParser.GetNullable(scalarAttribute),
+				compilation
+			);
 			generateScalarProperty = true;
 
 			// The generator owns the named property, so a declared member with that name (or with the
@@ -585,6 +592,34 @@ static class ScalarValueObjectModelBuilder
 		scalarType = scalarProperty.Type;
 		scalarPropertyName = scalarProperty.Name;
 		return true;
+	}
+
+	/// <summary>
+	/// Applies <c>Nullable = true</c> to the automatic form's declared value type. A reference type gains
+	/// the nullable annotation; a non-nullable value type is wrapped in <see cref="Nullable{T}"/>, which is
+	/// how nullability is represented for a value type. An already-nullable value type is left alone so
+	/// <c>[Scalar&lt;int?&gt;(Nullable = true)]</c> does not double-wrap, and a ref-like struct is left alone
+	/// because <see cref="Nullable{T}"/> cannot be constructed over a <c>ref struct</c>.
+	/// </summary>
+	static ITypeSymbol ApplyNullableOption(ITypeSymbol declaredType, bool nullable, Compilation compilation)
+	{
+		if (!nullable)
+			return declaredType;
+
+		if (declaredType.IsReferenceType)
+			return declaredType.WithNullableAnnotation(NullableAnnotation.Annotated);
+
+		if (
+			!declaredType.IsValueType
+			|| declaredType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+			|| declaredType is INamedTypeSymbol { IsRefLikeType: true }
+		)
+		{
+			return declaredType;
+		}
+
+		// The type is a non-nullable value type, so wrap it in Nullable<T> to represent nullability.
+		return compilation.GetSpecialType(SpecialType.System_Nullable_T).Construct(declaredType);
 	}
 
 	/// <summary>

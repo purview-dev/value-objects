@@ -23,12 +23,13 @@ public abstract class ScalarOptionsAttribute(string propertyName) : Attribute
 	public string PropertyName { get; } = propertyName;
 
 	/// <summary>
-	/// Gets or sets whether the generator declares the underlying property as a nullable reference type.
+	/// Gets or sets whether the generator declares the underlying property as nullable.
 	/// </summary>
 	/// <value>Defaults to <see langword="false"/>.</value>
 	/// <remarks>
 	/// Applies to the automatic forms (<see cref="ScalarAttribute{TValue}"/> or
-	/// <see cref="ScalarAttribute(Type, string)"/>) and to reference types only. Nullable value types are
+	/// <see cref="ScalarAttribute(Type, string)"/>) only. A reference type gains the nullable annotation;
+	/// a non-nullable value type is wrapped in <see cref="Nullable{T}"/>. Nullable value types can also be
 	/// expressed directly, for example <c>[Scalar&lt;int?&gt;]</c> or <c>[Scalar(typeof(int?))]</c>. A
 	/// nullable reference type cannot be used as a generic attribute argument or a <c>typeof</c> operand
 	/// (CS8970/CS8639), so <c>Nullable = true</c> is the way to declare one.

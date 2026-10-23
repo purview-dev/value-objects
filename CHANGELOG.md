@@ -32,6 +32,15 @@ newest heading below is the version in development. Earlier releases are listed 
   option in one place instead of silently accepting two sources of truth. `[ValueObjectDefaults]` still
   allows multiple applications so the build-generated attribute and an author-declared attribute can
   coexist for the options the author deliberately overrides.
+- **`Nullable = true` now applies to value types.** The automatic forms previously ignored the option for a
+  value type, so `[Scalar<DateTimeOffset>(Nullable = true)]` declared a non-nullable `DateTimeOffset Value`
+  and disagreed with the manual form declaring `DateTimeOffset? Value`. The option now wraps a non-nullable
+  value type in `Nullable<T>` (an already-nullable type is unchanged), so the two forms generate the same
+  members for the same model.
+- **`Null()` factory for nullable scalars.** A scalar whose underlying value is nullable now exposes
+  `public static TSelf Null()`, equivalent to `Hydrate(null)`, so the unknown value is explicit and does not
+  depend on `Empty`. It is not generated when the author declares a member named `Null`, and non-nullable
+  scalars are unchanged.
 
 ## 1.1.0
 

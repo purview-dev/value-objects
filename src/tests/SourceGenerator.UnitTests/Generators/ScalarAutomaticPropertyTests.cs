@@ -545,4 +545,136 @@ public sealed class ScalarAutomaticPropertyTests : ValueObjectSourceGeneratorTes
 		await Assert.That(defaultedEmpty).IsNull();
 		await Assert.That(overriddenEmpty).IsNotNull();
 	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenNullableValueTypeOption_GeneratesNullableProperty(
+		CancellationToken cancellationToken
+	)
+	{
+		// Nullable value types were the one shape Nullable did not apply to, so [Scalar<DateTimeOffset>(
+		// Nullable = true)] declared a non-nullable DateTimeOffset property. The option now wraps the value
+		// type (and is idempotent for a type that is already nullable), matching the direct T? spellings.
+		const string source = """
+			namespace Testing
+			{
+			[Purview.ValueObjects.Serialization.Scalar<System.DateTimeOffset>(Nullable = true)]
+			public readonly partial record struct OptionalTimestamp { }
+
+			[Purview.ValueObjects.Serialization.Scalar(typeof(System.DateTimeOffset), Nullable = true)]
+			public readonly partial record struct TypeofOptionalTimestamp { }
+
+			[Purview.ValueObjects.Serialization.Scalar<System.DateTimeOffset?>(Nullable = true)]
+			public readonly partial record struct AlreadyNullableTimestamp { }
+
+			public static class Harness
+			{
+				public static System.Type GenericPropertyType() =>
+					typeof(OptionalTimestamp).GetProperty("Value")!.PropertyType;
+
+				public static System.Type TypeofPropertyType() =>
+					typeof(TypeofOptionalTimestamp).GetProperty("Value")!.PropertyType;
+
+				public static System.Type AlreadyNullablePropertyType() =>
+					typeof(AlreadyNullableTimestamp).GetProperty("Value")!.PropertyType;
+
+				public static System.DateTimeOffset? CreateNull() => OptionalTimestamp.Create(null).Value;
+
+				public static System.DateTimeOffset? NullValue() => OptionalTimestamp.Null().Value;
+
+				public static string SerializeNull() =>
+					System.Text.Json.JsonSerializer.Serialize(OptionalTimestamp.Null());
+
+				public static System.DateTimeOffset? DeserializeNull() =>
+					System.Text.Json.JsonSerializer.Deserialize<OptionalTimestamp>("null").Value;
+			}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly!.GetType("Testing.Harness")!;
+
+		var genericPropertyType = (Type)harness.GetMethod("GenericPropertyType")!.Invoke(null, null)!;
+		var typeofPropertyType = (Type)harness.GetMethod("TypeofPropertyType")!.Invoke(null, null)!;
+		var alreadyNullablePropertyType = (Type)harness.GetMethod("AlreadyNullablePropertyType")!.Invoke(null, null)!;
+		var createNull = harness.GetMethod("CreateNull")!.Invoke(null, null);
+		var nullValue = harness.GetMethod("NullValue")!.Invoke(null, null);
+		var serialized = (string)harness.GetMethod("SerializeNull")!.Invoke(null, null)!;
+		var deserialized = harness.GetMethod("DeserializeNull")!.Invoke(null, null);
+
+		await Assert.That(genericPropertyType).IsEqualTo(typeof(DateTimeOffset?));
+		await Assert.That(typeofPropertyType).IsEqualTo(typeof(DateTimeOffset?));
+		await Assert.That(alreadyNullablePropertyType).IsEqualTo(typeof(DateTimeOffset?));
+		await Assert.That(createNull).IsNull();
+		await Assert.That(nullValue).IsNull();
+		await Assert.That(serialized).IsEqualTo("null");
+		await Assert.That(deserialized).IsNull();
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenNullableValueTypeOption_MatchesManualNullableForm(
+		CancellationToken cancellationToken
+	)
+	{
+		// The two declarations differ only in the type name and in who declares the property. The generated
+		// members must therefore be equivalent: same nullable property, same factories, same JSON contract.
+		const string source = """
+			namespace Testing
+			{
+			[Purview.ValueObjects.Serialization.Scalar<System.DateTimeOffset>(Nullable = true)]
+			public readonly partial record struct OptionalByAttribute { }
+
+			[Purview.ValueObjects.Serialization.Scalar]
+			public readonly partial record struct OptionalByProperty
+			{
+				public System.DateTimeOffset? Value { get; init; }
+			}
+
+			public static class Harness
+			{
+				public static bool SamePropertyType() =>
+					typeof(OptionalByAttribute).GetProperty("Value")!.PropertyType
+					== typeof(OptionalByProperty).GetProperty("Value")!.PropertyType;
+
+				public static bool BothHaveNullableCreate() =>
+					typeof(OptionalByAttribute).GetMethod("Create", [typeof(System.DateTimeOffset?)]) is not null
+					&& typeof(OptionalByProperty).GetMethod("Create", [typeof(System.DateTimeOffset?)]) is not null;
+
+				public static bool BothHaveNullFactory() =>
+					typeof(OptionalByAttribute).GetMethod("Null", System.Type.EmptyTypes) is not null
+					&& typeof(OptionalByProperty).GetMethod("Null", System.Type.EmptyTypes) is not null;
+
+				public static string SerializeAttributeNull() =>
+					System.Text.Json.JsonSerializer.Serialize(OptionalByAttribute.Null());
+
+				public static string SerializePropertyNull() =>
+					System.Text.Json.JsonSerializer.Serialize(OptionalByProperty.Null());
+			}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly!.GetType("Testing.Harness")!;
+
+		var samePropertyType = (bool)harness.GetMethod("SamePropertyType")!.Invoke(null, null)!;
+		var bothHaveNullableCreate = (bool)harness.GetMethod("BothHaveNullableCreate")!.Invoke(null, null)!;
+		var bothHaveNullFactory = (bool)harness.GetMethod("BothHaveNullFactory")!.Invoke(null, null)!;
+		var attributeJson = (string)harness.GetMethod("SerializeAttributeNull")!.Invoke(null, null)!;
+		var propertyJson = (string)harness.GetMethod("SerializePropertyNull")!.Invoke(null, null)!;
+
+		await Assert.That(samePropertyType).IsTrue();
+		await Assert.That(bothHaveNullableCreate).IsTrue();
+		await Assert.That(bothHaveNullFactory).IsTrue();
+		await Assert.That(attributeJson).IsEqualTo("null");
+		await Assert.That(propertyJson).IsEqualTo(attributeJson);
+	}
 }

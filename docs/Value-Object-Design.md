@@ -204,6 +204,7 @@ query.
 | `Create(...)` | Throws on invalid input: the hook's exception, or a `ZodException` when a ZodSharp schema is generated for the type. |
 | `TryCreate(...)` | Returns `false` instead of throwing. |
 | `Hydrate(...)` | Never validates. Persistence, replay, and deserialization use this path. |
+| `Null()` | Only on a nullable scalar: the unknown (`null`) value, equivalent to `Hydrate(null)`. Never validates. |
 
 A ZodSharp `ZodException` carries one or more `ValidationError` entries with a code, message, path, and an
 optional structured origin, so the same error codes you use in hooks (`ErrorFactory`-style constants) — or

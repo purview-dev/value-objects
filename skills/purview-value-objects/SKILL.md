@@ -71,6 +71,10 @@ public readonly partial record struct EmailAddress
 
 - Declare the scalar property yourself (`[Scalar]`), or let the generator own it (`[Scalar<string>]`).
   With `[Scalar<T>]` you must **not** declare a member of that name — that is `VO1022`.
+- `Nullable = true` makes the automatic property nullable for both reference and non-nullable value
+  types (`[Scalar<DateTimeOffset>(Nullable = true)]` emits `DateTimeOffset? Value`). A nullable scalar
+  round-trips JSON `null` and exposes `Null()`, which is `Hydrate(null)` for the unknown case and never
+  validates; use `Create(null)` when `null` is input that must be checked.
 - The default property name is `Value`; `ScalarAttribute.PropertyName` changes it. A `[Scalar]` type
   with no matching property is `VO1004`.
 - Prefer `readonly record struct`. Anything else is `VO1006`, because equality, immutability and

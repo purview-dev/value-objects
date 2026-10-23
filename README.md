@@ -57,7 +57,8 @@ var email = EmailAddress.Create("Demo@Example.com");
 
 `[Scalar]` wraps a single primitive; `[ValueObject]` wraps multiple members. The manual `[Scalar]` form
 declares the underlying property; the automatic `[Scalar<T>]` / `[Scalar(typeof(T))]` forms have the
-generator declare it (and `[Scalar<string>(Nullable = true)]` expresses a nullable reference scalar). See
+generator declare it (and `[Scalar<string>(Nullable = true)]` or `[Scalar<DateTimeOffset>(Nullable = true)]`
+expresses a nullable scalar). See
 [Getting Started](docs/Getting-Started.md#automatic-vs-manual-underlying-property).
 
 ## JSON serialization
