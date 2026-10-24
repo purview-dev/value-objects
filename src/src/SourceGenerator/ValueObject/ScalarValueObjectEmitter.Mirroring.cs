@@ -73,7 +73,7 @@ static partial class ScalarValueObjectEmitter
 			{
 				// A null underlying value writes nothing and reports success, matching the parameterless
 				// ToString override returning the empty string.
-				if (model.ScalarValueIsNullable)
+				if (model.IsNullable)
 				{
 					body.IfBlock(
 						$"{model.ScalarPropertyName} is null",

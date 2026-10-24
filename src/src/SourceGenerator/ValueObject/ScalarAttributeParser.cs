@@ -49,6 +49,26 @@ static class ScalarAttributeParser
 	public static bool GetNullable(AttributeData attribute) => attribute.GetNamedArgument("Nullable", false);
 
 	/// <summary>
+	/// Whether <c>Nullable</c> was set explicitly on the attribute, and its value. The automatic form
+	/// derives its nullability from this option; an explicit <c>Nullable = false</c> is what makes a
+	/// declared nullable property a contradiction (<c>VO1029</c>) rather than a duplicate (<c>VO1022</c>).
+	/// </summary>
+	public static bool TryGetNullable(AttributeData attribute, out bool nullable)
+	{
+		foreach (var argument in attribute.NamedArguments)
+		{
+			if (string.Equals(argument.Key, "Nullable", StringComparison.Ordinal))
+			{
+				nullable = argument.Value.Value is true;
+				return true;
+			}
+		}
+
+		nullable = false;
+		return false;
+	}
+
+	/// <summary>
 	/// Reads the shared option set from either attribute form into the same model.
 	/// </summary>
 	public static ScalarAttributeData Parse(AttributeData attribute) =>

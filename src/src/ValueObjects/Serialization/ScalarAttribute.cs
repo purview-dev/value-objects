@@ -9,7 +9,8 @@ namespace Purview.ValueObjects.Serialization;
 /// <para>
 /// A scalar value object wraps a single underlying primitive value. When the generator processes a type
 /// decorated with this attribute, it can emit a JSON converter, <see cref="IComparable"/> support,
-/// comparison operators, implicit conversions to and from the primitive, and an <c>Empty</c> instance.
+/// comparison operators, an implicit conversion from the primitive, an explicit conversion to it, and an
+/// <c>Empty</c> instance.
 /// </para>
 /// <para>
 /// The <see cref="ScalarOptionsAttribute.PropertyName"/> identifies the member holding the underlying value.

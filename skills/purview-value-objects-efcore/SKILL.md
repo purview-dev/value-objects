@@ -3,7 +3,7 @@ name: purview-value-objects-efcore
 description: >-
   Use when persisting Purview.ValueObjects with Entity Framework Core - ConfigureValueObjects,
   UseValueObjects, scalar-to-column conversion, complex-type versus JSON mapping, value objects as
-  keys and foreign keys, query translation, generated key values, migrations, and the VO1009-VO1021
+  keys and foreign keys, query translation, generated key values, migrations, and the VO1009-VO1031
   Entity Framework diagnostics.
 metadata:
   product: Purview.ValueObjects
@@ -66,6 +66,58 @@ Leaving the enum as the provider type makes EF compose its own enum-to-number co
 generated one, and the composite loses the provider tolerance that raw-primitive comparisons rely on.
 
 A plain `enum` property that is not a value object keeps EF Core's own enum mapping, untouched.
+
+## Nullable scalars
+
+A nullable scalar (`Nullable = true`, `[Scalar<int?>]`, or a manually declared `T?` value) is still a
+struct. The registry unwraps `Nullable<T>` before matching, so a `T?` property uses the generated `T`
+converter and needs no hand-written converter. It marks the property optional where EF Core accepts it,
+never overrides an explicit `IsRequired(...)`/`[Required]`, and never marks a key nullable.
+
+| Entity property | Column | Database `NULL` means |
+| --- | --- | --- |
+| `NullableString` (non-nullable struct) | required | impossible — `VO1031` warns |
+| `NullableString?` | nullable | both CLR `null` and `NullableString.Null()` |
+| `NonNullableString?` | nullable | absence only (two-scalar pattern) |
+
+`HasValue` is generated for a nullable scalar and for any reference-backed scalar, so
+`dto.Email.HasValue` is the non-validating check.
+
+EF Core cannot mark a non-nullable struct property optional (`CannotBeNullable`), so a nullable scalar
+on the non-nullable shape stays a required column. Declare the entity property as `T?`, or keep a
+non-nullable scalar on the entity and map the nullable DTO scalar at the boundary:
+
+```csharp
+[Scalar<string>(Nullable = true)]          public readonly partial record struct NullableString { }
+[Scalar<string>(Trim = true)]              public readonly partial record struct NonNullableString { }
+
+public sealed class Customer { public NonNullableString? Email { get; set; } }   // nullable column
+public sealed record CustomerDto { public NullableString Email { get; init; } }  // Null() = no value
+
+static CustomerDto ToDto(Customer entity) => new()
+{
+    Email = entity.Email is null
+        ? NullableString.Null()
+        : NullableString.Hydrate(entity.Email.Value.Value),
+};
+
+static Customer ToEntity(CustomerDto dto) => new()
+{
+    Email = dto.Email.HasValue
+        ? NonNullableString.Create(dto.Email.Value!)
+        : (NonNullableString?)null,            // see the note below
+};
+```
+
+`Hydrate` is the replay path (no re-validation); `Create` applies the non-nullable scalar's
+normalization and validation. **For a reference-backed scalar the null branch needs the explicit cast.**
+A bare `null` is convertible to `NonNullableString` through the implicit creation operator, so the
+conditional would produce a populated scalar whose `Value` is null instead of a null `Nullable<T>`. A
+value-type-backed scalar (`int`, `DateTimeOffset`) does not have that problem.
+
+`Null()` on a `T?` property is a null provider value: it is written as SQL `NULL` and reads back as a
+CLR `null`. Consumers can also declare their own explicit conversion operators in one scalar's partial;
+the generator does not invent cross-scalar conversions.
 
 ## Querying — no `.Value`
 
@@ -266,7 +318,8 @@ and later.
 
 `VO1009` (EF option set without an EF reference), `VO1010` (underlying type not mappable), `VO1017`
 (JSON mapping without the JSON converter), `VO1018` (a complex member cannot be converted), `VO1019`
-(complex type on EF Core 7 or earlier) and `VO1021` (value generation unavailable) are the EF rules.
+(complex type on EF Core 7 or earlier), `VO1021` (value generation unavailable) and `VO1031` (a
+nullable scalar on a non-nullable mapped property) are the EF rules.
 The `purview-value-objects-diagnostics` skill carries the full `VO1xxx` catalogue.
 
 ## Where to look in the repository

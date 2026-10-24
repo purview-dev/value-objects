@@ -30,6 +30,10 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.StringNormalizeRequiresValueObject,
 			DiagnosticLibrary.AssemblyDefaultIsRedundant,
 			DiagnosticLibrary.ValueObjectOptionIsRedundant,
+			DiagnosticLibrary.ScalarNullabilityDeclaredTwice,
+			DiagnosticLibrary.ScalarNullabilityContradictsProperty,
+			DiagnosticLibrary.ScalarPropertyTypeMismatch,
+			DiagnosticLibrary.NullableScalarPropertyShouldBeNullable,
 		];
 
 	public override void Initialize(AnalysisContext context)
@@ -64,6 +68,10 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 					ValidateAssemblyDefaults(context, defaultsAttribute)
 				);
 			}
+
+			compilationContext.RegisterCompilationEndAction(context =>
+				ValidateNullableScalarProperties(context, scalarAttribute, genericScalarAttribute, valueObjectAttribute)
+			);
 
 			compilationContext.RegisterSymbolAction(
 				context => ValidateValueObject(context, scalarAttribute, genericScalarAttribute, valueObjectAttribute),
@@ -137,6 +145,205 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 		}
 
 		ValidateTypeDefaults(context, typeSymbol, scalarAttribute, genericScalarAttribute, valueObjectAttribute);
+	}
+
+	/// <summary>
+	/// Reports a nullable scalar used as a non-nullable property on a type Entity Framework Core maps.
+	/// Entity Framework Core derives a column's nullability from the CLR property type, and it refuses to
+	/// mark a non-nullable struct property optional (<c>CannotBeNullable</c>), so a nullable scalar
+	/// declared without <c>?</c> is a required column that cannot persist its own <c>Null()</c> value.
+	/// </summary>
+	/// <remarks>
+	/// Scoped to types the compilation can see being mapped — entity types discovered from
+	/// <c>DbSet&lt;T&gt;</c> properties and <c>IEntityTypeConfiguration&lt;T&gt;</c> implementations, plus
+	/// complex-type-mapped <c>[ValueObject]</c> types (whose members become columns). Plain DTOs are
+	/// deliberately excluded: a DTO property of a nullable scalar is the supported way to represent the
+	/// scalar's <c>Null()</c> value. Entity types configured only in a referenced assembly, or built
+	/// entirely at runtime, are not discovered; the rule stays a warning for that reason.
+	/// </remarks>
+	static void ValidateNullableScalarProperties(
+		CompilationAnalysisContext context,
+		INamedTypeSymbol? scalarAttribute,
+		INamedTypeSymbol? genericScalarAttribute,
+		INamedTypeSymbol? valueObjectAttribute
+	)
+	{
+		if (scalarAttribute is null && genericScalarAttribute is null)
+			return;
+
+		var compilation = context.Compilation;
+		if (!ValueObjectSymbolInspector.IsEFReferenced(compilation))
+			return;
+
+		var notMappedAttribute = compilation.GetTypeByMetadataName(
+			"System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute"
+		);
+		var keyAttribute = compilation.GetTypeByMetadataName("System.ComponentModel.DataAnnotations.KeyAttribute");
+
+		var mappedTypes = CollectMappedTypes(context, valueObjectAttribute);
+
+		HashSet<IPropertySymbol> reported = new(SymbolEqualityComparer.Default);
+		foreach (var type in mappedTypes)
+		{
+			context.CancellationToken.ThrowIfCancellationRequested();
+
+			for (var current = type; current is not null; current = current.BaseType)
+			{
+				foreach (var property in current.GetMembers().OfType<IPropertySymbol>())
+				{
+					if (!reported.Add(property))
+						continue;
+
+					if (property.IsStatic || property.IsIndexer)
+						continue;
+
+					if (notMappedAttribute is not null && HasAttribute(property.GetAttributes(), notMappedAttribute))
+						continue;
+
+					if (IsKeyProperty(property, type, keyAttribute))
+						continue;
+
+					if (property.Type is not INamedTypeSymbol { TypeKind: TypeKind.Struct } propertyType)
+						continue;
+
+					if (propertyType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+						continue;
+
+					if (
+						!ValueObjectSymbolInspector.TryGetScalarIsNullable(
+							propertyType,
+							compilation,
+							out var isNullable
+						) || !isNullable
+					)
+						continue;
+
+					var location = property.Locations.FirstOrDefault(static location => location.IsInSource);
+					if (location is null)
+						continue;
+
+					context.ReportDiagnostic(
+						Diagnostic.Create(
+							DiagnosticLibrary.NullableScalarPropertyShouldBeNullable,
+							location,
+							property.ContainingType.Name,
+							property.Name,
+							ValueObjectSymbolInspector.ToTypeName(property.Type)
+						)
+					);
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// True when the property is a key: explicitly with <c>[Key]</c>, or by the <c>Id</c> /
+	/// <c>{EntityTypeName}Id</c> convention Entity Framework Core uses. A key must be non-nullable, so the
+	/// "declare the property as nullable" advice would be wrong for it.
+	/// </summary>
+	static bool IsKeyProperty(IPropertySymbol property, INamedTypeSymbol entityType, INamedTypeSymbol? keyAttribute) =>
+		(keyAttribute is not null && HasAttribute(property.GetAttributes(), keyAttribute))
+		|| string.Equals(property.Name, "Id", StringComparison.Ordinal)
+		|| string.Equals(property.Name, entityType.Name + "Id", StringComparison.Ordinal);
+
+	static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
+	{
+		for (var current = type.BaseType; current is not null; current = current.BaseType)
+		{
+			if (SymbolEqualityComparer.Default.Equals(current, baseType))
+				return true;
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// The types whose members Entity Framework Core maps as columns in this compilation: entities
+	/// discovered from <c>DbSet&lt;T&gt;</c> properties and <c>IEntityTypeConfiguration&lt;T&gt;</c>
+	/// implementations, plus <c>[ValueObject]</c> types mapped as complex types. A JSON-mapped complex
+	/// type is a single column, so its members' nullability does not affect the schema; complex-type
+	/// mapping needs Entity Framework Core 8 and later. The two scans are combined so the compilation's
+	/// source types are walked once.
+	/// </summary>
+	static HashSet<INamedTypeSymbol> CollectMappedTypes(
+		CompilationAnalysisContext context,
+		INamedTypeSymbol? valueObjectAttribute
+	)
+	{
+		var compilation = context.Compilation;
+		var cancellationToken = context.CancellationToken;
+		HashSet<INamedTypeSymbol> mappedTypes = new(SymbolEqualityComparer.Default);
+
+		var dbContext = compilation.GetTypeByMetadataName("Microsoft.EntityFrameworkCore.DbContext");
+		var dbSet = compilation.GetTypeByMetadataName("Microsoft.EntityFrameworkCore.DbSet`1");
+		var entityConfiguration = compilation.GetTypeByMetadataName(
+			"Microsoft.EntityFrameworkCore.IEntityTypeConfiguration`1"
+		);
+		var complexMappingEnabled =
+			valueObjectAttribute is not null && ValueObjectSymbolInspector.IsEF8Referenced(compilation);
+
+		foreach (
+			var type in compilation
+				.GetSymbolsWithName(static _ => true, SymbolFilter.Type, cancellationToken)
+				.OfType<INamedTypeSymbol>()
+		)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			// Entity discovered from the context's DbSet<T> properties.
+			if (dbContext is not null && dbSet is not null && DerivesFrom(type, dbContext))
+			{
+				foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
+				{
+					if (
+						property.Type is INamedTypeSymbol { IsGenericType: true } propertyType
+						&& SymbolEqualityComparer.Default.Equals(propertyType.OriginalDefinition, dbSet)
+						&& propertyType.TypeArguments.Length == 1
+						&& propertyType.TypeArguments[0] is INamedTypeSymbol entityType
+					)
+						mappedTypes.Add(entityType);
+				}
+			}
+
+			// Entity discovered from an IEntityTypeConfiguration<T> implementation.
+			if (entityConfiguration is not null)
+			{
+				foreach (var @interface in type.AllInterfaces)
+				{
+					if (
+						@interface is INamedTypeSymbol { IsGenericType: true } configured
+						&& SymbolEqualityComparer.Default.Equals(configured.OriginalDefinition, entityConfiguration)
+						&& configured.TypeArguments.Length == 1
+						&& configured.TypeArguments[0] is INamedTypeSymbol entityType
+					)
+						mappedTypes.Add(entityType);
+				}
+			}
+
+			if (!complexMappingEnabled)
+				continue;
+
+			// A complex-type-mapped [ValueObject]: its members become columns.
+			var attributes = type.GetAttributes();
+			if (!HasAttribute(attributes, valueObjectAttribute!))
+				continue;
+
+			var options = ValueObjectDefaultsHelper.Apply(
+				ValueObjectAttributeData.FromAttributeData(attributes),
+				ValueObjectDefaultsHelper.ResolveAssemblyDefaults(type.ContainingAssembly.GetAttributes()),
+				attributes
+			);
+
+			if (options.EFMapping is not null && ValueObjectSymbolInspector.IsEFMappingNone(options.EFMapping))
+				continue;
+
+			if (options.EFMapping is not null && ValueObjectSymbolInspector.IsEFMappingJson(options.EFMapping))
+				continue;
+
+			mappedTypes.Add(type);
+		}
+
+		return mappedTypes;
 	}
 
 	/// <summary>
@@ -462,4 +669,10 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 				// definition resolved from metadata is the open generic (ScalarAttribute<T>).
 				|| SymbolEqualityComparer.Default.Equals(attribute.AttributeClass?.OriginalDefinition, attributeType)
 			);
+
+	static bool HasAttribute(ImmutableArray<AttributeData> attributes, INamedTypeSymbol attributeType) =>
+		attributes.Any(attribute =>
+			SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType)
+			|| SymbolEqualityComparer.Default.Equals(attribute.AttributeClass?.OriginalDefinition, attributeType)
+		);
 }

@@ -85,3 +85,5 @@ Console.WriteLine($"Orders over $20 -> {expensive.Count}");
 var emailToMatch = EmailAddress.Create("demo@example.com");
 var matched = await db.Orders.Where(o => o.CustomerEmail == emailToMatch).ToListAsync();
 Console.WriteLine($"Orders for {emailToMatch.Value} -> {matched.Count}");
+
+await NullableScalarDemo.RunAsync(db);

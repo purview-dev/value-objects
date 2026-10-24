@@ -106,10 +106,9 @@ static class ScalarValueObjectModelBuilder
 		var scalarTypeIsNullableReference =
 			scalarType.IsReferenceType && scalarType.NullableAnnotation == NullableAnnotation.Annotated;
 		// Whether null is a valid domain value: an annotated reference type (`string?`) or a nullable value
-		// type (`int?`). Distinct from ScalarCanBeNull, which is also true for a non-nullable reference type.
-		var scalarValueIsNullable =
-			scalarType.NullableAnnotation == NullableAnnotation.Annotated
-			|| scalarType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+		// type (`int?`). This is the single nullability flag every generated member, the Entity Framework
+		// mapping and the diagnostics use.
+		var isNullable = ValueObjectSymbolInspector.IsNullableScalarType(scalarType);
 		var scalarIsReferenceType = scalarType.IsReferenceType;
 		var isReferenceType = typeSymbol.TypeKind == TypeKind.Class;
 		var createExists = ValueObjectSymbolInspector.HasStaticFactory(typeSymbol, "Create", [scalarType]);
@@ -273,7 +272,7 @@ static class ScalarValueObjectModelBuilder
 			generateScalarProperty,
 			scalarCanBeNull,
 			scalarTypeIsNullableReference,
-			scalarValueIsNullable,
+			isNullable,
 			scalarIsReferenceType,
 			isReferenceType,
 			typeSymbol.IsRecord,
@@ -320,6 +319,7 @@ static class ScalarValueObjectModelBuilder
 			ValueObjectSymbolInspector.ImplementsSelfEquatable(typeSymbol),
 			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "Empty"),
 			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "Null"),
+			ValueObjectSymbolInspector.HasMemberWithName(typeSymbol, "HasValue"),
 			ValueObjectSymbolInspector.GetEmptyValueExpression(scalarType),
 			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: true),
 			ValueObjectSymbolInspector.HasConversionOperator(typeSymbol, scalarType, fromPrimitive: false),
@@ -512,9 +512,13 @@ static class ScalarValueObjectModelBuilder
 	/// <remarks>
 	/// The manual <c>[Scalar]</c> form requires the author to declare the named property (<c>VO1004</c>);
 	/// the automatic <c>[Scalar&lt;T&gt;]</c> form derives the type from the attribute argument and forbids
-	/// a declared member with that name (<c>VO1022</c>). <c>Nullable = true</c> only affects the automatic
-	/// form: it annotates a reference type or wraps a non-nullable value type in <see cref="Nullable{T}"/>,
-	/// so <c>[Scalar&lt;DateTimeOffset&gt;(Nullable = true)]</c> emits the same property as the manual form
+	/// a declared member with that name. A declared <c>Value</c> is classified specifically when it also
+	/// asserts nullability — <c>VO1028</c> for <c>Nullable = true</c>, <c>VO1029</c> for an explicit
+	/// <c>Nullable = false</c> against a nullable declaration, and <c>VO1030</c> for a mismatched type —
+	/// and is <c>VO1022</c> otherwise. Every case is blocking, so no partial is emitted for a type that
+	/// would produce CS0102. <c>Nullable = true</c> only affects the automatic form: it annotates a
+	/// reference type or wraps a non-nullable value type in <see cref="Nullable{T}"/>, so
+	/// <c>[Scalar&lt;DateTimeOffset&gt;(Nullable = true)]</c> emits the same property as the manual form
 	/// declaring a <c>DateTimeOffset?</c> member.
 	/// </remarks>
 	static bool TryResolveScalarTarget(
@@ -537,11 +541,8 @@ static class ScalarValueObjectModelBuilder
 
 		if (ScalarAttributeParser.GetValueType(scalarAttribute) is { } declaredType)
 		{
-			scalarType = ApplyNullableOption(
-				declaredType,
-				ScalarAttributeParser.GetNullable(scalarAttribute),
-				compilation
-			);
+			var nullableOptionSpecified = ScalarAttributeParser.TryGetNullable(scalarAttribute, out var nullableOption);
+			scalarType = ValueObjectSymbolInspector.ApplyNullableOption(declaredType, nullableOption, compilation);
 			generateScalarProperty = true;
 
 			// The generator owns the named property, so a declared member with that name (or with the
@@ -555,11 +556,71 @@ static class ScalarValueObjectModelBuilder
 
 			if (conflictingName is not null)
 			{
+				var conflictLocation = GetDeclaredMemberLocation(typeSymbol, conflictingName) ?? location;
+
+				// A declared `Value` on the automatic form is a second source of nullability, so it is
+				// classified specifically: the attribute's explicit option, a contradictory nullable
+				// declaration, or a type that does not match the underlying type. Everything else stays
+				// the generic duplicate-declaration error (VO1022).
+				if (
+					string.Equals(conflictingName, "Value", StringComparison.Ordinal)
+					&& FindDeclaredProperty(typeSymbol, conflictingName) is { } declaredProperty
+				)
+				{
+					if (nullableOptionSpecified && nullableOption)
+					{
+						diagnostics.Add(
+							ReportableDiagnostic.Create(
+								DiagnosticLibrary.ScalarNullabilityDeclaredTwice,
+								isBlocking: true,
+								conflictLocation,
+								typeSymbol.Name,
+								conflictingName
+							)
+						);
+						return false;
+					}
+
+					if (
+						nullableOptionSpecified
+						&& !nullableOption
+						&& ValueObjectSymbolInspector.IsNullableScalarType(declaredProperty.Type)
+					)
+					{
+						diagnostics.Add(
+							ReportableDiagnostic.Create(
+								DiagnosticLibrary.ScalarNullabilityContradictsProperty,
+								isBlocking: true,
+								conflictLocation,
+								typeSymbol.Name,
+								conflictingName
+							)
+						);
+						return false;
+					}
+
+					if (!SymbolEqualityComparer.Default.Equals(scalarType, declaredProperty.Type))
+					{
+						diagnostics.Add(
+							ReportableDiagnostic.Create(
+								DiagnosticLibrary.ScalarPropertyTypeMismatch,
+								isBlocking: true,
+								conflictLocation,
+								typeSymbol.Name,
+								conflictingName,
+								ValueObjectSymbolInspector.ToTypeName(declaredProperty.Type),
+								ValueObjectSymbolInspector.ToTypeName(scalarType)
+							)
+						);
+						return false;
+					}
+				}
+
 				diagnostics.Add(
 					ReportableDiagnostic.Create(
 						DiagnosticLibrary.ScalarPropertyIsGenerated,
 						isBlocking: true,
-						GetDeclaredMemberLocation(typeSymbol, conflictingName) ?? location,
+						conflictLocation,
 						typeSymbol.Name,
 						conflictingName
 					)
@@ -595,34 +656,6 @@ static class ScalarValueObjectModelBuilder
 	}
 
 	/// <summary>
-	/// Applies <c>Nullable = true</c> to the automatic form's declared value type. A reference type gains
-	/// the nullable annotation; a non-nullable value type is wrapped in <see cref="Nullable{T}"/>, which is
-	/// how nullability is represented for a value type. An already-nullable value type is left alone so
-	/// <c>[Scalar&lt;int?&gt;(Nullable = true)]</c> does not double-wrap, and a ref-like struct is left alone
-	/// because <see cref="Nullable{T}"/> cannot be constructed over a <c>ref struct</c>.
-	/// </summary>
-	static ITypeSymbol ApplyNullableOption(ITypeSymbol declaredType, bool nullable, Compilation compilation)
-	{
-		if (!nullable)
-			return declaredType;
-
-		if (declaredType.IsReferenceType)
-			return declaredType.WithNullableAnnotation(NullableAnnotation.Annotated);
-
-		if (
-			!declaredType.IsValueType
-			|| declaredType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
-			|| declaredType is INamedTypeSymbol { IsRefLikeType: true }
-		)
-		{
-			return declaredType;
-		}
-
-		// The type is a non-nullable value type, so wrap it in Nullable<T> to represent nullability.
-		return compilation.GetSpecialType(SpecialType.System_Nullable_T).Construct(declaredType);
-	}
-
-	/// <summary>
 	/// True when the type already declares, in user-authored source, a property or field with the given
 	/// name. Used by the automatic form, where the generator owns the named property: a declared member
 	/// would be a duplicate (CS0102) in the merged partial, so it is reported as a blocking diagnostic
@@ -635,6 +668,19 @@ static class ScalarValueObjectModelBuilder
 			.Where(static member => member is IPropertySymbol or IFieldSymbol)
 			.Any(static member =>
 				member.DeclaringSyntaxReferences.Any(static reference => !IsGeneratedSyntaxTree(reference.SyntaxTree))
+			);
+
+	/// <summary>
+	/// The user-authored property with the given name, or <see langword="null"/> when the member is a
+	/// field, lives in generated code, or does not exist. Used to classify a declared <c>Value</c> on the
+	/// automatic form (VO1028-VO1030).
+	/// </summary>
+	static IPropertySymbol? FindDeclaredProperty(INamedTypeSymbol typeSymbol, string name) =>
+		typeSymbol
+			.GetMembers(name)
+			.OfType<IPropertySymbol>()
+			.FirstOrDefault(static property =>
+				property.DeclaringSyntaxReferences.Any(static reference => !IsGeneratedSyntaxTree(reference.SyntaxTree))
 			);
 
 	static Location? GetDeclaredMemberLocation(INamedTypeSymbol typeSymbol, string name) =>

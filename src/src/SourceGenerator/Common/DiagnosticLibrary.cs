@@ -242,4 +242,45 @@ public static class DiagnosticLibrary
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true
 	);
+
+	/// <summary>VO1028: Nullability is declared by both the attribute and a declared property </summary>
+	public static readonly DiagnosticDescriptor ScalarNullabilityDeclaredTwice = new(
+		id: "VO1028",
+		title: "Scalar nullability is declared twice",
+		messageFormat: "Value object '{0}' uses [Scalar<T>(Nullable = true)], which declares property '{1}', but '{1}' is also declared explicitly; remove the '{1}' declaration, or remove 'Nullable = true'",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1029: Nullable = false contradicts a nullable declared property </summary>
+	public static readonly DiagnosticDescriptor ScalarNullabilityContradictsProperty = new(
+		id: "VO1029",
+		title: "Scalar nullability contradicts the declared property",
+		messageFormat: "Value object '{0}' sets 'Nullable = false' on [Scalar<T>] but declares nullable property '{1}'; remove the '{1}' declaration, or use [Scalar] (without a type argument) to own the property yourself",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1030: A declared property does not match the automatic form's scalar type </summary>
+	public static readonly DiagnosticDescriptor ScalarPropertyTypeMismatch = new(
+		id: "VO1030",
+		title: "Declared scalar property has the wrong type",
+		messageFormat: "Value object '{0}' declares property '{1}' of type '{2}', which does not match the [Scalar<T>] underlying type '{3}'; remove the declaration, or use [Scalar] (without a type argument) to own the property yourself",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1031: A nullable scalar is used as a non-nullable mapped property </summary>
+	public static readonly DiagnosticDescriptor NullableScalarPropertyShouldBeNullable = new(
+		id: "VO1031",
+		title: "Nullable scalar should be declared as a nullable property",
+		messageFormat: "Property '{0}.{1}' is declared as non-nullable '{2}', but '{2}' can hold null; declare it as '{2}?' when null is a valid value, or map a non-nullable scalar through a nullable property. Entity Framework Core maps a non-nullable struct property to a required column and cannot persist '{2}.Null()'.",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		customTags: [WellKnownDiagnosticTags.CompilationEnd]
+	);
 }

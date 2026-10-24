@@ -280,7 +280,8 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			EFProviderTypeName: null,
 			EFHydrateCastTypeName: null,
 			HasEFMembers: true,
-			GenerateEFValueGenerator: model.EFValueGeneratorEnabled
+			GenerateEFValueGenerator: model.EFValueGeneratorEnabled,
+			IsNullable: model.IsNullable
 		);
 	}
 

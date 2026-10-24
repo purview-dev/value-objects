@@ -22,6 +22,9 @@ These govern the declaration shape a value object must have for the generator to
 | `VO1008` | Error | `[Scalar]` and `[ValueObject]` are both applied to the same type. | Pick one. A scalar wraps a single primitive; a value object composes members. |
 | `VO1016` | Warning | A value object member is mutable. | Make the member `readonly`/`init`-only. A mutable member breaks immutability and makes equality unstable. |
 | `VO1022` | Error | A `[Scalar<T>]` type declares a member with the name of the property the generator owns. | Remove the declaration, or use `[Scalar]` (without a type argument) to own the property yourself. |
+| `VO1028` | Error | `[Scalar<T>(Nullable = true)]` is combined with a declared `Value` property, so nullability has two sources. | Remove the declared `Value`; convert to the manual `[Scalar]` form; or remove `Nullable = true`. The code fix offers all three. |
+| `VO1029` | Error | Explicit `Nullable = false` contradicts a declared nullable `Value` property. | Remove the declared `Value`, or use the manual `[Scalar]` form and own the property. |
+| `VO1030` | Error | The automatic form's declared `Value` has a type that does not match the scalar's underlying type. | Remove the declaration, or use the manual `[Scalar]` form with a matching type. |
 
 ## ZodSharp validation rules
 
@@ -61,6 +64,13 @@ See [Entity Framework integration](Entity-Framework.md) for the mapping model.
 | `VO1018` | Warning | EF complex mapping cannot convert one of the members. | Simplify the member, or map it explicitly. |
 | `VO1019` | Warning | EF complex-type mapping is requested but the project resolves to EF Core 7 or earlier. | Target EF Core 8+, or use a different `EntityFrameworkMapping`. |
 | `VO1021` | Warning | EF key value generation is unavailable for the value object. | Assign keys explicitly instead of relying on store generation. |
+| `VO1031` | Warning | A nullable scalar is used as a non-nullable property on an entity or complex-type-mapped `[ValueObject]`. EF Core maps that to a required column and cannot persist the scalar's `Null()`. | Declare the property as `T?`, or use a non-nullable scalar behind a nullable property. See [Entity Framework](Entity-Framework.md#nullable-scalars-and-nullable-columns). |
+
+`VO1031` is scoped to types the compilation can see being mapped (a `DbSet<T>` on a `DbContext`, an
+`IEntityTypeConfiguration<T>` target, or a complex-type-mapped `[ValueObject]`). Plain DTOs are not
+reported: a DTO property of a nullable scalar is the supported way to represent the scalar's `Null()`
+value. Entity types configured only in a referenced assembly, or built entirely at runtime, are not
+discovered; the rule stays a warning and can be suppressed when the non-nullable shape is deliberate.
 
 ## Retired identifiers
 

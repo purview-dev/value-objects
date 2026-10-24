@@ -27,6 +27,7 @@ static partial class ScalarValueObjectEmitter
 		EmitScalarProperty(writer, model);
 		EmitHookDeclarations(writer, model);
 		EmitScalarInterfaceValue(writer, model);
+		EmitHasValue(writer, model);
 		EmitFactories(writer, model);
 		EmitEmpty(writer, model);
 		EmitNullFactory(writer, model);
@@ -238,9 +239,7 @@ static partial class ScalarValueObjectEmitter
 	/// cast to the scalar type to select the primitive overload unambiguously.
 	/// </summary>
 	internal static string ScalarPatternArgument(ScalarValueObjectModel model) =>
-		model.ScalarValueIsNullable && !model.ScalarIsReferenceType
-			? $"({model.ScalarTypeName})primitive"
-			: "primitive";
+		model.IsNullable && !model.ScalarIsReferenceType ? $"({model.ScalarTypeName})primitive" : "primitive";
 
 	/// <summary>
 	/// The parameter type for the primitive comparison overload. The BCL comparison interfaces annotate the
@@ -305,11 +304,36 @@ static partial class ScalarValueObjectEmitter
 		);
 	}
 
+	/// <summary>
+	/// Emits <c>HasValue</c> for a scalar whose underlying value can be null: a nullable scalar
+	/// (<c>Nullable = true</c>, a <c>T?</c> value type) or any reference-backed scalar, whose
+	/// <c>Empty</c>/<c>Hydrate(null!)</c> value is null even when the domain contract says non-null.
+	/// It never validates or normalizes, so it is the cheap way to ask "is there a value?" without
+	/// constructing one through <c>Create</c>.
+	/// </summary>
+	static void EmitHasValue(CodeWriter writer, ScalarValueObjectModel model)
+	{
+		if ((!model.IsNullable && !model.ScalarIsReferenceType) || model.HasValueExists)
+			return;
+
+		writer
+			.XmlSummary(
+				"Gets whether the underlying value is not null. Never runs validation or normalization;",
+				"a null value is the unknown value (see Null() and Hydrate(null))."
+			)
+			.Property(
+				new("HasValue", PurviewTypeLibrary.System.Boolean, TypeDeclarationAccessibility.Public)
+				{
+					ExpressionBody = $"{model.ScalarPropertyName} is not null",
+				}
+			);
+	}
+
 	static void EmitNullFactory(CodeWriter writer, ScalarValueObjectModel model)
 	{
 		// Only a nullable scalar has a "null" domain value; a non-nullable value type's default
 		// (DateTimeOffset.MinValue, 0, ...) is a real value, not an unknown one.
-		if (!model.ScalarValueIsNullable || model.NullFactoryExists)
+		if (!model.IsNullable || model.NullFactoryExists)
 			return;
 
 		writer

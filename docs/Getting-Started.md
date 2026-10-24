@@ -42,7 +42,8 @@ The generator adds:
 - `EmailAddress.Hydrate(string)` – constructs without re-validating (for persisted data).
 - `EmailAddress.TryCreate(string, out EmailAddress)` – returns `false` instead of throwing.
 - `EmailAddress.Empty` – a default instance.
-- Equality, comparison, `CompareTo`, `ToString`, implicit conversions, and a JSON converter.
+- Equality, comparison, `CompareTo`, `ToString`, implicit conversions (explicit extraction for nullable
+  scalars), and a JSON converter.
 - The underlying value's standard interfaces (see [Formatting](#formatting) and [Standard interfaces](#standard-interfaces)) when it implements them.
 
 ```csharp
@@ -73,7 +74,8 @@ public readonly partial record struct EmailAddress { }
 
 `[Scalar]` is the **manual** form: you declare the property. `[Scalar<T>]` and `[Scalar(typeof(T))]` are
 the **automatic** form: the generator declares it. They are mutually exclusive for a given type —
-declaring the property with an automatic form is an error (`VO1022`).
+declaring the property with an automatic form is an error (`VO1022`, or the more specific
+`VO1028`–`VO1030` when the declaration also asserts nullability).
 
 ```csharp
 // Automatic: the generator emits `public Guid Value { get; init; }`.
@@ -126,9 +128,68 @@ A nullable scalar also exposes `Null()`, which creates the “unknown” value w
 `Nickname.Null()` is equivalent to `Nickname.Hydrate(null)`. Use `Create(null)` instead when `null` is
 input that should go through normalization and validation.
 
+A nullable scalar — and any reference-backed scalar, whose `Empty`/`Hydrate(null!)` value is null even
+when the domain contract says non-null — exposes `HasValue`, which reports whether the underlying value
+is null without validating or normalizing: `Nickname.Null().HasValue` is `false`,
+`Nickname.Create("x").HasValue` is `true`, and `Nickname.Empty.HasValue` is also `false`. A
+non-nullable value-type scalar (for example `[Scalar<Guid>]`) has no `HasValue`; it is always present.
+
 The manual form is the more explicit option when you prefer the type and nullability to appear in a
-property declaration. Both forms are supported, and neither is reported as a diagnostic. Other properties
-are allowed in either form; only the scalar property (and the interface's `Value` forwarding) is reserved.
+property declaration. Both forms are supported on their own; they cannot be combined. Declaring the
+generator-owned property is reported as an error, with a specific rule for each nullability conflict:
+
+| Rule | When |
+| --- | --- |
+| `VO1022` | An automatic form declares a member with the generator-owned name (the plain duplicate). |
+| `VO1028` | `Nullable = true` is combined with a declared `Value`: nullability has two sources. |
+| `VO1029` | `Nullable = false` is explicit but the declared `Value` is nullable. |
+| `VO1030` | The declared `Value` type does not match the scalar's underlying type. |
+
+`VO1028` has a code fix offering three repairs: remove the declared property; convert the attribute to
+the manual `[Scalar]` form; or remove only `Nullable = true`. Other properties are allowed in either
+form; only the scalar property (and the interface's `Value` forwarding) is reserved.
+
+When a nullable scalar is used as an Entity Framework Core property, declare the property as `T?`; see
+[Entity Framework](Entity-Framework.md#nullable-scalars-and-nullable-columns). Using it as a
+non-nullable entity property is reported as `VO1031`.
+
+### Comparing with `null` and the underlying value
+
+Equality comparisons work against the underlying value and against `null`, in either operand order:
+
+```csharp
+NullableString value = NullableString.Null();
+
+_ = value == null;          // true
+_ = null == value;          // true
+_ = value != null;          // false
+
+NullableString name = NullableString.Create("value");
+_ = name == "value";        // true
+_ = "value" == name;        // true
+_ = name == null;           // false
+```
+
+`default(T)`, `Empty`, `Null()`, and `Create(null)` all compare equal to `null`, symmetrically. The
+comparison reads the underlying value directly — it never calls `Create`, so it neither normalizes nor
+validates.
+
+`is null` does not work for a non-nullable struct (CS0037); use `== null`/`!= null`. A **nullable** or
+reference-backed scalar also exposes `HasValue`, which inspects the underlying value without constructing
+one (and therefore without normalizing or validating), and is the cheap null check. Extraction is
+**explicit for a nullable scalar**, so write `.Value` or a cast; a **non-nullable** scalar keeps the
+implicit conversion, so `string raw = email;` continues to work:
+
+```csharp
+string rawNullable = (string)name;   // or name.Value
+string rawRequired = email;          // implicit for a non-nullable scalar
+```
+
+The conversion **from** the underlying value remains implicit for both, so
+`NullableString value = "value";` still creates through `Create`. A non-nullable scalar does not
+support `== null`: a value-type scalar has no conversion from `null`, and a non-nullable
+reference-backed scalar is ambiguous between its primitive operator and the synthesized equality. Check
+`!value.HasValue` when you need to inspect the wrapped value.
 
 ### Formatting
 
@@ -271,6 +332,10 @@ Use `[ValueObjectDefaults]` to set generic defaults for the whole assembly. Ever
 
 Assembly defaults apply to every value object in the assembly; an option explicitly set on an individual
 `[Scalar]`/`[ValueObject]` attribute always overrides it.
+
+`GenerateImplicitToPrimitive` keeps its name for compatibility. It emits an explicit extraction operator
+for a nullable scalar (write `(TValue)value` or `.Value`) and an implicit one for a non-nullable scalar;
+`GenerateImplicitFromPrimitive` controls the implicit creation conversion.
 
 ### Setting defaults from MSBuild
 

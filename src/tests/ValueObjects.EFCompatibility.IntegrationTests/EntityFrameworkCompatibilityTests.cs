@@ -88,7 +88,142 @@ public sealed class EntityFrameworkCompatibilityTests
 		context.ChangeTracker.Clear();
 		var found = await context.Entities.SingleAsync(row => row.Id == generated);
 
-		await Assert.That(found.Score.Value).IsEqualTo(42);
+		await Assert.That(found.Score.GetValueOrDefault().Value).IsEqualTo(42);
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenNullableProperty_IsAnOptionalColumnWithTheGeneratedConverter()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		var property = context
+			.Model.FindEntityType(typeof(CompatibilityEntity))!
+			.FindProperty(nameof(CompatibilityEntity.Nickname))!;
+
+		// T? unwraps to T for the converter lookup; the column follows the nullable CLR type.
+		await Assert.That(property.IsNullable).IsTrue();
+		await Assert
+			.That(property.GetValueConverter()?.GetType())
+			.IsEqualTo(CompatibilityNickname.EF.Converter.GetType());
+		await Assert.That(property.GetRelationalTypeMapping().StoreType).IsEqualTo("TEXT");
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenNonNullableProperty_RemainsRequired()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		var entityType = context.Model.FindEntityType(typeof(CompatibilityEntity))!;
+		var required = entityType.FindProperty(nameof(CompatibilityEntity.RequiredNickname))!;
+		var requiredTimestamp = entityType.FindProperty(nameof(CompatibilityEntity.RecordedAt))!;
+		var requiredCount = entityType.FindProperty(nameof(CompatibilityEntity.Count))!;
+
+		// Entity Framework Core refuses to mark a non-nullable struct property optional, so a nullable
+		// scalar on the non-nullable shape stays required (VO1031 reports it at compile time).
+		await Assert.That(required.IsNullable).IsFalse();
+		await Assert
+			.That(required.GetValueConverter()?.GetType())
+			.IsEqualTo(CompatibilityNickname.EF.Converter.GetType());
+		await Assert.That(requiredTimestamp.IsNullable).IsFalse();
+		await Assert.That(requiredCount.IsNullable).IsFalse();
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenTwoScalarShape_MapsNullableColumnsWithTheNonNullableConverter()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		var entityType = context.Model.FindEntityType(typeof(CompatibilityEntity))!;
+		var preferredName = entityType.FindProperty(nameof(CompatibilityEntity.PreferredName))!;
+		var observedAt = entityType.FindProperty(nameof(CompatibilityEntity.ObservedAt))!;
+		var optionalQuantity = entityType.FindProperty(nameof(CompatibilityEntity.OptionalQuantity))!;
+
+		await Assert.That(preferredName.IsNullable).IsTrue();
+		await Assert
+			.That(preferredName.GetValueConverter()?.GetType())
+			.IsEqualTo(CompatibilityName.EF.Converter.GetType());
+		await Assert.That(observedAt.IsNullable).IsTrue();
+		await Assert
+			.That(observedAt.GetValueConverter()?.GetType())
+			.IsEqualTo(CompatibilityObservedAt.EF.Converter.GetType());
+		await Assert.That(optionalQuantity.IsNullable).IsTrue();
+		await Assert
+			.That(optionalQuantity.GetValueConverter()?.GetType())
+			.IsEqualTo(CompatibilityQuantity.EF.Converter.GetType());
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenNullableValueTypeScalar_IsAnOptionalColumn()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		var score = context
+			.Model.FindEntityType(typeof(CompatibilityEntity))!
+			.FindProperty(nameof(CompatibilityEntity.Score))!;
+
+		await Assert.That(score.IsNullable).IsTrue();
+		await Assert.That(score.GetValueConverter()?.ProviderClrType).IsEqualTo(typeof(int?));
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenExplicitIsRequired_LeavesTheExplicitConfigurationAlone()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+
+		var configured = context
+			.Model.FindEntityType(typeof(CompatibilityEntity))!
+			.FindProperty(nameof(CompatibilityEntity.MandatoryNickname))!;
+
+		// The property is a nullable scalar on a T? CLR type, so the registry would normally mark it
+		// optional. The explicit IsRequired configured in OnModelCreating must win instead.
+		await Assert.That(configured.IsNullable).IsFalse();
+	}
+
+	[Test]
+	public async Task NullableScalar_GivenNullableProperty_RoundTripsNullAndNullValueAsDatabaseNull()
+	{
+		await using var connection = await OpenConnectionAsync();
+		await using var context = CreateContext(connection);
+		await context.Database.EnsureCreatedAsync();
+
+		var withoutValue = CreateEntity("NULL");
+		withoutValue.Nickname = null;
+		withoutValue.PreferredName = null;
+		withoutValue.ObservedAt = null;
+		withoutValue.OptionalQuantity = null;
+
+		var explicitNull = CreateEntity("NULLVALUE");
+		explicitNull.Nickname = CompatibilityNickname.Null();
+		explicitNull.PreferredName = CompatibilityName.Create("  Mixed  ");
+		explicitNull.ObservedAt = CompatibilityObservedAt.Null();
+		explicitNull.OptionalQuantity = CompatibilityQuantity.Null();
+
+		context.Entities.AddRange(withoutValue, explicitNull);
+		await context.SaveChangesAsync();
+		var withoutValueId = withoutValue.Id;
+		var explicitNullId = explicitNull.Id;
+		context.ChangeTracker.Clear();
+
+		var nullRow = await context.Entities.SingleAsync(row => row.Id == withoutValueId);
+		var nullValueRow = await context.Entities.SingleAsync(row => row.Id == explicitNullId);
+
+		await Assert.That(nullRow.Nickname).IsNull();
+		await Assert.That(nullRow.PreferredName).IsNull();
+		await Assert.That(nullRow.ObservedAt).IsNull();
+		await Assert.That(nullRow.OptionalQuantity).IsNull();
+
+		// A nullable scalar's Null() is a null provider value, so a T? property reads it back as null.
+		await Assert.That(nullValueRow.Nickname).IsNull();
+		await Assert.That(nullValueRow.ObservedAt).IsNull();
+		await Assert.That(nullValueRow.OptionalQuantity).IsNull();
+
+		// The non-nullable scalar normalises through Create and the nullable property preserves absence.
+		await Assert.That(nullValueRow.PreferredName!.Value.Value).IsEqualTo("Mixed");
 	}
 
 	[Test]
@@ -239,6 +374,10 @@ public sealed class EntityFrameworkCompatibilityTests
 		{
 			Code = CompatibilityCode.Create(code),
 			Score = CompatibilityScore.Create(0),
+			RequiredNickname = CompatibilityNickname.Create("required"),
+			MandatoryNickname = CompatibilityNickname.Create("mandatory"),
+			RecordedAt = CompatibilityRecordedAt.Create(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero)),
+			Count = CompatibilityCount.Create(0),
 			Stamp = CreateStamp(),
 #if !NET8_0
 			Total = CompatibilityMoney.Create(1250.75m, CompatibilityCode.Create("GBP")),
