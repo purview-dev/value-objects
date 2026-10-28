@@ -99,6 +99,26 @@ pack *args:
     echo "Packing {{ BLUE }}{{ solution_file }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
     dotnet pack "{{ solution_file }}" --configuration "{{ build_configuration }}" --no-restore --output "{{ artifact_folder }}" {{ args }}
 
+# Prove the packed package works for real consumers: packs Purview.ValueObjects to an isolated feed, then publishes
+# and runs a Native AOT console, a Blazor WebAssembly app (trimmed and RunAOTCompilation, run in a headless browser),
+# a Blazor Server app and a net8.0 console against it, and leak-scans every output for compiler-host assemblies.
+# Needs the Native AOT toolchain, the wasm-tools workload for the WebAssembly AOT step, and Chrome or Edge for the
+# browser steps. Purview.ZodSharp/Purview.SourceGeneratorFramework versions not yet on nuget.org restore from
+# LOCAL_NUGET_FEED_PATH (or VALUEOBJECTS_DEPENDENCY_FEED). See scripts/test-packed-consumers.ps1 for the options.
+[group('Build and Test')]
+smoke-packed-consumers *args:
+    echo "Running the packed consumer gate..."
+    pwsh -NoProfile -File scripts/test-packed-consumers.ps1 {{ args }}
+
+# Prove every PackValidation ForbiddenContent rule in .config/purview-build.json rejects a package: injects a matching
+# file into scratch copies of the packed packages and runs the real purview-build validation on them. Reads artifacts/,
+# so pack first (`just pipeline-pack-validate`); `just pipeline-local-release` moves its packages to the local feed, so
+# pass -PackagesFolder <feed> after it.
+[group('Build and Test')]
+verify-pack-rules *args:
+    just ensure-pipeline-tool
+    pwsh -NoProfile -File scripts/test-pack-validation-rules.ps1 {{ args }}
+
 # -----------------------------------------------------------------------------
 # Formatting
 # -----------------------------------------------------------------------------

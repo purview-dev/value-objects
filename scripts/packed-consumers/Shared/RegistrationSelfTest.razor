@@ -1,0 +1,182 @@
+@* Shared by the Blazor consumers (copied in by scripts/test-packed-consumers.ps1). Two forms over the same model of
+   value objects - one validated by <ZodValidator>, one by <DataAnnotationsValidator> - and a self-test that runs once
+   the component is interactive and reports, in #self-test, what each validator placed where. The gate loads the page
+   in a headless browser and reads that element. *@
+@namespace PackedValueObjectsBlazor
+@using System.Text
+@using Microsoft.AspNetCore.Components.Forms
+@using ZodSharp.Blazor
+
+<h2>ZodValidator</h2>
+<EditForm EditContext="_zodContext">
+	<ZodValidator />
+
+	<label for="zod-name">Name</label>
+	<InputText id="zod-name" @bind-Value="_zodModel.Name" />
+	<ZodValidationMessage For="() => _zodModel.Name" ShowCode="true" />
+
+	<label for="zod-email">Email</label>
+	<InputScalar TScalar="EmailAddress" id="zod-email" @bind-Value="_zodModel.Email" />
+	<ZodValidationMessage For="() => _zodModel.Email" ShowCode="true" />
+
+	<label for="zod-postcode">Postcode</label>
+	<InputScalar TScalar="PostalCode" id="zod-postcode" @bind-Value="_zodModel.Postcode" />
+	<ZodValidationMessage For="() => _zodModel.Postcode" ShowCode="true" />
+
+	<ZodValidationSummary />
+	<button type="submit">Register</button>
+</EditForm>
+
+<h2>DataAnnotationsValidator</h2>
+<EditForm EditContext="_annotationsContext">
+	<DataAnnotationsValidator />
+
+	<label for="da-name">Name</label>
+	<InputText id="da-name" @bind-Value="_annotationsModel.Name" />
+	<ValidationMessage For="() => _annotationsModel.Name" />
+
+	<label for="da-email">Email</label>
+	<InputScalar TScalar="EmailAddress" id="da-email" @bind-Value="_annotationsModel.Email" />
+	<ValidationMessage For="() => _annotationsModel.Email" />
+
+	<label for="da-postcode">Postcode</label>
+	<InputScalar TScalar="PostalCode" id="da-postcode" @bind-Value="_annotationsModel.Postcode" />
+	<ValidationMessage For="() => _annotationsModel.Postcode" />
+
+	<ValidationSummary />
+	<button type="submit">Register</button>
+</EditForm>
+
+<pre id="self-test" data-result="@_result">@_report</pre>
+
+@code {
+	readonly Registration _zodModel = new();
+	readonly Registration _annotationsModel = new();
+	EditContext _zodContext = default!;
+	EditContext _annotationsContext = default!;
+	string _result = "running";
+	string _report = string.Empty;
+
+	protected override void OnInitialized()
+	{
+		_zodContext = new(_zodModel);
+		_annotationsContext = new(_annotationsModel);
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+			return;
+
+		StringBuilder report = new();
+		var failures = 0;
+		try
+		{
+			failures += await SelfTestAsync("ZodValidator", _zodContext, _zodModel, report);
+			failures += await SelfTestAsync("DataAnnotationsValidator", _annotationsContext, _annotationsModel, report);
+		}
+		catch (Exception ex)
+		{
+			failures++;
+			report.AppendLine($"FAIL the self-test threw {ex.GetType().Name}: {ex.Message}");
+		}
+
+		_result = failures == 0 ? "passed" : "failed";
+		_report = report.ToString();
+		StateHasChanged();
+	}
+
+	static async Task<int> SelfTestAsync(string name, EditContext context, Registration model, StringBuilder report)
+	{
+		var failures = 0;
+		void Check(bool condition, string description)
+		{
+			report.AppendLine($"{(condition ? "pass" : "FAIL")} {name}: {description}");
+			if (!condition)
+				failures++;
+		}
+
+		// A gap in a dependency, not in Purview.ValueObjects: reported as KNOWN and surfaced by the gate as a warning
+		// rather than a failure. Where the gap does not occur the line is an ordinary pass.
+		void Known(bool condition, string description, string issue) =>
+			report.AppendLine(condition ? $"pass {name}: {description}" : $"KNOWN {name}: {description} - {issue}");
+
+		const string DroppedMessages =
+			"Purview.ZodSharp 3.0.0-prerelease.1 fails the form but drops the message of an error inside a struct member "
+			+ "(Email.Value): no field and no summary shows it. <ZodValidator> keeps it on the model only when its "
+			+ "reflection fallback is trimmed away (WebAssembly)";
+		const string FieldPlacement =
+			"Purview.ZodSharp 3.0.0-prerelease.1 cannot place an error inside a struct member (Email.Value) on a "
+			+ "FieldIdentifier of the struct, and does not fall back to the owning member (Email)";
+
+		string[] Messages(string field) => [.. context.GetValidationMessages(new FieldIdentifier(model, field))];
+
+		// Hydrate keeps what was "typed" without validating, exactly as InputScalar does.
+		model.Name = "x";
+		model.Email = EmailAddress.Hydrate("not-an-email");
+		model.Postcode = PostalCode.Hydrate("abc");
+		model.Plan = PlanId.Hydrate(Guid.Empty);
+
+		var invalid = await context.ValidateAsync();
+		string[] all = [.. context.GetValidationMessages()];
+		report.AppendLine($"{name}: invalid form -> valid={invalid}, {all.Length} message(s)");
+		foreach (var message in all)
+			report.AppendLine($"    * {message}");
+		foreach (var field in new[] { "Name", "Email", "Postcode", "Plan" })
+		{
+			foreach (var message in Messages(field))
+				report.AppendLine($"    {field}: {message}");
+		}
+
+		Check(!invalid, "an invalid registration fails validation");
+		Check(Messages("Name").Length == 1, "the form's own rule is placed on Name");
+		Known(
+			all.Any(static m => m.Contains("email", StringComparison.OrdinalIgnoreCase)),
+			"EmailAddress's own schema reports a visible message",
+			DroppedMessages
+		);
+		Known(
+			all.Any(static m => m.Contains("^[0-9]{5}$", StringComparison.Ordinal)),
+			"PostalCode's own schema reports a visible message",
+			DroppedMessages
+		);
+		if (TypeLevelRules.Enabled)
+		{
+			// A type-level rule's error is located at the member itself (Plan), the one value object error a
+			// FieldIdentifier of the model can hold.
+			Known(
+				Messages("Plan").Contains("Choose a plan."),
+				"PlanId's type-level [NonSentinel] rule is placed on Plan",
+				DroppedMessages
+			);
+		}
+
+		Known(
+			Messages("Email").Length > 0 && Messages("Postcode").Length > 0,
+			"a value object's own errors are placed on the member's field",
+			FieldPlacement
+		);
+
+		// Only the value objects are invalid: the form must still be rejected, or invalid data is submitted.
+		model.Name = "Ada Lovelace";
+		model.Plan = PlanId.Create(Guid.NewGuid());
+		var onlyValueObjectsInvalid = await context.ValidateAsync();
+		string[] valueObjectMessages = [.. context.GetValidationMessages()];
+		report.AppendLine(
+			$"{name}: only value objects invalid -> valid={onlyValueObjectsInvalid}, {valueObjectMessages.Length} message(s)"
+		);
+		Check(!onlyValueObjectsInvalid, "a form whose only errors are inside value objects is rejected");
+		Known(valueObjectMessages.Length == 2, "and both of those errors have a visible message", DroppedMessages);
+
+		model.Email = EmailAddress.Create("  Ada@Example.COM ");
+		model.Postcode = PostalCode.Create("12345");
+
+		var valid = await context.ValidateAsync();
+		string[] remaining = [.. context.GetValidationMessages()];
+		report.AppendLine($"{name}: valid form -> valid={valid}, {remaining.Length} message(s)");
+		Check(valid && remaining.Length == 0, "a valid registration passes and clears every message");
+		Check(model.Email.Value == "ada@example.com", "Create normalized the address before validating it");
+
+		return failures;
+	}
+}

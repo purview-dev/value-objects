@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+	<!--
+		Packed-consumer gate (scripts/test-packed-consumers.ps1), consumer (b): a standalone Blazor WebAssembly app that
+		references Purview.ValueObjects, Purview.ZodSharp and Purview.ZodSharp.Blazor as packages, and nothing else from
+		the repository. The script copies this folder outside the repository, beside guard Directory.Build.props/.targets
+		and Directory.Packages.props files that stop any inheritance, and supplies the versions as
+		$(ValueObjectsPackageVersion), $(ZodSharpPackageVersion) and $(AspNetCorePackageVersion).
+
+		It is published trimmed with every warning an error, then again with RunAOTCompilation=true. Both publishes are
+		served and loaded in a headless browser when one is available, where the page validates its forms and reports
+		the outcome in the DOM. Purview.SourceGeneratorFramework.dll once leaked into exactly this output and broke the
+		WebAssembly AOT compile.
+	-->
+	<PropertyGroup>
+		<TargetFramework>net11.0</TargetFramework>
+		<AssemblyName>PackedValueObjectsWasm</AssemblyName>
+		<RootNamespace>PackedValueObjectsWasm</RootNamespace>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<PublishTrimmed>true</PublishTrimmed>
+		<TrimmerSingleWarn>false</TrimmerSingleWarn>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<!-- The WebAssembly AOT publish passes ExcludeTypeLevelRules=true; see PlanId in Shared/Models.cs. -->
+	<PropertyGroup Condition="'$(ExcludeTypeLevelRules)' == 'true'">
+		<DefineConstants>$(DefineConstants);EXCLUDE_TYPE_LEVEL_RULES</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="$(AspNetCorePackageVersion)" />
+		<PackageReference Include="Purview.ValueObjects" Version="$(ValueObjectsPackageVersion)" />
+		<PackageReference Include="Purview.ZodSharp" Version="$(ZodSharpPackageVersion)" />
+		<PackageReference Include="Purview.ZodSharp.Blazor" Version="$(ZodSharpPackageVersion)" />
+	</ItemGroup>
+
+	<Target Name="RequirePackageVersions" BeforeTargets="CollectPackageReferences;Restore">
+		<Error
+			Condition="'$(ValueObjectsPackageVersion)' == '' or '$(ZodSharpPackageVersion)' == '' or '$(AspNetCorePackageVersion)' == ''"
+			Text="ValueObjectsPackageVersion, ZodSharpPackageVersion and AspNetCorePackageVersion must be set. Run this consumer through scripts/test-packed-consumers.ps1."
+		/>
+	</Target>
+</Project>
