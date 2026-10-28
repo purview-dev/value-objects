@@ -96,18 +96,9 @@
 				failures++;
 		}
 
-		// A gap in a dependency, not in Purview.ValueObjects: reported as KNOWN and surfaced by the gate as a warning
-		// rather than a failure. Where the gap does not occur the line is an ordinary pass.
-		void Known(bool condition, string description, string issue) =>
-			report.AppendLine(condition ? $"pass {name}: {description}" : $"KNOWN {name}: {description} - {issue}");
-
-		const string DroppedMessages =
-			"Purview.ZodSharp 3.0.0-prerelease.1 fails the form but drops the message of an error inside a struct member "
-			+ "(Email.Value): no field and no summary shows it. <ZodValidator> keeps it on the model only when its "
-			+ "reflection fallback is trimmed away (WebAssembly)";
-		const string FieldPlacement =
-			"Purview.ZodSharp 3.0.0-prerelease.1 cannot place an error inside a struct member (Email.Value) on a "
-			+ "FieldIdentifier of the struct, and does not fall back to the owning member (Email)";
+		const string EmailMessage = "Field 'Email' must be a valid email address.";
+		const string PostcodeMessage = "Field 'Postcode' must match the regular expression '^[0-9]{5}$'.";
+		const string PlanMessage = "Choose a plan.";
 
 		string[] Messages(string field) => [.. context.GetValidationMessages(new FieldIdentifier(model, field))];
 
@@ -130,31 +121,27 @@
 
 		Check(!invalid, "an invalid registration fails validation");
 		Check(Messages("Name").Length == 1, "the form's own rule is placed on Name");
-		Known(
-			all.Any(static m => m.Contains("email", StringComparison.OrdinalIgnoreCase)),
-			"EmailAddress's own schema reports a visible message",
-			DroppedMessages
-		);
-		Known(
-			all.Any(static m => m.Contains("^[0-9]{5}$", StringComparison.Ordinal)),
-			"PostalCode's own schema reports a visible message",
-			DroppedMessages
-		);
-		if (TypeLevelRules.Enabled)
-		{
-			// A type-level rule's error is located at the member itself (Plan), the one value object error a
-			// FieldIdentifier of the model can hold.
-			Known(
-				Messages("Plan").Contains("Choose a plan."),
-				"PlanId's type-level [NonSentinel] rule is placed on Plan",
-				DroppedMessages
-			);
-		}
 
-		Known(
-			Messages("Email").Length > 0 && Messages("Postcode").Length > 0,
-			"a value object's own errors are placed on the member's field",
-			FieldPlacement
+		// An error inside a value object (Email.Value) is placed on the owning member's field, and a scalar's
+		// messages name that member rather than its own Value.
+		Check(
+			Messages("Email").SequenceEqual([EmailMessage]),
+			$"EmailAddress's own rule is placed on Email and reads \"{EmailMessage}\""
+		);
+		Check(
+			Messages("Postcode").SequenceEqual([PostcodeMessage]),
+			$"PostalCode's own rule is placed on Postcode and reads \"{PostcodeMessage}\""
+		);
+
+		// A type-level rule's error is located at the member itself (Plan) and keeps the rule's own message.
+		Check(
+			Messages("Plan").SequenceEqual([PlanMessage]),
+			$"PlanId's type-level [NonSentinel] rule is placed on Plan and reads \"{PlanMessage}\""
+		);
+		Check(all.Length == 4, "every error has exactly one visible message (Name, Email, Postcode, Plan)");
+		Check(
+			!all.Any(static m => m.Contains("'Value'", StringComparison.Ordinal)),
+			"no message names a value object's own Value member"
 		);
 
 		// Only the value objects are invalid: the form must still be rejected, or invalid data is submitted.
@@ -166,7 +153,12 @@
 			$"{name}: only value objects invalid -> valid={onlyValueObjectsInvalid}, {valueObjectMessages.Length} message(s)"
 		);
 		Check(!onlyValueObjectsInvalid, "a form whose only errors are inside value objects is rejected");
-		Known(valueObjectMessages.Length == 2, "and both of those errors have a visible message", DroppedMessages);
+		Check(
+			valueObjectMessages.Length == 2
+				&& Messages("Email").SequenceEqual([EmailMessage])
+				&& Messages("Postcode").SequenceEqual([PostcodeMessage]),
+			"and both of those errors are shown on their own fields"
+		);
 
 		model.Email = EmailAddress.Create("  Ada@Example.COM ");
 		model.Postcode = PostalCode.Create("12345");

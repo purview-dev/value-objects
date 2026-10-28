@@ -3,9 +3,7 @@
 using System.ComponentModel.DataAnnotations;
 using Purview.ValueObjects.Serialization;
 using ZodSharp;
-#if !EXCLUDE_TYPE_LEVEL_RULES
 using ZodSharp.Rules;
-#endif
 
 namespace PackedValueObjectsBlazor;
 
@@ -33,16 +31,12 @@ public readonly partial record struct PostalCode
 }
 
 /// <summary>
-/// A Guid scalar rejected by the built-in, type-level <c>[NonSentinel]</c> rule. The WebAssembly AOT publish
-/// builds without the rule (EXCLUDE_TYPE_LEVEL_RULES): Purview.ZodSharp 3.0.0-prerelease.1 validates a type-level
-/// rule through <c>ZodRuleErrors.Build(..., (object)rule as IZodRule)</c>, which crashes the Mono AOT compiler
-/// (0xC0000005). The gate probes that publish separately and reports it as a known issue.
+/// A Guid scalar rejected by the built-in, type-level <c>[NonSentinel]</c> rule. Every publish carries it, the
+/// WebAssembly AOT one included, so the gate proves the Mono AOT compiler compiles a type-level rule.
 /// </summary>
 [Scalar]
 [ZodSchema]
-#if !EXCLUDE_TYPE_LEVEL_RULES
 [NonSentinel(Message = "Choose a plan.")]
-#endif
 public readonly partial record struct PlanId
 {
 	public Guid Value { get; }
@@ -64,14 +58,4 @@ public sealed class Registration
 	public PostalCode Postcode { get; set; }
 
 	public PlanId Plan { get; set; }
-}
-
-/// <summary>Whether this build carries the type-level rule (see <see cref="PlanId"/>).</summary>
-public static class TypeLevelRules
-{
-#if EXCLUDE_TYPE_LEVEL_RULES
-	public static bool Enabled => false;
-#else
-	public static bool Enabled => true;
-#endif
 }

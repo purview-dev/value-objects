@@ -36,8 +36,7 @@
 	       package still serves every target framework it ships.
 	4. Scans every consumer bin and publish folder with scripts/assert-no-compiler-host-assemblies.ps1.
 
-	Gaps in a dependency (Purview.ZodSharp prerelease behaviour the consumers rely on) are reported as KNOWN ISSUES,
-	not failures, so they stay visible without blocking this repository; -StrictKnownIssues makes them failures.
+	Every check is a hard failure, including the ones that exercise Purview.ZodSharp behaviour the consumers rely on.
 
 	The temporary workspace is deleted afterwards unless -KeepArtifacts is passed. Packing restores the shipping
 	projects against the isolated cache, so they are restored again against the normal cache at the end.
@@ -69,9 +68,6 @@
 .PARAMETER PreflightOnly
 	Run only the dependency restore check, so CI can fail on it before installing toolchains.
 
-.PARAMETER StrictKnownIssues
-	Fail the gate when a known dependency issue reproduces.
-
 .PARAMETER KeepArtifacts
 	Leave the temporary workspace in place for inspection.
 
@@ -92,7 +88,6 @@ param (
 	[string] $Browser = 'Auto',
 	[string] $PackOutput,
 	[switch] $PreflightOnly,
-	[switch] $StrictKnownIssues,
 	[switch] $KeepArtifacts
 )
 
@@ -137,17 +132,11 @@ $exe = $IsWindows ? '.exe' : ''
 
 $timings = [System.Collections.Generic.List[object]]::new()
 $scanned = [System.Collections.Generic.List[string]]::new()
-$knownIssues = [System.Collections.Generic.List[string]]::new()
 $previousNuGetPackages = $env:NUGET_PACKAGES
 $repositoryRestoreTouched = $false
 
 function Write-Failure([string] $message) {
 	if ($env:GITHUB_ACTIONS) { Write-Host "::error::$message" } else { Write-Host "ERROR: $message" -ForegroundColor Red }
-}
-
-function Write-KnownIssue([string] $message) {
-	$knownIssues.Add($message)
-	if ($env:GITHUB_ACTIONS) { Write-Host "::warning::Known issue: $message" } else { Write-Host "KNOWN ISSUE: $message" -ForegroundColor Yellow }
 }
 
 function Invoke-Step([string] $name, [scriptblock] $body) {
@@ -354,10 +343,6 @@ function Invoke-BrowserSelfTest([string] $url, [string] $name) {
 		$state.report | Set-Content (Join-Path $logs "$name.self-test.log")
 		$state.report -split "\r?\n" | Where-Object { $_.Trim() } | ForEach-Object { Write-Host "  $_" }
 		if ($state.result -eq 'running') { throw "$url did not finish its self-test within 90 seconds." }
-
-		foreach ($line in ($state.report -split "\r?\n" | Where-Object { $_ -match '^KNOWN ' })) {
-			Write-KnownIssue "[$name] $($line.Substring(6).Trim())"
-		}
 
 		if ($state.result -ne 'passed') {
 			$failed = ($state.report -split "\r?\n" | Where-Object { $_ -match '^FAIL ' }) -join "`n"
@@ -627,47 +612,25 @@ try {
 		)
 	}
 	else {
-		function Publish-WasmAot([string] $name, [string[]] $extra) {
+		Invoke-Step '(b) Blazor WebAssembly: RunAOTCompilation publish, run in a browser' {
 			if (-not $wasmTools) {
 				throw 'The wasm-tools workload is not installed (-WasmAot Require): run `dotnet workload install wasm-tools`.'
 			}
 
-			# A copy of the project, so each AOT build starts from clean obj/bin rather than another build's.
-			$directory = Join-Path $consumers $name
+			# A copy of the project, so the AOT build starts from clean obj/bin rather than the trimmed build's. The
+			# model is the same one the trimmed publish runs, type-level [ZodRule] (PlanId's [NonSentinel]) included.
+			$directory = Join-Path $consumers 'wasm-aot'
 			Copy-Item (Join-Path $consumers 'BlazorWasm') $directory -Recurse -Force -Exclude 'bin', 'obj'
-			$publish = Join-Path $output $name
-			Invoke-Dotnet "$name-publish" (@(
+			$publish = Join-Path $output 'wasm-aot'
+			Invoke-Dotnet 'wasm-aot-publish' (@(
 					'publish', (Join-Path $directory 'BlazorWasm.csproj'), '--configuration', 'Release',
 					'--output', $publish, '-p:RunAOTCompilation=true', '-warnaserror'
-				) + $extra + $consumerProperties)
-			return [pscustomobject]@{ Directory = $directory; Publish = $publish }
-		}
+				) + $consumerProperties)
 
-		Invoke-Step '(b) Blazor WebAssembly: RunAOTCompilation publish, run in a browser' {
-			# Without the type-level rule the Mono AOT compiler crashes on; see PlanId in Shared/Models.cs and the
-			# known-issue probe below.
-			$aot = Publish-WasmAot 'wasm-aot' @('-p:ExcludeTypeLevelRules=true')
-			Assert-WasmOutput $aot.Publish
-			Assert-Contains (Join-Path $aot.Publish 'wwwroot/_framework') '^dotnet\.native\.[a-z0-9]+\.wasm$' 'the AOT-compiled runtime'
-			Assert-NoLeaks @((Join-Path $aot.Directory 'bin'), $aot.Publish)
-			Test-WasmInBrowser $aot.Publish 'wasm-aot'
-		}
-
-		Invoke-Step '(b) Known-issue probe: RunAOTCompilation with a type-level [ZodRule] on a scalar' {
-			try {
-				$probe = Publish-WasmAot 'wasm-aot-type-level-rules' @()
-				Write-Host '  the publish succeeded: the Mono AOT crash no longer reproduces. Remove EXCLUDE_TYPE_LEVEL_RULES from the gate.' -ForegroundColor Green
-				Assert-NoLeaks @((Join-Path $probe.Directory 'bin'), $probe.Publish)
-			}
-			catch {
-				$log = Join-Path $logs 'wasm-aot-type-level-rules-publish.log'
-				if (-not (Test-Path $log) -or -not (Select-String -Path $log -Pattern 'Precompiling failed' -Quiet)) { throw }
-				Write-KnownIssue (
-					'[wasm-aot] RunAOTCompilation crashes the Mono AOT compiler (Precompiling failed, exit code -1073741819) ' +
-					'on a scalar with a type-level [ZodRule] such as [NonSentinel]: Purview.ZodSharp 3.0.0-prerelease.1 ' +
-					'emits ZodRuleErrors.Build(..., (object)rule as IZodRule) for it.'
-				)
-			}
+			Assert-WasmOutput $publish
+			Assert-Contains (Join-Path $publish 'wwwroot/_framework') '^dotnet\.native\.[a-z0-9]+\.wasm$' 'the AOT-compiled runtime'
+			Assert-NoLeaks @((Join-Path $directory 'bin'), $publish)
+			Test-WasmInBrowser $publish 'wasm-aot'
 		}
 	}
 
@@ -705,6 +668,10 @@ try {
 					@{ Text = "Field 'Name' must contain at least 2 characters."; What = "the form's own rule, through <ZodValidator>" }
 					@{ Text = "The value 'not-an-email' is not valid for 'Email'."; What = "EmailAddress rejecting the posted address (its generated TryParse runs Create)" }
 					@{ Text = "The value 'abc' is not valid for 'Postcode'."; What = 'PostalCode rejecting the posted postcode' }
+					# The unparsed members stay default, so each value object's own [Required] on Value fails - inside the
+					# struct (Email.Value) - and <ZodValidator> places it on the owning member's field, named after it.
+					@{ Text = 'Email is required'; What = "EmailAddress's own rule placed on the Email field" }
+					@{ Text = 'Postcode is required'; What = "PostalCode's own rule placed on the Postcode field" }
 				)) {
 				if (-not ($messages | Where-Object { $_.Contains($expected.Text) })) {
 					throw "The invalid post does not show $($expected.What): '$($expected.Text)'."
@@ -753,10 +720,6 @@ try {
 
 		Assert-NoLeaks @((Join-Path $consumers 'Net8Console/bin'))
 	}
-
-	if ($StrictKnownIssues -and $knownIssues.Count -gt 0) {
-		throw "$($knownIssues.Count) known issue(s) reproduced (-StrictKnownIssues)."
-	}
 }
 catch {
 	$exitCode = 1
@@ -782,18 +745,6 @@ finally {
 	$timings | Format-Table -AutoSize | Out-Host
 	Write-Host ("Total: {0:N1}s" -f $totalStopwatch.Elapsed.TotalSeconds)
 	if ($scanned.Count -gt 0) { Write-Host "Leak-scanned $($scanned.Count) folder(s)." }
-	if ($knownIssues.Count -gt 0) {
-		# One line per distinct issue, naming every consumer it reproduced in.
-		$grouped = $knownIssues | ForEach-Object {
-			$match = [regex]::Match($_, '^\[(?<where>[^\]]+)\] (?<what>.*)$')
-			[pscustomobject]@{ Where = $match.Groups['where'].Value; What = $match.Groups['what'].Value }
-		} | Group-Object What
-		Write-Host "`nKnown dependency issues ($($grouped.Count) distinct, $($knownIssues.Count) occurrences):" -ForegroundColor Yellow
-		foreach ($issue in $grouped) {
-			$where = ($issue.Group.Where | Sort-Object -Unique) -join ', '
-			Write-Host "  - [$where] $($issue.Name)" -ForegroundColor Yellow
-		}
-	}
 
 	if ($KeepArtifacts) {
 		Write-Host "Artifacts kept at $workspace" -ForegroundColor Yellow

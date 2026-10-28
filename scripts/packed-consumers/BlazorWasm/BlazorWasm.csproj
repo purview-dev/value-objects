@@ -24,11 +24,6 @@
 		<ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
 	</PropertyGroup>
 
-	<!-- The WebAssembly AOT publish passes ExcludeTypeLevelRules=true; see PlanId in Shared/Models.cs. -->
-	<PropertyGroup Condition="'$(ExcludeTypeLevelRules)' == 'true'">
-		<DefineConstants>$(DefineConstants);EXCLUDE_TYPE_LEVEL_RULES</DefineConstants>
-	</PropertyGroup>
-
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="$(AspNetCorePackageVersion)" />
 		<PackageReference Include="Purview.ValueObjects" Version="$(ValueObjectsPackageVersion)" />
