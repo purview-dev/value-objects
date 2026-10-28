@@ -29,6 +29,8 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `global.json` | Required .NET SDK and Microsoft.Testing.Platform selection |
 | `package.json` | Authoritative repository/package version |
 | `Justfile` | Supported local workflow commands |
+| `skills` | Authored agent skills, installable with the skills CLI (see [Agent skills](#agent-skills)) |
+| `.agents/skills`, `skills-lock.json` | Skills installed from other repositories, committed (see [Installed skills](#installed-skills-agentsskills)) |
 
 ## Standard workflow
 
@@ -181,17 +183,61 @@ Before handing work back:
 - Update all affected docs, samples, analyzer metadata, and release notes when applicable.
 - Run appropriate build, test, formatting, and pack checks in proportion to risk.
 - State exactly what validation ran. If a check was skipped or blocked, give the concrete reason and remaining risk.
+
+## Installed skills (`.agents/skills/`)
+
+Specialist guidance this repository depends on - `Purview.BuildSdk` configuration, the
+`Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is published by the
+repositories that own it, and installed here by the skills CLI. The installed skills are **committed**:
+`.agents/skills/**` and the CLI's `skills-lock.json` (source, skill path and content hash of every entry) are both
+in source, so a clone has them without running anything.
+
+| Skill | Source | Load before |
+| --- | --- | --- |
+| `purview-buildsdk-*` (8 skills) | `purview-dev/build-sdk` | build/SDK configuration, project layout and detection, testing, skill installation and skill tests |
+| `purview-sourcegenerator-codewriter` | `purview-dev/sourcegenerator-framework` | writing or reviewing emitter code (`CodeWriter`, scopes) |
+| `purview-sourcegenerator-pipeline` | `purview-dev/sourcegenerator-framework` | changing the incremental pipeline or its value-equatable models |
+| `purview-sourcegenerator-diagnostics` | `purview-dev/sourcegenerator-framework` | adding or changing a `VO1xxx` diagnostic or the analyzer |
+| `purview-sourcegenerator-packaging` | `purview-dev/sourcegenerator-framework` | changing how the generator is packed or merged |
+| `purview-sourcegenerator-testing` | `purview-dev/sourcegenerator-framework` | writing generator, analyzer or code-fix tests (`CodeQuery`) |
+| `purview-sourcegenerator-tunit-tests` | `purview-dev/sourcegenerator-framework` | the TUnit base classes and assertion extensions |
+| `purview-zodsharp-*` (6 skills) | `purview-dev/zodsharp` | the `[ZodSchema]` integration, custom rules, JSON, ASP.NET Core and `ZODSGEN` diagnostics |
+
+Skills are installed into the universal `.agents/skills/` location **only**. Never install copies into `.claude/`
+or any other per-agent folder, and never add a `CLAUDE.md`: `AGENTS.md` is the one instruction file, and
+`/.claude/` is gitignored. Pass `-a universal`, which writes `.agents/skills/` and nothing else:
+
+```bash
+# add or update every skill from a source
+npx -y skills@1 add purview-dev/build-sdk -s '*' -a universal -y
+npx -y skills@1 add purview-dev/sourcegenerator-framework -s '*' -a universal -y
+npx -y skills@1 add purview-dev/zodsharp -s '*' -a universal -y
+
+# restore the committed set from skills-lock.json
+npx -y skills@1 experimental_install
+```
+
+Commit the changed `.agents/skills/**` and `skills-lock.json` together, in their own `chore` commit. Do not edit
+anything under `.agents/skills/` by hand - the CLI is its only writer, and a hand edit no longer matches the
+lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills` target delegates to the same CLI;
+`src/Directory.Build.props` sets `PurviewSkillsAgents=universal` so it is restricted the same way rather than
+defaulting to every agent (`*`).
+
+`src/tests/Repository.UnitTests/InstalledSkillTests.cs` keeps this honest: every `skills-lock.json` entry has its
+`.agents/skills/<name>/SKILL.md`, every installed folder is in the lockfile, no entry is one of this repository's
+own skills, and neither a `.claude/skills/` copy nor a `CLAUDE.md` exists.
+
 ## Agent skills
 
 Authored skills live in the repository-root `skills/` folder. Nothing packs them: `Purview.BuildSdk`
 delivers skills through the skills CLI, which clones the *git* repository and only discovers a root
 `skills/` folder.
 
-`.agents/skills/` is the CLI's install location for skills from **other** repositories, and is
-gitignored. This repository's own skills are never installed into it — that would leave two copies
-to drift apart. Read them at their authored path, `skills/<name>/SKILL.md`.
+`.agents/skills/` holds the skills installed from **other** repositories (above). This repository's own skills are
+never installed into it — that would leave two copies to drift apart. Read them at their authored path,
+`skills/<name>/SKILL.md`.
 
-Install these skills into your agent's directories with:
+Consumers install these skills with:
 
 ```bash
 npx skills add purview-dev/value-objects
