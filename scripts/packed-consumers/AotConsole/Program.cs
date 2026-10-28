@@ -185,6 +185,21 @@ Section(
 			"a missing value object, a nested value object's own rule and a collection element report typed paths"
 		);
 
+		var nested = errors.Where(static e => e.FullPath.ToDottedString() == "ContactEmail.Value").ToArray();
+		Check(
+			nested is [{ Message: "Field 'ContactEmail' must be a valid email address." }],
+			$"a nested scalar's message names the owning member (got '{string.Join("', '", nested.Select(static e => e.Message))}')"
+		);
+
+		var missingEmail = ValidOrder();
+		missingEmail.ContactEmail = null;
+		var required = OrderSchema.Validate(missingEmail).Errors;
+		Check(
+			required is [{ Code: RequiredRule<string>.ErrorCode }]
+				&& required[0].FullPath.ToDottedString() == "ContactEmail",
+			$"[Required] on a nullable scalar member rejects a missing address at the member (got {string.Join(", ", required.Select(static e => $"{e.Code} at {e.FullPath.ToDottedString()}"))})"
+		);
+
 		var empty = ValidOrder();
 		empty.Lines = [];
 		var tooFew = OrderSchema.Validate(empty).Errors.Single();

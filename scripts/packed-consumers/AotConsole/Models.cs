@@ -66,10 +66,10 @@ public sealed class Order
 	[Required]
 	public CustomerId? Customer { get; set; }
 
-	// Not EmailAddress?: Purview.ZodSharp 3.0.0-prerelease.1 emits `value.ContactEmail == null` for a [Required]
-	// nullable struct, which is ambiguous (CS9342) with the scalar's generated operator ==(string?, EmailAddress).
-	// A non-nullable member is validated by EmailAddress's own schema, whose [Required] rejects a missing address.
-	public EmailAddress ContactEmail { get; set; }
+	// A [Required] nullable member of a string-backed scalar: the generated null test must not bind the scalar's
+	// operator ==(string?, EmailAddress), and a present address is validated by EmailAddress's own schema.
+	[Required]
+	public EmailAddress? ContactEmail { get; set; }
 
 	[MinCount(1)]
 	public List<OrderLine> Lines { get; set; } = [];
