@@ -9,7 +9,68 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
-## Unreleased
+## 1.3.0-prerelease.1
+
+A minor prerelease: no target framework is dropped and the public API only grows. `Purview.ValueObjects` still
+ships `net8.0`, `net9.0`, `net10.0` and `net11.0`, and has no dependency on ZodSharp.
+
+### Fixed
+
+- **The generated JSON converters are trim- and Native AOT-safe.** The scalar converter read and wrote its
+  underlying value through `JsonSerializer.Deserialize<T>(ref reader, options)` and
+  `JsonSerializer.Serialize(writer, value, options)`, and the complex converter round-tripped a generated
+  `{Name}JsonModel` class the same way. Those overloads are `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]`,
+  so every trimmed or AOT application - Blazor WebAssembly included - got IL2026/IL3050 from generated code, and the
+  model class needed metadata no source-generated context could provide. The converters now go through the new
+  `ValueObjectJson` runtime helper, which uses the options' metadata when they have it (so converters, naming
+  policies and number handling behave as before), the generated converter of a value-object-typed member, and the
+  built-in converter for a primitive a source-generated context never listed. The complex converter reads and
+  writes its members directly, honouring `PropertyNamingPolicy`, `PropertyNameCaseInsensitive` and
+  `DefaultIgnoreCondition`, skipping unknown members and defaulting missing ones, as before.
+
+### Added
+
+- `ValueObjectJson` (`Purview.ValueObjects.Serialization`, hidden from IntelliSense): the reflection-free JSON
+  helpers the generated converters call.
+- **A packed-consumer gate** (`just smoke-packed-consumers`, `scripts/test-packed-consumers.ps1`, PR job
+  `packed-consumers`). It packs the package to an isolated feed and cache, then publishes and runs, from the package
+  alone: a Native AOT console; a Blazor WebAssembly app with a `<ZodValidator>` form and a
+  `<DataAnnotationsValidator />` form over a model of value objects, published trimmed and with
+  `RunAOTCompilation=true` and run in a headless browser; a Blazor Server app whose static form is posted and whose
+  interactive page runs over a live circuit; and a `net8.0` console. Every publish uses `-warnaserror`, and every
+  output is scanned for compiler-host assemblies (`scripts/assert-no-compiler-host-assemblies.ps1`).
+- **Pack-validation `ForbiddenContent` rules** keep Purview.SourceGeneratorFramework, Roslyn and the generator out
+  of every folder an application loads from; `just verify-pack-rules` proves each rule rejects a package.
+- [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md): target frameworks, source-generated JSON,
+  binding a value object in a Blazor form, and validating it with ZodSharp.
+
+### Changed
+
+- **The generated complex converter no longer emits a public `{Name}JsonModel` nested type.** It was an
+  implementation detail of the converter; code that referenced it should serialize the value object itself.
+- Built and tested against Purview.SourceGeneratorFramework 1.2.2, Purview.ZodSharp 3.0.0-prerelease.1,
+  Purview.BuildSdk 1.2.0 and Purview.Skills.Testing 1.2.0, on the .NET 11 rc.3 SDK. The ZodSharp samples target
+  `net10.0`/`net11.0`.
+
+### Upgrade notes
+
+- **Upgrading to Purview.ZodSharp 3.** It ships `net10.0` and `net11.0` only, so a project that uses the ZodSharp
+  integration must target `net10.0` or later; the value object generator's output is unchanged and works with 2.x
+  and 3.x. Read ZodSharp's own upgrade notes for the behaviour changes - the ones a value object user meets first:
+  built-in rules now report `Origin` (`"string"` for a `Guid`) and `Category`; collection paths render as `"0"` and
+  `Items[0].Name` (`FullPath.ToDottedString()`); `MergeParametersIntoExtensions` defaults to `false`; generated
+  schemas gain `ValidateAsync`, so CA1849 flags a synchronous `Validate` inside an async method.
+- **Source-generated JSON contexts.** A `JsonSerializerContext` in the project that declares the value objects
+  cannot see their generated `[JsonConverter]` attribute, so register the generated converters on the options (see
+  [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#systemtextjson-source-generation)).
+- **Known gaps in Purview.ZodSharp 3.0.0-prerelease.1 with value objects in Blazor**, found by the new gate and
+  listed in that guide: errors inside a value object member are not placed on its field (and are dropped by
+  `<DataAnnotationsValidator />` and by `<ZodValidator>` on Blazor Server, though the form stays invalid), and
+  Blazor WebAssembly AOT fails for a scalar with a type-level `[ZodRule]`.
+
+## 1.2.0 - 1.2.3
+
+These changes shipped across the 1.2.x releases while they were still recorded under *Unreleased*.
 
 ### Added
 
