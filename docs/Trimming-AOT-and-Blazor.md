@@ -135,18 +135,12 @@ builder.Services.AddZodSharpBlazor();
 Each value object member is validated by the value object's own generated schema, so the rules live with the value
 object rather than being repeated on every form.
 
-### Known gaps in Purview.ZodSharp 3.0.0-prerelease.1
+An error inside a value object is located at `Email.Value`, but a struct cannot be a `FieldIdentifier` model, so
+ZodSharp places it on the owning member's field: `<ZodValidationMessage For="() => model.Email" />` (or
+`<ValidationMessage>`) shows it next to the value object's input, with `<ZodValidator>` and with
+`<DataAnnotationsValidator />`, on Blazor Server and in WebAssembly alike. A scalar's messages name the owning
+member, not its own `Value`: `Field 'Email' must be a valid email address.` A type-level rule such as
+`[NonSentinel(Message = "Choose a plan.")]` is located at the member itself and keeps its own message.
 
-The packed-consumer gate records these as known issues; they are in ZodSharp, not in this package.
-
-- **An error inside a value object member is not placed on the member's field.** The error is located at
-  `Email.Value`, and a struct cannot be a `FieldIdentifier` model, so `<ZodValidationMessage For="() => model.Email">`
-  shows nothing. With `<ZodValidator>` in Blazor WebAssembly the message reaches `<ZodValidationSummary>`.
-- **With `<DataAnnotationsValidator />`, and with `<ZodValidator>` on Blazor Server, that message is dropped.** The
-  form is still invalid - it cannot be submitted - but no field and no summary says why. Prefer `<ZodValidator>` in
-  WebAssembly, or validate the value objects before binding them, until this is fixed.
-- **Blazor WebAssembly AOT (`RunAOTCompilation=true`) fails** - the Mono AOT compiler crashes - for a scalar with a
-  type-level `[ZodRule]` such as `[NonSentinel]`. Trimmed WebAssembly, Native AOT and Blazor Server are unaffected.
-- A `[Required]` `Nullable<T>` member whose type is a string-backed scalar does not compile (`CS9342`): the
-  generated `value.Member == null` is ambiguous with the scalar's `==(string?, T)` operator. Use a non-nullable
-  member and put `[Required]` on the value object's own `Value`.
+A form or request model may declare a value object member as `[Required]` and nullable (`EmailAddress?`): a missing
+value is reported at the member, and a present one is validated by the value object's own schema.

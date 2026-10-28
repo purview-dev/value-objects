@@ -63,10 +63,9 @@ ships `net8.0`, `net9.0`, `net10.0` and `net11.0`, and has no dependency on ZodS
 - **Source-generated JSON contexts.** A `JsonSerializerContext` in the project that declares the value objects
   cannot see their generated `[JsonConverter]` attribute, so register the generated converters on the options (see
   [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#systemtextjson-source-generation)).
-- **Known gaps in Purview.ZodSharp 3.0.0-prerelease.1 with value objects in Blazor**, found by the new gate and
-  listed in that guide: errors inside a value object member are not placed on its field (and are dropped by
-  `<DataAnnotationsValidator />` and by `<ZodValidator>` on Blazor Server, though the form stays invalid), and
-  Blazor WebAssembly AOT fails for a scalar with a type-level `[ZodRule]`.
+- **A nested scalar's ZodSharp messages name the owning member.** With ZodSharp 3, an error inside a value object
+  member (`Email.Value`) reads `Field 'Email' ...` rather than `Field 'Value' ...`, and Blazor shows it on the
+  owning member's field; its path is still `Email.Value`. Update any assertion on the old text.
 
 ## 1.2.0 - 1.2.3
 

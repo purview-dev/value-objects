@@ -31,11 +31,10 @@ with 2.x and 3.x. In 3.x built-in rules report `Origin`/`Category`, paths render
 
 **Blazor** (`Purview.ZodSharp.Blazor`, `net11.0`): register `AddZodSharp{Assembly}Schemas()` and
 `AddZodSharpBlazor()`, bind a scalar with an `InputBase<TScalar>` that uses `Hydrate`, and validate with
-`<ZodValidator />`. Known 3.0.0-prerelease.1 gaps: an error inside a value object member (`Email.Value`)
-is not placed on the member's field (WebAssembly `<ZodValidator>` shows it in the summary only;
-`<DataAnnotationsValidator />` and Blazor Server drop the message, though the form stays invalid), and
-WebAssembly AOT crashes for a scalar with a type-level `[ZodRule]`. Repository guide:
-`docs/Trimming-AOT-and-Blazor.md`.
+`<ZodValidator />` or `<DataAnnotationsValidator />`. An error inside a value object member
+(`Email.Value`) is shown on the owning member's field (`For="() => model.Email"`) and named after it
+(`Field 'Email' must be ...`), on Blazor Server and WebAssembly (trimmed or AOT) alike; a type-level
+`[ZodRule]` is located at the member. Repository guide: `docs/Trimming-AOT-and-Blazor.md`.
 
 Four ways to use it, in rough order of how often you want them:
 
