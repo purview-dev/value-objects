@@ -245,6 +245,121 @@ static class ComplexValueObjectModelBuilder
 	}
 
 	/// <summary>
+	/// The expression constructing the JSON converter a member serializes through when its type is a value object
+	/// (or a nullable one), or <see langword="null"/> for any other type. A type that declares
+	/// <c>[JsonConverter(typeof(C))]</c> - every compiled value object does, because the generator emits it - uses
+	/// <c>C</c>; a value object declared in this compilation, whose attribute this generator has not emitted yet,
+	/// uses the <c>{Name}JsonConverter</c> it is about to emit. The expression is only a fallback: the generated
+	/// converter prefers the metadata of the options it is called with.
+	/// </summary>
+	static string? ResolveMemberJsonConverter(
+		ITypeSymbol memberType,
+		IAssemblySymbol compilationAssembly,
+		ValueObjectDefaultsAttributeData assemblyDefaults
+	)
+	{
+		var isNullableValueType =
+			memberType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+		var type = isNullableValueType ? ((INamedTypeSymbol)memberType).TypeArguments[0] : memberType;
+		if (type is not INamedTypeSymbol { IsGenericType: false } named)
+			return null;
+
+		var converter =
+			ResolveDeclaredJsonConverter(named)
+			?? ResolveGeneratedJsonConverter(named, compilationAssembly, assemblyDefaults);
+		if (converter is null)
+			return null;
+
+		return isNullableValueType ? $"{TypeLibrary.ValueObjectJsonGlobalName}.Nullable({converter})" : converter;
+	}
+
+	static string? ResolveDeclaredJsonConverter(INamedTypeSymbol type)
+	{
+		foreach (var attribute in type.GetAttributes())
+		{
+			if (
+				!TypeLibrary.System.Text.Json.Serialization.JsonConverterAttribute.Equals(attribute.AttributeClass)
+				|| attribute.ConstructorArguments.Length != 1
+				|| attribute.ConstructorArguments[0].Value is not INamedTypeSymbol converterType
+			)
+			{
+				continue;
+			}
+
+			// Only a concrete JsonConverter<T> for exactly this type, constructed without arguments, can be passed
+			// as the member's converter; a JsonConverterFactory or anything else is left to the options.
+			var constructible =
+				!converterType.IsAbstract
+				&& !converterType.IsGenericType
+				&& converterType.InstanceConstructors.Any(static ctor =>
+					ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public
+				);
+			if (constructible && IsJsonConverterOf(converterType, type))
+				return $"new {ValueObjectSymbolInspector.ToTypeName(converterType)}()";
+
+			return null;
+		}
+
+		return null;
+	}
+
+	static string? ResolveGeneratedJsonConverter(
+		INamedTypeSymbol type,
+		IAssemblySymbol compilationAssembly,
+		ValueObjectDefaultsAttributeData assemblyDefaults
+	)
+	{
+		// A compiled value object already carries the [JsonConverter] this generator emitted, which
+		// ResolveDeclaredJsonConverter reads; only a type in this compilation has not been given it yet.
+		if (!SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, compilationAssembly))
+			return null;
+
+		var attributes = type.GetAttributes();
+		bool generateJsonConverter;
+		if (ScalarAttributeParser.Find(attributes) is { } scalarAttribute)
+		{
+			generateJsonConverter = ValueObjectDefaultsHelper
+				.Apply(ScalarAttributeParser.Parse(scalarAttribute), assemblyDefaults, attributes)
+				.GenerateJsonConverter;
+		}
+		else if (
+			ValueObjectSymbolInspector.HasAttribute(
+				attributes,
+				TypeLibrary.Purview.ValueObjects.Serialization.ValueObjectAttribute
+			)
+		)
+		{
+			generateJsonConverter = ValueObjectDefaultsHelper
+				.Apply(ValueObjectAttributeData.FromAttributeData(attributes), assemblyDefaults, attributes)
+				.GenerateJsonConverter;
+		}
+		else
+		{
+			return null;
+		}
+
+		return generateJsonConverter
+			? $"new {ValueObjectSymbolInspector.ToTypeName(type)}.{type.Name}JsonConverter()"
+			: null;
+	}
+
+	static bool IsJsonConverterOf(INamedTypeSymbol converterType, INamedTypeSymbol valueType)
+	{
+		for (var current = converterType.BaseType; current is not null; current = current.BaseType)
+		{
+			if (
+				current is { Name: "JsonConverter", Arity: 1 }
+				&& current.ContainingNamespace.ToDisplayString() == "System.Text.Json.Serialization"
+			)
+			{
+				return SymbolEqualityComparer.Default.Equals(current.TypeArguments[0], valueType);
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>
 	/// Builds the complex member models and resolves their built-in string normalization. The option is
 	/// only applied by the generated <c>Create</c>, so a hand-written <c>OnNormalize</c> hook or a
 	/// hand-written <c>Create</c> takes precedence and the option is reported and dropped.
@@ -275,7 +390,8 @@ static class ComplexValueObjectModelBuilder
 					TypeReference.Create(property.Type),
 					normalizeTrim,
 					normalizeCasing,
-					normalizeExplicit
+					normalizeExplicit,
+					ResolveMemberJsonConverter(property.Type, typeSymbol.ContainingAssembly, assemblyDefaults)
 				)
 			);
 		}

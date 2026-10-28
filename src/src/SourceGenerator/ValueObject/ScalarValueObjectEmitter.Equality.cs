@@ -312,14 +312,19 @@ static partial class ScalarValueObjectEmitter
 					},
 					methodBody =>
 					{
+						// Through the runtime's ValueObjectJson rather than JsonSerializer.Deserialize<T>(ref
+						// reader, options): that overload is [RequiresUnreferencedCode]/[RequiresDynamicCode], so
+						// every trimmed or Native AOT consumer got IL2026/IL3050 from this generated code. The
+						// helper resolves the same metadata from the options, and falls back to the built-in
+						// converter for a primitive that a source-generated context never listed.
 						methodBody.Assignment(
 							"var",
 							"value",
 							writeValue =>
 								writeValue.MethodCall(
-									"Deserialize",
+									"Read",
 									[new MethodCallArgumentOptions("reader", ParameterModifier.Ref), "options"],
-									receiver: $"{TypeLibrary.System.Text.Json.JsonSerializer}",
+									receiver: TypeLibrary.ValueObjectJsonGlobalName,
 									genericArguments: [model.ScalarTypeReference]
 								)
 						);
@@ -355,8 +360,8 @@ static partial class ScalarValueObjectEmitter
 					},
 					methodBody =>
 						methodBody.MethodCallOn(
-							$"{TypeLibrary.System.Text.Json.JsonSerializer}",
-							"Serialize",
+							TypeLibrary.ValueObjectJsonGlobalName,
+							"Write",
 							"writer",
 							$"value.{model.ScalarPropertyName}",
 							"options"

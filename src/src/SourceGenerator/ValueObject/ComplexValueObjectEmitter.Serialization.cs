@@ -2,18 +2,28 @@ namespace Purview.ValueObjects.SourceGenerator.ValueObject;
 
 static partial class ComplexValueObjectEmitter
 {
+	/// <summary>
+	/// Emits the complex value object's JSON converter. It reads and writes the object member by member through the
+	/// runtime's <c>ValueObjectJson</c> helpers, with no reflection: the previous converter deserialized a generated
+	/// <c>{Name}JsonModel</c> class through <c>JsonSerializer.Deserialize&lt;T&gt;(ref reader, options)</c>, which is
+	/// <c>[RequiresUnreferencedCode]</c>/<c>[RequiresDynamicCode]</c> (IL2026/IL3050 in every trimmed or Native AOT
+	/// consumer) and needs metadata for a type no source-generated context could list.
+	/// </summary>
+	/// <remarks>
+	/// Member names follow the options' <c>PropertyNamingPolicy</c> and <c>PropertyNameCaseInsensitive</c>, unknown
+	/// members are skipped, a missing member keeps its default, and <c>DefaultIgnoreCondition</c> is honoured when
+	/// writing - the behaviour the model-class converter had.
+	/// </remarks>
 	static void EmitJsonConverter(CodeWriter writer, ComplexValueObjectModel model)
 	{
 		if (!model.Options.GenerateJsonConverter)
 			return;
 
-		var modelTypeName = $"{model.TypeModel.Name}JsonModel";
-		var jsonModelIdentity = new TypeIdentity(model.TypeModel.Name, model.TypeModel.Namespace).Nested(
-			modelTypeName,
-			0
-		);
-		var hydrateArgs = string.Join(", ", model.Properties.Select(static property => $"model.{property.Name}"));
+		var helper = TypeLibrary.ValueObjectJsonGlobalName;
+		var properties = model.Properties.ToArray();
+		var hydrateArgs = string.Join(", ", properties.Select(static (_, index) => MemberLocal(index)));
 		var valueObjectType = ValueObjectType(model);
+		var unableToDeserialize = $"\"Unable to deserialize {model.TypeModel.Name}.\"";
 
 		writer.Class(
 			new($"{model.TypeModel.Name}JsonConverter")
@@ -24,6 +34,26 @@ static partial class ComplexValueObjectEmitter
 			},
 			body =>
 			{
+				for (var index = 0; index < properties.Length; index++)
+				{
+					var property = properties[index];
+					if (property.JsonConverterExpression is not { } converter)
+						continue;
+
+					body.Field(
+						new FieldDeclarationOptions(
+							MemberConverterField(index),
+							TypeLibrary.System.Text.Json.Serialization.JsonConverter.MakeGeneric(property.Type)
+						)
+						{
+							Accessibility = TypeDeclarationAccessibility.Private,
+							IsStatic = true,
+							IsReadOnly = true,
+							Initializer = converter,
+						}
+					);
+				}
+
 				body.Method(
 					new("Read", valueObjectType, TypeDeclarationAccessibility.Public)
 					{
@@ -37,20 +67,48 @@ static partial class ComplexValueObjectEmitter
 					},
 					methodBody =>
 					{
-						methodBody.Assignment(
-							"var",
-							"model",
-							$"global::System.Text.Json.JsonSerializer.Deserialize<{modelTypeName}>(ref reader, options)"
-						);
 						methodBody.IfBlock(
-							"model is null",
+							"reader.TokenType != global::System.Text.Json.JsonTokenType.StartObject",
 							ifBody =>
-								ifBody.Throw(
-									TypeLibrary.System.Text.Json.JsonException,
-									$"Unable to deserialize {model.TypeModel.Name}."
-								)
+								ifBody.Line($"throw new global::System.Text.Json.JsonException({unableToDeserialize});")
 						);
-						methodBody.Return($"{model.HydrateFactoryName}({hydrateArgs})");
+
+						for (var index = 0; index < properties.Length; index++)
+							methodBody.Line($"{properties[index].TypeName} {MemberLocal(index)} = default!;");
+
+						methodBody.While(
+							"reader.Read()",
+							loop =>
+							{
+								loop.IfBlock(
+									"reader.TokenType == global::System.Text.Json.JsonTokenType.EndObject",
+									ifBody => ifBody.Return($"{model.HydrateFactoryName}({hydrateArgs})")
+								);
+
+								loop.Line("var jsonName = reader.GetString();");
+								loop.Line("reader.Read();");
+
+								for (var index = 0; index < properties.Length; index++)
+								{
+									var property = properties[index];
+									var condition = $"{helper}.IsMember(jsonName, \"{property.Name}\", options)";
+									var statement =
+										$"{MemberLocal(index)} = {helper}.Read<{property.TypeName}>(ref reader, options{ConverterArgument(property, index)})!;";
+
+									if (index == 0)
+										loop.IfBlock(condition, branch => branch.Line(statement));
+									else
+										loop.ElseIf(condition, branch => branch.Line(statement));
+								}
+
+								if (properties.Length == 0)
+									loop.Line("reader.Skip();");
+								else
+									loop.Else(static branch => branch.Line("reader.Skip();"));
+							}
+						);
+
+						methodBody.Line($"throw new global::System.Text.Json.JsonException({unableToDeserialize});");
 					}
 				);
 
@@ -67,48 +125,26 @@ static partial class ComplexValueObjectEmitter
 					},
 					methodBody =>
 					{
-						methodBody.Assignment(
-							"var",
-							"model",
-							new ObjectCreationOptions(jsonModelIdentity)
-							{
-								WriteInitializerMembersOnSeparateLines = false,
-								InitializerMembers =
-								[
-									.. model.Properties.Select(static property => new ObjectInitializerMemberOptions(
-										property.Name,
-										$"value.{property.Name}"
-									)),
-								],
-							}
-						);
-						methodBody.MethodCallOn(
-							$"{TypeLibrary.System.Text.Json.JsonSerializer}",
-							"Serialize",
-							"writer",
-							"model",
-							"options"
-						);
+						methodBody.Line("writer.WriteStartObject();");
+						for (var index = 0; index < properties.Length; index++)
+						{
+							var property = properties[index];
+							methodBody.Line(
+								$"{helper}.WriteMember<{property.TypeName}>(writer, \"{property.Name}\", value.{property.Name}, options{ConverterArgument(property, index)});"
+							);
+						}
+
+						methodBody.Line("writer.WriteEndObject();");
 					}
 				);
 			}
 		);
-
-		writer.Class(
-			new(modelTypeName) { IsPartial = false, IsSealed = true },
-			body =>
-			{
-				foreach (var property in model.Properties)
-				{
-					body.Property(
-						new(property.Name, property.Type, TypeDeclarationAccessibility.Public)
-						{
-							HasSetter = true,
-							Initializer = "default!",
-						}
-					);
-				}
-			}
-		);
 	}
+
+	static string ConverterArgument(ComplexPropertyModel property, int index) =>
+		property.JsonConverterExpression is null ? string.Empty : $", {MemberConverterField(index)}";
+
+	static string MemberLocal(int index) => $"member{index}";
+
+	static string MemberConverterField(int index) => $"Member{index}Converter";
 }

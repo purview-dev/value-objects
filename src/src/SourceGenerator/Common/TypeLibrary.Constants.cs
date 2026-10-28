@@ -40,6 +40,12 @@ public static partial class TypeLibrary
 
 	public const string StringNormalizeAttributeFullTypeName = SerializationNamespace + ".StringNormalizeAttribute";
 
+	/// <summary>
+	/// The runtime's trim- and Native AOT-safe JSON helpers, which every generated JSON converter reads and writes
+	/// through instead of the reflection-based <c>JsonSerializer</c> overloads.
+	/// </summary>
+	public const string ValueObjectJsonGlobalName = "global::" + SerializationNamespace + ".ValueObjectJson";
+
 	// ZodSharp's runtime and generator-emitted types. The ZodSharp attribute and schema types are produced
 	// by the ZodSharp source generator, so these names are matched and emitted as qualified text rather than
 	// resolved as symbols (the value object generator must keep working when ZodSharp is not referenced).
