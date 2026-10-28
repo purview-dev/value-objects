@@ -9,6 +9,7 @@ Strongly typed value objects with Entity Framework and ZodSharp validation integ
 - [Value object design](Value-Object-Design.md)
 - [Entity Framework integration](Entity-Framework.md)
 - [ZodSharp validation](ZodSharp-Validation.md)
+- [Trimming, Native AOT and Blazor](Trimming-AOT-and-Blazor.md)
 
 ## Reference
 

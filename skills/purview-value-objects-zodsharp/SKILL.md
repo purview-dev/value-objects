@@ -23,6 +23,19 @@ ZodSharp source generator is active in any project that references the package.
 ```text
 dotnet add package Purview.ZodSharp
 ```
+**Purview.ZodSharp 3** targets `net10.0`/`net11.0` only, so a project using the integration needs
+`net10.0`+ (Purview.ValueObjects itself still ships `net8.0`-`net11.0`). The generated integration works
+with 2.x and 3.x. In 3.x built-in rules report `Origin`/`Category`, paths render as `Items[0].Name`
+(`FullPath.ToDottedString()`), and generated schemas gain `ValidateAsync` (CA1849 flags a synchronous
+`Validate` in async code).
+
+**Blazor** (`Purview.ZodSharp.Blazor`, `net11.0`): register `AddZodSharp{Assembly}Schemas()` and
+`AddZodSharpBlazor()`, bind a scalar with an `InputBase<TScalar>` that uses `Hydrate`, and validate with
+`<ZodValidator />`. Known 3.0.0-prerelease.1 gaps: an error inside a value object member (`Email.Value`)
+is not placed on the member's field (WebAssembly `<ZodValidator>` shows it in the summary only;
+`<DataAnnotationsValidator />` and Blazor Server drop the message, though the form stays invalid), and
+WebAssembly AOT crashes for a scalar with a type-level `[ZodRule]`. Repository guide:
+`docs/Trimming-AOT-and-Blazor.md`.
 
 Four ways to use it, in rough order of how often you want them:
 

@@ -11,7 +11,8 @@ incremental source generator produces:
   and format overloads), and implicit conversions (with explicit extraction for nullable scalars)
 - The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`,
   `IParsable<T>`, `ISpanParsable<T>`, and `IUtf8SpanParsable<T>` — mirrored per type
-- JSON converters (scalar value objects serialize as their underlying value)
+- JSON converters (scalar value objects serialize as their underlying value), with no reflection: generated code is
+  trim- and Native AOT-safe, including in Blazor WebAssembly
 - Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
 
 **Use cases**
@@ -21,6 +22,10 @@ incremental source generator produces:
   (value converters, comparers, complex-type mapping) plus a `ConfigureValueObjects` extension for automatic
   mapping. Queries use the value object type directly — no `.Value` required.
 - **Domain models** – the F#-style single-case union pattern in C#.
+- **Blazor and Native AOT** – trimmed, AOT-compiled and Blazor WebAssembly apps; validate forms over value objects
+  with Purview.ZodSharp 3 (`net10.0`+). See the
+  [Trimming, Native AOT and Blazor](https://github.com/purview-dev/value-objects/blob/main/docs/Trimming-AOT-and-Blazor.md)
+  guide.
 
 ## Install
 

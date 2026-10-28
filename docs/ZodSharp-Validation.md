@@ -22,6 +22,15 @@ against the underlying value.
 ```text
 dotnet add package Purview.ZodSharp
 ```
+Purview.ZodSharp 3 targets `net10.0` and `net11.0` only, so a project that uses this integration must target
+`net10.0` or later; `Purview.ValueObjects` itself still ships `net8.0` to `net11.0` and does not depend on ZodSharp.
+The value object generator's output is the same for ZodSharp 2.x and 3.x. Two 3.x behaviour changes show up first in
+value object code: built-in rules report a structured `Origin` (the Zod type name of the underlying value, so
+`"string"` for a `Guid`) and `Category`, and generated schemas gain `ValidateAsync`, so CA1849 flags a synchronous
+`{Type}Schema.Validate` inside an async method. ZodSharp's own changelog lists the rest (paths, codes, messages).
+
+For Blazor forms over value objects (`Purview.ZodSharp.Blazor`) and for trimmed and AOT applications, see
+[Trimming, Native AOT and Blazor](Trimming-AOT-and-Blazor.md).
 
 ## 1. Generated validators on value objects
 

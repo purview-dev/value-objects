@@ -79,6 +79,8 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 - `ScalarJsonConverterFactory` uses only reflection over `ScalarAttribute` + `Create`/`Hydrate`/constructor;
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).
+- Purview.ZodSharp 3 ships `net10.0`/`net11.0` only. A project that references it selects
+  `PurviewTargetFrameworkSet=Supported`; the runtime package does not reference it and keeps `All`.
 
 ## Trimming and Native AOT (non-negotiable)
 
@@ -92,7 +94,12 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
   suppressions accurate. Do not add reflection anywhere else in the runtime.
 - Never weaken or delete an AOT/trim annotation or suppression to silence a warning; fix the call site or move the
   reflection into the annotated factory.
-- A feature is not complete until the generated path is confirmed clean under the trim/AOT analyzers.
+- A feature is not complete until the generated path is confirmed clean under the trim/AOT analyzers. The in-repo
+  projects never trim-analyze generated code, so the proof is the packed-consumer gate (`just smoke-packed-consumers`,
+  `scripts/test-packed-consumers.ps1`): it publishes a Native AOT console and a Blazor WebAssembly app (trimmed and
+  `RunAOTCompilation`) from the packed package with `-warnaserror`, runs them, and leak-scans every output.
+- Generated JSON converters read and write through `ValueObjectJson` (runtime), never through the
+  `JsonSerializer` overloads that take only `JsonSerializerOptions`.
 
 ## Testing conventions
 
@@ -128,7 +135,14 @@ just test
 just lint-check
 just pack
 just pipeline-pr
+just smoke-packed-consumers
+just verify-pack-rules
 ```
+
+`just smoke-packed-consumers` is the packed-consumer gate (Native AOT, Blazor WebAssembly trimmed and AOT in a
+headless browser, Blazor Server, net8.0, compiler-host leak scan). It needs the Native AOT toolchain, the
+`wasm-tools` workload and Chrome or Edge; dependency versions not yet on nuget.org restore from
+`LOCAL_NUGET_FEED_PATH`. Run it when generated code, the runtime, packaging or a dependency version changes.
 
 The repository uses the shared `Purview.Build` pipeline (`purview-build.json` at the root). `just pipeline-pr`
 runs `dotnet tool restore`, which installs the pinned `Purview.Build` from `.config/dotnet-tools.json`.
