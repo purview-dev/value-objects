@@ -8,6 +8,11 @@
 		     itself, and anything carrying a single Entity Framework Core 10 pin could not restore for
 		     net8.0/net9.0. Roslyn components are excluded by the SDK, which targets them at netstandard2.0. -->
 		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
+		<!--
+			Installed skills live in the universal .agents/skills/ folder only, and are committed. The
+			SDK's default (*) would make InstallPurviewSkills write a copy into every agent's folder.
+		-->
+		<PurviewSkillsAgents>universal</PurviewSkillsAgents>
 	</PropertyGroup>
 
 	<Import Sdk="Purview.BuildSdk" Project="Sdk.props" />
