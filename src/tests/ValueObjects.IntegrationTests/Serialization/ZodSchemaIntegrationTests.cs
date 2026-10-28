@@ -89,8 +89,10 @@ public sealed class ZodSchemaIntegrationTests
 		var error = exception!.Errors.Single();
 		await Assert.That(error.Code).IsEqualTo(NonSentinelRule<Guid>.ErrorCode);
 		await Assert.That(error.Message).IsEqualTo("AssetId must not be empty.");
-		// Built-in rules own their code but report no structured origin.
-		await Assert.That(error.Origin).IsNull();
+		// Purview.ZodSharp 3 gives every built-in rule a structured identity: the origin is the Zod type name
+		// of the underlying value (a Guid is a string in Zod), and the category is the Zod v4 issue code.
+		await Assert.That(error.Origin).IsEqualTo(ZodTypeNames.String);
+		await Assert.That(error.Category).IsEqualTo(ZodIssueCategories.InvalidValue);
 		// A scalar is validated as a unit, so the adapted rule reports an empty path.
 		await Assert.That(error.Path).IsEmpty();
 
@@ -162,7 +164,7 @@ public sealed class ZodSchemaIntegrationTests
 	}
 
 	[Test]
-	public async Task ContactDto_GivenShippedMemberAttributes_ValidatesMembers()
+	public async Task ContactDto_GivenShippedMemberAttributes_ValidatesMembers(CancellationToken cancellationToken)
 	{
 		// Arrange — [Email], [E164], [UUID], and [MinLengthZod] all ship in ZodSharp.Rules.
 		ContactDto valid = new()
@@ -174,7 +176,7 @@ public sealed class ZodSchemaIntegrationTests
 		};
 
 		// Act
-		var validResult = ContactDtoSchema.Validate(valid);
+		var validResult = await ContactDtoSchema.ValidateAsync(valid, services: null, cancellationToken);
 
 		// Assert
 		await Assert.That(validResult.IsSuccess).IsTrue();
@@ -187,7 +189,7 @@ public sealed class ZodSchemaIntegrationTests
 			Code = "ab",
 		};
 
-		var invalidResult = ContactDtoSchema.Validate(invalid);
+		var invalidResult = await ContactDtoSchema.ValidateAsync(invalid, services: null, cancellationToken);
 		await Assert.That(invalidResult.IsSuccess).IsFalse();
 
 		var codes = invalidResult.Errors.Select(error => error.Code).ToHashSet(StringComparer.Ordinal);
