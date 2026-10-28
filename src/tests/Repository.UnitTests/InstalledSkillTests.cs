@@ -5,8 +5,8 @@ namespace Purview.ValueObjects.Repository;
 /// <summary>
 /// Guards the skills installed from other repositories. They are installed by the skills CLI into the
 /// universal <c>.agents/skills/</c> folder only, and that folder and the CLI's <c>skills-lock.json</c>
-/// are committed, so the two must agree and no per-agent copy or Claude-specific instruction file may
-/// appear beside them.
+/// are committed, so the two must agree and no per-agent copy or instruction file may appear beside
+/// them.
 /// </summary>
 /// <remarks>
 /// <c>SkillTests</c> validates this repository's own skills in <c>skills/</c>; these are someone else's,
@@ -62,23 +62,27 @@ public sealed class InstalledSkillTests
 	}
 
 	[Test]
-	public async Task Lockfile_GivenEveryEntry_IsFromAnotherRepository(CancellationToken cancellationToken)
+	public async Task AgentsSkills_GivenTheAuthoredSkills_HoldsNoCopyOfThem(CancellationToken cancellationToken)
 	{
 		// Arrange
-		var recorded = await ReadLockfileSkillsAsync(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+		var authored = Directory
+			.GetDirectories(Path.Combine(RepositoryRoot.Value, "skills"))
+			.Select(static path => Path.GetFileName(path))
+			.ToArray();
 
 		// Act
-		var authoredHere = recorded
-			.Where(static name => Directory.Exists(Path.Combine(RepositoryRoot.Value, "skills", name)))
+		var copied = authored
+			.Where(static name => Directory.Exists(Path.Combine(AgentsSkillsFolder(), name)))
 			.ToArray();
 
 		// Assert
 		await Assert
-			.That(authoredHere)
+			.That(copied)
 			.IsEmpty()
 			.Because(
-				"this repository's own skills are read at skills/<name>/SKILL.md and never installed into "
-					+ $".agents/skills/, where a second copy would drift: {string.Join(", ", authoredHere)}"
+				"this repository's own skills live in skills/ only; a copy in .agents/skills/ would drift from "
+					+ $"the authored one: {string.Join(", ", copied)}"
 			);
 	}
 
@@ -103,22 +107,27 @@ public sealed class InstalledSkillTests
 	}
 
 	[Test]
-	public async Task RepositoryRoot_GivenTheAgentConvention_HasNoClaudeInstructionFile(
-		CancellationToken cancellationToken
-	)
+	public async Task Repository_GivenAgentInstructions_HasNoClaudeMd(CancellationToken cancellationToken)
 	{
 		// Arrange
 		cancellationToken.ThrowIfCancellationRequested();
-		var claudeMd = Path.Combine(RepositoryRoot.Value, "CLAUDE.md");
+		string[] candidates =
+		[
+			Path.Combine(RepositoryRoot.Value, "CLAUDE.md"),
+			Path.Combine(RepositoryRoot.Value, ".github", "CLAUDE.md"),
+		];
 
 		// Act
-		var exists = File.Exists(claudeMd);
+		var present = candidates.Where(File.Exists).ToArray();
 
 		// Assert
 		await Assert
-			.That(exists)
-			.IsFalse()
-			.Because("AGENTS.md is the only agent instruction file; a CLAUDE.md would be a second, drifting copy");
+			.That(present)
+			.IsEmpty()
+			.Because(
+				"this repository is not agent-specific: AGENTS.md is its one instruction file, so a CLAUDE.md "
+					+ $"must not be added: {string.Join(", ", present)}"
+			);
 	}
 
 	static string AgentsSkillsFolder() => Path.Combine(RepositoryRoot.Value, ".agents", "skills");
