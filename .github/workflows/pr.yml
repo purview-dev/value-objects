@@ -15,7 +15,59 @@ jobs:
     with:
       # The shared workflow defaults to the 10.0.x SDK, which cannot build the net11.0 target this
       # repository gained (NETSDK1045). Keep in sync with `sdk.version` in global.json.
-      dotnet-version: "11.0.100-rc.2.26504.105"
+      dotnet-version: "11.0.100-rc.3.26522.148"
       run-pack: true
       validate-pack: true
     secrets: inherit
+
+  # Every other job builds against ProjectReferences; this one builds what ships. It packs Purview.ValueObjects to an
+  # isolated feed and package cache, then publishes and runs consumers that reference the package only - a Native AOT
+  # console, a Blazor WebAssembly app (trimmed and RunAOTCompilation, run in headless Chrome), a Blazor Server app
+  # and a net8.0 console - and leak-scans every bin and publish folder for compiler-host assemblies. It then proves
+  # every PackValidation ForbiddenContent rule rejects a package. `just smoke-packed-consumers` and
+  # `just verify-pack-rules` run the same locally.
+  packed-consumers:
+    name: Packed consumers (Native AOT, Blazor WebAssembly, Blazor Server)
+    runs-on: ubuntu-latest
+    env:
+      # An extra feed for Purview.SourceGeneratorFramework* and Purview.ZodSharp* only, for versions that are not on
+      # nuget.org yet. Unset, the gate restores them from nuget.org alone.
+      VALUEOBJECTS_DEPENDENCY_FEED: ${{ vars.VALUEOBJECTS_DEPENDENCY_FEED }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # The SDK from global.json, plus the .NET 8 runtime the net8.0 consumer runs on.
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          dotnet-version: 8.0.x
+
+      # First, before any toolchain is installed: the generator is built against the Purview.SourceGeneratorFramework
+      # version Directory.Packages.props pins, and the consumers use the pinned Purview.ZodSharp. Until both are on
+      # nuget.org (or the VALUEOBJECTS_DEPENDENCY_FEED repository variable names a feed that has them) this fails here,
+      # with what to do, rather than skipping.
+      - name: Check the build-time and consumer dependencies restore
+        shell: pwsh
+        run: ./scripts/test-packed-consumers.ps1 -PreflightOnly
+
+      # Native AOT links with clang and needs the zlib headers; the hosted image may not carry both.
+      - name: Install the Native AOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      # RunAOTCompilation needs the Emscripten toolchain and the Mono AOT cross compiler. -WasmAot Require below makes
+      # a missing workload an error instead of a skipped step.
+      - name: Install the wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      # The hosted image ships Google Chrome; -Browser Require fails if it ever stops doing so.
+      - name: Pack, then publish, run and leak-scan consumers of the package
+        shell: pwsh
+        run: >-
+          ./scripts/test-packed-consumers.ps1 -RuntimeIdentifier linux-x64 -WasmAot Require -Browser Require
+          -PackOutput artifacts/packed
+
+      - name: Prove every pack-validation forbidden-content rule rejects a package
+        shell: pwsh
+        run: |
+          dotnet tool restore
+          ./scripts/test-pack-validation-rules.ps1 -PackagesFolder artifacts/packed
