@@ -186,14 +186,20 @@ Before handing work back:
 
 ## Installed skills (`.agents/skills/`)
 
-Specialist guidance this repository depends on - `Purview.BuildSdk` configuration, the
-`Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is published by the
-repositories that own it, and installed here by the skills CLI. The installed skills are **committed**:
+Specialist guidance this repository depends on - the Purview engineering playbook, `Purview.BuildSdk`
+configuration, the `Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is
+published by the repositories that own it, and installed here by the skills CLI. The installed skills are **committed**:
 `.agents/skills/**` and the CLI's `skills-lock.json` (source, skill path and content hash of every entry) are both
 in source, so a clone has them without running anything.
 
 | Skill | Source | Load before |
 | --- | --- | --- |
+| `purview-engineering-principles` | `purview-dev/engineering-playbook` | setting up, reviewing or rationalising the repository against the Purview conventions |
+| `purview-architecture` | `purview-dev/engineering-playbook` | deciding project shape or generating substantial implementation code |
+| `purview-architecture-testing` | `purview-dev/engineering-playbook` | adding or changing architecture tests |
+| `purview-testing-conventions` | `purview-dev/engineering-playbook` | writing or reviewing tests (TUnit, AAA, naming, builders) |
+| `purview-persistence` | `purview-dev/engineering-playbook` | choosing a storage approach, abstracting EF Core, or a GUID primary-key strategy |
+| `purview-telemetry` | `purview-dev/engineering-playbook` | adding or reviewing observability |
 | `purview-buildsdk-*` (8 skills) | `purview-dev/build-sdk` | build/SDK configuration, project layout and detection, testing, skill installation and skill tests |
 | `purview-sourcegenerator-codewriter` | `purview-dev/sourcegenerator-framework` | writing or reviewing emitter code (`CodeWriter`, scopes) |
 | `purview-sourcegenerator-pipeline` | `purview-dev/sourcegenerator-framework` | changing the incremental pipeline or its value-equatable models |
@@ -209,6 +215,7 @@ or any other per-agent folder, and never add a `CLAUDE.md`: `AGENTS.md` is the o
 
 ```bash
 # add or update every skill from a source
+npx -y skills@1 add purview-dev/engineering-playbook -s '*' -a universal -y
 npx -y skills@1 add purview-dev/build-sdk -s '*' -a universal -y
 npx -y skills@1 add purview-dev/sourcegenerator-framework -s '*' -a universal -y
 npx -y skills@1 add purview-dev/zodsharp -s '*' -a universal -y
@@ -224,8 +231,9 @@ lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills` target delegates to
 defaulting to every agent (`*`).
 
 `src/tests/Repository.UnitTests/InstalledSkillTests.cs` keeps this honest: every `skills-lock.json` entry has its
-`.agents/skills/<name>/SKILL.md`, every installed folder is in the lockfile, no entry is one of this repository's
-own skills, and neither a `.claude/skills/` copy nor a `CLAUDE.md` exists.
+`.agents/skills/<name>/SKILL.md`, every installed folder is in the lockfile, no skill authored in `skills/` is
+copied into `.agents/skills/`, no `.claude/skills/` copy exists, and there is no `CLAUDE.md` (at the root or in
+`.github/`).
 
 ## Agent skills
 
