@@ -745,8 +745,14 @@ static class ValueObjectEFRegistryEmitter
 					ValueObjectEmitterHelpers.EFConverterBaseType(descriptor.TypeName, "global::System.String"),
 					descriptor.TypeName,
 					"global::System.String",
-					"vo => global::System.Text.Json.JsonSerializer.Serialize(vo)",
-					$"v => global::System.Text.Json.JsonSerializer.Deserialize<{descriptor.TypeName}>(v)!"
+					ValueObjectEFConverterEmitter.ToJsonProviderExpression(
+						descriptor.TypeName,
+						descriptor.JsonConverterTypeName
+					),
+					ValueObjectEFConverterEmitter.FromJsonProviderExpression(
+						descriptor.TypeName,
+						descriptor.JsonConverterTypeName
+					)
 				)
 			);
 			fields[descriptor] = fieldName;

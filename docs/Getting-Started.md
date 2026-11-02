@@ -293,18 +293,23 @@ public readonly partial record struct OrderStatus
 ## 5. JSON serialization
 
 Scalar value objects serialize as their underlying value. The generator emits a `[JsonConverter]` per value object,
-so they round-trip with default options. For a shared options instance, register
-`ScalarJsonConverterFactory`:
+so they round-trip with any options and need no registration. The generated converters use no reflection, so they
+are trim- and Native AOT-safe. `ScalarJsonConverterFactory` is only for a hand-written scalar that has no generated
+converter, in a host that is neither trimmed nor AOT-compiled:
 
 ```csharp
 var options = new JsonSerializerOptions();
 options.Converters.Add(new ScalarJsonConverterFactory());
 ```
 
+A source-generated `JsonSerializerContext` in the project that declares the value objects is the exception: see
+[Trimming, Native AOT and Blazor](Trimming-AOT-and-Blazor.md#systemtextjson-source-generation).
+
 `ValueObjectDeserializationMode` controls which factory deserialization uses:
 
 - `Hydrate` (default) – reconstructs via `Hydrate`, skipping validation.
-- `Strict` – reconstructs via `Create`, re-running validation.
+- `Strict` – reconstructs via `Create`, re-running validation. A value that fails is reported as a `JsonException`
+  whose `InnerException` is the validator's exception and whose `Path` is where the value sat (`$.customerEmail`).
 
 ```csharp
 [Scalar(DeserializationMode = ValueObjectDeserializationMode.Strict)]
@@ -418,10 +423,12 @@ through `Create` unchanged. See
 [Custom rules on scalars](ZodSharp-Validation.md#custom-rules-on-scalars) and
 [Reusing a normal rule for a scalar](ZodSharp-Validation.md#reusing-a-normal-rule-for-a-scalar).
 
-In ASP.NET Core, `Purview.ZodSharp.AspNetCore` converts those `ZodException`s into standard Problem
-Details responses — combine `ValueObjectDeserializationMode.Strict` with
-`AddZodSharpProblemDetails()` + `UseExceptionHandler()` so invalid request bodies return
-`HttpValidationProblemDetails` automatically. See the `src/src/ZodSharp.AspNetCoreSample` project.
+In ASP.NET Core, `Purview.ZodSharp.AspNetCore` turns validation failures into standard Problem Details
+responses. Mark the request model `[ZodSchema]`, bind it with the default `Hydrate` mode, and add
+`.WithZodSharpValidation()` to the endpoint: every invalid value object member is reported under its own path
+(`CustomerEmail.Value`). See
+[ASP.NET Core Problem Details](ZodSharp-Validation.md#aspnet-core-problem-details) and the
+`src/src/ZodSharp.AspNetCoreSample` project.
 
 See `ZodSharp-Validation.md` and the `src/src/ZodSharpSample` project.
 

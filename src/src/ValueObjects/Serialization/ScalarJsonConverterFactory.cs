@@ -37,15 +37,12 @@ namespace Purview.ValueObjects.Serialization;
 /// for a hand-written scalar that has no generated converter, and only in a host that is neither trimmed
 /// nor AOT-compiled.
 /// </para>
-/// </remarks>
-/// <remarks>
-/// Creates the factory.
-/// </remarks>
-/// <remarks>
-/// The trimming and Native AOT requirement is declared here because this is where a host opts in, and
-/// because an override of <see cref="JsonConverterFactory.CreateConverter"/> cannot carry the attributes
-/// itself (IL2046/IL3051 require them to match the unannotated base). Registering this factory in a
-/// trimmed or AOT-compiled host will warn at the construction site instead of failing at runtime.
+/// <para>
+/// The trimming and Native AOT requirement is declared on the constructor because that is where a host opts
+/// in, and because an override of <see cref="JsonConverterFactory.CreateConverter"/> cannot carry the
+/// attributes itself (IL2046/IL3051 require them to match the unannotated base). Registering this factory in
+/// a trimmed or AOT-compiled host will warn at the construction site instead of failing at runtime.
+/// </para>
 /// </remarks>
 [method: RequiresUnreferencedCode(
 	"ScalarJsonConverterFactory reads ScalarAttribute, resolves the scalar member and the "
@@ -158,28 +155,17 @@ public sealed class ScalarJsonConverterFactory() : JsonConverterFactory
 			{
 				return _create(scalar!);
 			}
-			catch (Exception exception) when (IsValidationFailure(exception))
+			catch (Exception exception) when (ValueObjectJson.IsValidationFailure(exception))
 			{
 				// Surfaced as JsonException so System.Text.Json attaches Path and LineNumber, and so hosts
 				// treat it as bad input. Under Strict the factory is Create, which throws the validation
 				// exception of whatever validator the value object uses - ArgumentException by default, or
 				// ZodException with ZodSharp validation. Letting those escape unwrapped meant ASP.NET Core
 				// saw an unhandled exception and answered 500 instead of 400, with no indication of which
-				// property failed.
-				throw new JsonException(
-					$"Cannot deserialize {typeof(TScalarObject).Name}: the value failed validation.",
-					exception
-				);
+				// property failed. The generated converters throw the same exception.
+				throw ValueObjectJson.ValidationFailed(typeof(TScalarObject), exception);
 			}
 		}
-
-		/// <summary>
-		/// Whether <paramref name="exception"/> is a validation failure from the value object's factory
-		/// rather than something that must not be reported as malformed input.
-		/// </summary>
-		static bool IsValidationFailure(Exception exception) =>
-			exception
-				is not (OperationCanceledException or OutOfMemoryException or StackOverflowException or JsonException);
 
 		public override void Write(Utf8JsonWriter writer, TScalarObject value, JsonSerializerOptions options) =>
 			JsonSerializer.Serialize(writer, _getScalar(value), options);

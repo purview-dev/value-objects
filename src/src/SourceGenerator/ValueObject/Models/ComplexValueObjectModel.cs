@@ -36,7 +36,10 @@ sealed record class ComplexValueObjectModel(
 	bool HasZodSchemaValidation,
 	string? ZodSchemaClassName,
 	bool IsEFReferenced,
-	bool IsEF8Referenced
+	bool IsEF8Referenced,
+	// The JsonConverter<T> an Entity Framework Core JSON column of this value object serializes through, or null
+	// when there is none to call without reflection.
+	string? EFJsonConverterTypeName
 );
 
 /// <summary>A member of a complex value object.</summary>

@@ -53,6 +53,26 @@ static class ValueObjectEFConverterEmitter
 			? $"v => {valueObjectTypeName}.Hydrate(v)"
 			: $"v => {valueObjectTypeName}.Hydrate(({hydrateCastTypeName})v)";
 
+	/// <summary>
+	/// Builds the model-to-provider lambda of a JSON column. With <paramref name="jsonConverterTypeName"/> it writes
+	/// through that converter with the runtime's <c>ValueObjectJson</c>, which is trim- and Native AOT-safe;
+	/// without one (the value object opted out of its generated converter, or names a factory) it falls back to the
+	/// reflection-based <c>JsonSerializer.Serialize</c>.
+	/// </summary>
+	public static string ToJsonProviderExpression(string valueObjectTypeName, string? jsonConverterTypeName) =>
+		jsonConverterTypeName is null
+			? "vo => global::System.Text.Json.JsonSerializer.Serialize(vo)"
+			: $"vo => {TypeLibrary.ValueObjectJsonGlobalName}.Serialize<{valueObjectTypeName}, {jsonConverterTypeName}>(vo)";
+
+	/// <summary>
+	/// Builds the provider-to-model lambda of a JSON column; the counterpart of
+	/// <see cref="ToJsonProviderExpression"/>.
+	/// </summary>
+	public static string FromJsonProviderExpression(string valueObjectTypeName, string? jsonConverterTypeName) =>
+		jsonConverterTypeName is null
+			? $"v => global::System.Text.Json.JsonSerializer.Deserialize<{valueObjectTypeName}>(v)!"
+			: $"v => {TypeLibrary.ValueObjectJsonGlobalName}.Deserialize<{valueObjectTypeName}, {jsonConverterTypeName}>(v)!";
+
 	public static void EmitConverterClass(CodeWriter writer, EFConverterDefinition definition)
 	{
 		var nullableObject = PurviewTypeLibrary.System.Object.MakeNullable(writer);

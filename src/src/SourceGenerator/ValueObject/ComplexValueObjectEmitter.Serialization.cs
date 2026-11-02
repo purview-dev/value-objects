@@ -82,7 +82,14 @@ static partial class ComplexValueObjectEmitter
 							{
 								loop.IfBlock(
 									"reader.TokenType == global::System.Text.Json.JsonTokenType.EndObject",
-									ifBody => ifBody.Return($"{model.HydrateFactoryName}({hydrateArgs})")
+									ifBody =>
+										ValueObjectEmitterHelpers.EmitJsonFactoryReturn(
+											ifBody,
+											$"{model.HydrateFactoryName}({hydrateArgs})",
+											model.Options.DeserializationMode
+												== ValueObjectSymbolInspector.StrictModeName,
+											model.TypeModel.FullyQualifiedName
+										)
 								);
 
 								loop.Line("var jsonName = reader.GetString();");

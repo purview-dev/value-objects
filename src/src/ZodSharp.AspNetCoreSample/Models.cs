@@ -5,11 +5,11 @@ using ZodSharp;
 namespace Purview.ValueObjects.ZodSharp.AspNetCoreSample;
 
 /// <summary>
-/// A scalar value object validated by the ZodSharp-generated schema and deserialized in
-/// <see cref="ValueObjectDeserializationMode.Strict"/> mode, so invalid JSON input throws a
-/// <c>ZodException</c> that the registered exception handler converts to Problem Details.
+/// A scalar value object validated by the ZodSharp-generated schema. It deserializes with the default
+/// <see cref="ValueObjectDeserializationMode.Hydrate"/>, so binding never throws; the endpoint filter validates the
+/// bound request, and an invalid email is reported at <c>CustomerEmail.Value</c>.
 /// </summary>
-[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks, DeserializationMode = ValueObjectDeserializationMode.Strict)]
+[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
 [ZodSchema]
 readonly partial record struct EmailAddress
 {
@@ -18,9 +18,9 @@ readonly partial record struct EmailAddress
 }
 
 /// <summary>
-/// A scalar value object validated by the ZodSharp-generated schema and deserialized strictly.
+/// A scalar value object validated by the ZodSharp-generated schema.
 /// </summary>
-[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks, DeserializationMode = ValueObjectDeserializationMode.Strict)]
+[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
 [ZodSchema]
 readonly partial record struct OrderQuantity
 {
@@ -29,6 +29,8 @@ readonly partial record struct OrderQuantity
 }
 
 /// <summary>
-/// The request DTO bound by <c>POST /orders</c>. Its value object members are deserialized strictly.
+/// The request DTO bound by <c>POST /orders</c>. Its generated schema validates each value object member through
+/// that value object's own schema, so every invalid member is reported, under its own path.
 /// </summary>
-sealed record PlaceOrderRequest(EmailAddress CustomerEmail, OrderQuantity Quantity);
+[ZodSchema]
+sealed partial record PlaceOrderRequest(EmailAddress CustomerEmail, OrderQuantity Quantity);

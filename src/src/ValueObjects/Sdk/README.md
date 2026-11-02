@@ -103,18 +103,21 @@ intentionally not mirrored.
 
 ## JSON serialization
 
-Scalar value objects serialize as their underlying value. Register the converter factory on your
-`JsonSerializerOptions`:
+Scalar value objects serialize as their underlying value; complex value objects serialize as an object of their
+members. The generator emits a `[JsonConverter]` per value object, so no registration is needed. That generated
+converter is reflection-free and trim- and Native AOT-safe.
+
+`ScalarJsonConverterFactory` covers a hand-written scalar that has no generated converter. It uses reflection, so
+register it only in a host that is neither trimmed nor AOT-compiled:
 
 ```csharp
 var options = new JsonSerializerOptions();
 options.Converters.Add(new ScalarJsonConverterFactory());
 ```
 
-The generator also emits a `[JsonConverter]` per value object, so scalar/complex value objects serialize
-correctly even when the factory is not registered. That generated converter is reflection-free and trim- and
-Native AOT-safe; register `ScalarJsonConverterFactory` only for a hand-written scalar, in a host that is neither
-trimmed nor AOT-compiled.
+A source-generated `JsonSerializerContext` in the project that declares the value objects cannot see the generated
+`[JsonConverter]` attributes, so register the generated converters on its options
+(`new EmailAddress.EmailAddressJsonConverter()`); a value object from a referenced library needs nothing.
 
 ## Entity Framework Core
 
@@ -134,6 +137,16 @@ types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = Enti
 Queries compare the value object type directly — no `.Value` required — or the raw underlying value
 (`c.Email == "..."`, `m.Id == guid`). See the Entity Framework guide for automatic + manual mapping, keys and
 indexes, generated key values, query filters, schema/migrations, assembly defaults, and the opt-out levels.
+
+## Trimming, Native AOT and Blazor
+
+Generated code uses no reflection, so trimmed, Native AOT and Blazor WebAssembly applications get no
+IL2xxx/IL3xxx warning from it, including the Entity Framework Core JSON-column converters (EF Core itself is
+not fully trim- or AOT-compatible). The runtime declares `browser` as a supported platform. The package targets
+`net8.0`-`net11.0`; the optional Purview.ZodSharp 3 integration needs `net10.0`+, and `Purview.ZodSharp.Blazor`
+validates Blazor forms over value objects. See the
+[Trimming, Native AOT and Blazor](https://github.com/purview-dev/value-objects/blob/main/docs/Trimming-AOT-and-Blazor.md)
+guide.
 
 ## Validation with ZodSharp
 

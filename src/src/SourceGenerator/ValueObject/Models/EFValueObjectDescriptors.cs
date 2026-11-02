@@ -35,7 +35,9 @@ readonly record struct EFScalarDescriptor(
 /// Compile-time description of an Entity Framework Core-enabled complex value object, used to emit the
 /// assembly-level <c>ValueObjectEFExtensions</c> registry. When the declaring assembly emitted an
 /// <c>EF</c> nested class (<see cref="HasEFMembers"/>), the registry references <c>{TypeName}.EF.Converter</c>
-/// for JSON columns; otherwise the JSON converter is emitted inline.
+/// for JSON columns; otherwise the JSON converter is emitted inline, serializing through
+/// <see cref="JsonConverterTypeName"/> when the type's <c>[JsonConverter]</c> names one that can be called without
+/// reflection.
 /// </summary>
 readonly record struct EFComplexDescriptor(
 	string TypeName,
@@ -43,5 +45,6 @@ readonly record struct EFComplexDescriptor(
 	bool IsEF8Referenced,
 	bool HasComparer,
 	bool HasJsonConverter,
-	bool HasEFMembers
+	bool HasEFMembers,
+	string? JsonConverterTypeName = null
 );

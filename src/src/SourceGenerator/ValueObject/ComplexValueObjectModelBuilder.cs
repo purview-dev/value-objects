@@ -238,7 +238,15 @@ static class ComplexValueObjectModelBuilder
 			zodSchema.HasSchema,
 			zodSchema.SchemaClassName,
 			isEFReferenced,
-			ValueObjectSymbolInspector.IsEF8Referenced(compilation)
+			ValueObjectSymbolInspector.IsEF8Referenced(compilation),
+			isEFReferenced
+				? ResolveEFJsonConverterTypeName(
+					typeSymbol,
+					typeModel.Value.FullyQualifiedName,
+					hasJsonConverterAttribute,
+					valueObjectOptions.GenerateJsonConverter
+				)
+				: null
 		);
 
 		return GeneratorResult<ComplexValueObjectModel>.Create(model, diagnosticsList.ToImmutableArray());
@@ -264,16 +272,42 @@ static class ComplexValueObjectModelBuilder
 		if (type is not INamedTypeSymbol { IsGenericType: false } named)
 			return null;
 
-		var converter =
-			ResolveDeclaredJsonConverter(named)
-			?? ResolveGeneratedJsonConverter(named, compilationAssembly, assemblyDefaults);
-		if (converter is null)
+		var converterTypeName =
+			ResolveDeclaredJsonConverterTypeName(named)
+			?? ResolveGeneratedJsonConverterTypeName(named, compilationAssembly, assemblyDefaults);
+		if (converterTypeName is null)
 			return null;
 
+		var converter = $"new {converterTypeName}()";
 		return isNullableValueType ? $"{TypeLibrary.ValueObjectJsonGlobalName}.Nullable({converter})" : converter;
 	}
 
-	static string? ResolveDeclaredJsonConverter(INamedTypeSymbol type)
+	/// <summary>
+	/// The converter an Entity Framework Core JSON column of this value object serializes through, or
+	/// <see langword="null"/> to keep the reflection-based <c>JsonSerializer</c> call. It is the converter
+	/// <c>JsonSerializer.Serialize(value)</c> would pick: the author's own <c>[JsonConverter]</c> when there is one
+	/// (and nothing when that is a factory or otherwise cannot be constructed here), otherwise the generated
+	/// <c>{Name}JsonConverter</c>.
+	/// </summary>
+	static string? ResolveEFJsonConverterTypeName(
+		INamedTypeSymbol typeSymbol,
+		string fullyQualifiedName,
+		bool hasJsonConverterAttribute,
+		bool generateJsonConverter
+	)
+	{
+		if (hasJsonConverterAttribute)
+			return ResolveDeclaredJsonConverterTypeName(typeSymbol);
+
+		return generateJsonConverter ? $"{fullyQualifiedName}.{typeSymbol.Name}JsonConverter" : null;
+	}
+
+	/// <summary>
+	/// The fully qualified name of the concrete <c>JsonConverter&lt;T&gt;</c> a type's own
+	/// <c>[JsonConverter(typeof(C))]</c> names, or <see langword="null"/> when it has none, or names a factory or a
+	/// converter that cannot be constructed without arguments.
+	/// </summary>
+	internal static string? ResolveDeclaredJsonConverterTypeName(INamedTypeSymbol type)
 	{
 		foreach (var attribute in type.GetAttributes())
 		{
@@ -295,7 +329,7 @@ static class ComplexValueObjectModelBuilder
 					ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public
 				);
 			if (constructible && IsJsonConverterOf(converterType, type))
-				return $"new {ValueObjectSymbolInspector.ToTypeName(converterType)}()";
+				return ValueObjectSymbolInspector.ToTypeName(converterType);
 
 			return null;
 		}
@@ -303,7 +337,7 @@ static class ComplexValueObjectModelBuilder
 		return null;
 	}
 
-	static string? ResolveGeneratedJsonConverter(
+	static string? ResolveGeneratedJsonConverterTypeName(
 		INamedTypeSymbol type,
 		IAssemblySymbol compilationAssembly,
 		ValueObjectDefaultsAttributeData assemblyDefaults
@@ -338,9 +372,7 @@ static class ComplexValueObjectModelBuilder
 			return null;
 		}
 
-		return generateJsonConverter
-			? $"new {ValueObjectSymbolInspector.ToTypeName(type)}.{type.Name}JsonConverter()"
-			: null;
+		return generateJsonConverter ? $"{ValueObjectSymbolInspector.ToTypeName(type)}.{type.Name}JsonConverter" : null;
 	}
 
 	static bool IsJsonConverterOf(INamedTypeSymbol converterType, INamedTypeSymbol valueType)

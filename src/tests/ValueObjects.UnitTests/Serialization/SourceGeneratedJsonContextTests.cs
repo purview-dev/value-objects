@@ -165,6 +165,46 @@ public sealed class SourceGeneratedJsonContextTests
 		await Assert.That(exception).IsNotNull();
 		await Assert.That(exception!.Message).Contains(typeof(ContextOrder).FullName!);
 	}
+
+	[Test]
+	public async Task Serialize_GivenComplexValueObject_MatchesJsonSerializerAndRoundTrips()
+	{
+		// Arrange - the string helpers back the generated Entity Framework Core JSON-column converters, which used to
+		// call JsonSerializer.Serialize(value)/Deserialize<T>(json); the column content must not change.
+		var money = ContextMoney.Create(19.99m, ContextCurrencyCode.Create("usd"), ContextCurrencyCode.Create("eur"));
+		var expected = JsonSerializer.Serialize(money);
+
+		// Act
+		var json = ValueObjectJson.Serialize<ContextMoney, ContextMoney.ContextMoneyJsonConverter>(money);
+		var roundTripped = ValueObjectJson.Deserialize<ContextMoney, ContextMoney.ContextMoneyJsonConverter>(json);
+
+		// Assert
+		await Assert.That(json).IsEqualTo(expected);
+		await Assert.That(json).IsEqualTo("""{"Amount":19.99,"Currency":"USD","Fallback":"EUR"}""");
+		await Assert.That(roundTripped).IsEqualTo(money);
+	}
+
+	[Test]
+	public async Task Deserialize_GivenEmptyInput_ThrowsJsonException()
+	{
+		// Act & Assert
+		await Assert
+			.That(() => ValueObjectJson.Deserialize<ContextMoney, ContextMoney.ContextMoneyJsonConverter>(" "))
+			.Throws<JsonException>();
+	}
+
+	[Test]
+	public async Task Deserialize_GivenTrailingValue_ThrowsJsonException()
+	{
+		// Act & Assert
+		await Assert
+			.That(() =>
+				ValueObjectJson.Deserialize<ContextMoney, ContextMoney.ContextMoneyJsonConverter>(
+					"""{"Amount":1,"Currency":"USD"} 2"""
+				)
+			)
+			.Throws<JsonException>();
+	}
 }
 
 [Scalar]

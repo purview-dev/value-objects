@@ -265,35 +265,57 @@ reconstructs codes or messages — it forwards `result.Errors` into a `ZodExcept
 
 ### ASP.NET Core Problem Details
 
-`Purview.ZodSharp.AspNetCore` maps a thrown `ZodException` to `HttpValidationProblemDetails`:
+Bind request bodies with the default `Hydrate` mode and validate the **bound request**: its generated
+schema validates each value object member through that value object's own schema, so every invalid member
+is reported under its own path (`CustomerEmail.Value`, message `Field 'CustomerEmail' ...`).
 
 ```csharp
+[ZodSchema]
+public sealed partial record PlaceOrderRequest(EmailAddress CustomerEmail, OrderQuantity Quantity);
+
+builder.Services.AddZodSharpMyAppSchemas();     // generated AddZodSharp{Assembly}Schemas(), AOT-safe
 builder.Services.AddZodSharpProblemDetails();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 app.UseExceptionHandler();
+app.MapPost("/orders", (PlaceOrderRequest request) => TypedResults.Ok()).WithZodSharpValidation();
 ```
 
-Make the value object validate during model binding:
+An invalid body returns `400 application/problem+json` with `errors` and the structured `issues`, under
+the JIT and Native AOT. On `net11.0`, `AddZodSharpValidation()` (`Purview.ZodSharp.Extensions.Validation`)
+does it for every endpoint. Under Native AOT (`CreateSlimBuilder` and a source-generated context), also
+register the generated converters (`new EmailAddress.EmailAddressJsonConverter()`) on the HTTP JSON options.
+
+`ValueObjectDeserializationMode.Strict` gives the same contract at the same path: the generated converter
+throws `JsonException(inner: ZodException)`, System.Text.Json records `$.customerEmail`, and
+`ZodExceptionHandler` re-roots the errors (`CustomerEmail.Value`, `Copies[1].Value`). On .NET 10 set
+`AddZodSharpProblemDetails(o => o.HandleBindingFailures = true)`, or binding answers a bare `400`; .NET 11
+needs nothing. Requires Purview.ZodSharp 3.0.0-prerelease.2+. It still stops at the first invalid member, so
+prefer bound-request validation for request bodies. Don't register `ScalarJsonConverterFactory`: under Native
+AOT every request fails.
+
+### Typed HTTP clients (`Purview.ZodSharp.Http`)
+
+`PostAsJsonValidatedAsync`/`PutAsJsonValidatedAsync`/`PatchAsJsonValidatedAsync` validate a body before
+sending (an invalid one is never sent), `ReadFromJsonAndValidateAsync` validates a response, and
+`TryReadZodValidationProblemAsync` turns the server's ProblemDetails back into ZodSharp errors. Every API
+takes a `JsonTypeInfo<T>`, so it is trim-, AOT- and WebAssembly-safe. **Do not pass the context's own
+property** (`AppJsonContext.Default.Order`) when the value objects are declared in the same project: that
+context cannot see their converters and writes `{"customerEmail":{"value":"..."}}`, which the server rejects.
+Build the type info from options that carry the generated converters:
 
 ```csharp
-[Scalar(
-    ZodSchemaMode = ZodSchemaMode.InsteadOfHooks,
-    DeserializationMode = ValueObjectDeserializationMode.Strict)]
-[ZodSchema]
-public readonly partial record struct EmailAddress
+JsonSerializerOptions options = new(AppJsonContext.Default.Options)
 {
-    [Required, EmailAddress]
-    public string Value { get; }
-}
+    Converters = { new EmailAddress.EmailAddressJsonConverter() },
+};
+var orderInfo = (JsonTypeInfo<PlaceOrderRequest>)options.GetTypeInfo(typeof(PlaceOrderRequest));
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new ScalarJsonConverterFactory()));
+var sent = await http.PostAsJsonValidatedAsync("orders", request, new PlaceOrderRequestSchemaValidator(), orderInfo);
 ```
 
-An invalid body now returns `400 application/problem+json` with the structured issues in the `issues`
-extension.
+Value objects from a referenced library need none of this; the context's own property works.
 
 Map error codes to HTTP statuses with `[ErrorType]` on a `static readonly ErrorType` field; the
 bundled `ErrorTypeGenerator` emits `Create{Field}(...)` and a `[DoesNotReturn]` `Throw{Field}(...)`.

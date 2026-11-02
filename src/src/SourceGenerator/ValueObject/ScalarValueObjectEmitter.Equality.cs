@@ -287,8 +287,8 @@ static partial class ScalarValueObjectEmitter
 			return;
 
 		var valueObjectType = ValueObjectType(model);
-		var factoryMethod =
-			model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName ? "Create" : "Hydrate";
+		var isStrict = model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName;
+		var factoryMethod = isStrict ? "Create" : "Hydrate";
 
 		writer.Class(
 			new($"{model.TypeModel.Name}JsonConverter")
@@ -343,7 +343,12 @@ static partial class ScalarValueObjectEmitter
 							);
 						}
 
-						methodBody.Return($"{factoryMethod}(value)");
+						ValueObjectEmitterHelpers.EmitJsonFactoryReturn(
+							methodBody,
+							$"{factoryMethod}(value)",
+							isStrict,
+							model.TypeModel.FullyQualifiedName
+						);
 					}
 				);
 

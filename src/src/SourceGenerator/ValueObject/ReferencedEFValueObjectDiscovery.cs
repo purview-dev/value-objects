@@ -222,7 +222,9 @@ static class ReferencedEFValueObjectDiscovery
 					isEF8Referenced,
 					options.GenerateEFComparer,
 					efMapping is not null && ValueObjectSymbolInspector.IsEFMappingJson(efMapping),
-					HasEFMembers: false
+					HasEFMembers: false,
+					// The compiled type carries the [JsonConverter] its own generator emitted (or its author's).
+					JsonConverterTypeName: ComplexValueObjectModelBuilder.ResolveDeclaredJsonConverterTypeName(type)
 				)
 			);
 			return;

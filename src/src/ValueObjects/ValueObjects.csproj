@@ -26,6 +26,14 @@
 		<IsAotCompatible>true</IsAotCompatible>
 	</PropertyGroup>
 
+	<!--
+		Blazor WebAssembly. Declaring browser as a supported platform makes the platform compatibility analyzer
+		(CA1416) report any API this assembly calls that throws PlatformNotSupportedException in the browser.
+	-->
+	<ItemGroup Label="Browser">
+		<SupportedPlatform Include="browser" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference
 			Include="..\SourceGenerator\SourceGenerator.csproj"

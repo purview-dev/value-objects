@@ -21,6 +21,9 @@ it, every one with warnings as errors, and scans every output for compiler-host 
 `Purview.ValueObjects` has no dependency on ZodSharp. A project that adds the ZodSharp integration needs the
 target frameworks ZodSharp supports; a project that does not keeps the full range.
 
+The runtime assembly declares `browser` as a supported platform, so the platform compatibility analyzer (CA1416)
+reports any API it calls that is unsupported in Blazor WebAssembly.
+
 ## The one reflection-based component
 
 `ScalarJsonConverterFactory` builds converters with reflection and expression trees, and is annotated
@@ -67,6 +70,43 @@ Inside a generated converter:
   context never listed it;
 - anything else - an enum, or a custom underlying type - needs metadata, so add `[JsonSerializable(typeof(T))]` to
   the context. The `NotSupportedException` thrown otherwise names the type.
+
+## ZodSharp packages
+
+A Native AOT minimal API with `[Scalar]` + `[ZodSchema]` value objects in `Strict` mode, built against ZodSharp
+3.0.0-prerelease.2, raises no trim or AOT warning from any ZodSharp API it uses, under the build analyzers or ILC's
+whole-program analysis:
+
+| Package | Under trimming and Native AOT |
+| --- | --- |
+| `Purview.ZodSharp` | Generated schemas use typed code, no reflection. Its reflection fallbacks sit behind the `ZodSharp.Reflection.IsSupported` feature switch, which is off when trimming or compiling ahead of time. |
+| `Purview.ZodSharp.AspNetCore` | `AddZodSharpProblemDetails`, `ZodExceptionHandler` and `WithZodSharpValidation()` are safe; the first adds ZodSharp's ProblemDetails JSON metadata itself. Assembly scanning (`AddZodSharp(o => o.ScanAssemblies...)`) is not trim-safe: register the generated `AddZodSharp{Assembly}Schemas()` instead. Validating a bound request this way reports each value object member under its full path (`CustomerEmail.Value`), under Native AOT as under the JIT. |
+| `Purview.ZodSharp.Http` | Safe, and runs in Blazor WebAssembly: every API takes a `JsonTypeInfo<T>`. |
+| `Purview.ZodSharp.Blazor`, `.Extensions.Validation` | Per their own guidance, safe with the generated `AddZodSharp{Assembly}Schemas()` registration; the model-walking fallback is annotated `[RequiresUnreferencedCode]`. The packed-consumer gate runs `Purview.ZodSharp.Blazor` under WebAssembly AOT. |
+
+A strict value object's failure is re-rooted under the request member by `ZodExceptionHandler` under Native AOT too
+(on .NET 10 with `HandleBindingFailures = true`; see
+[ZodSharp Validation](ZodSharp-Validation.md#strict-deserialization)).
+
+What does not work is `ScalarJsonConverterFactory`. Under Native AOT it cannot build its converters, and every request
+it handles returns `500`. The generated converters need no registration.
+
+For `Purview.ZodSharp.Http` and for an ASP.NET Core app's own `JsonSerializerContext`, register the generated
+converters when the value objects are declared in the same project, as for any
+[source-generated context](#systemtextjson-source-generation).
+
+## Entity Framework Core
+
+The Entity Framework Core mapping the generator emits - converters, comparers, the `ConfigureValueObjects`
+registry and the key value generators - raises no trim or AOT warning of its own. A JSON-mapped complex value object
+(`EFMapping = EntityFrameworkMapping.Json`) is written to its column through its generated converter and
+`ValueObjectJson`, not through `JsonSerializer`. Without the reflection-based metadata a trimmed or AOT application
+turns off, a member of a JSON-mapped value object is written through its value object's converter or the built-in
+converter for a primitive; an enum member, or a custom one, throws `NotSupportedException` naming the type.
+
+EF Core itself is not fully trim- or AOT-compatible: its `DbContext` constructor and migrations APIs are annotated
+`[RequiresUnreferencedCode]`/`[RequiresDynamicCode]`, so a trimmed or AOT application warns at those calls. See EF
+Core's guidance on compiled models and precompiled queries.
 
 ## Blazor
 

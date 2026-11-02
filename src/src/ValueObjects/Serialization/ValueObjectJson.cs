@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.ComponentModel;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -127,6 +129,61 @@ public static class ValueObjectJson
 	}
 
 	/// <summary>
+	/// Serializes <paramref name="value"/> to a JSON string through <typeparamref name="TConverter"/>: the trim- and
+	/// Native AOT-safe equivalent of <c>JsonSerializer.Serialize(value)</c> for a type whose
+	/// <c>[JsonConverter]</c> is <typeparamref name="TConverter"/>. The generated Entity Framework Core JSON-column
+	/// converters use it.
+	/// </summary>
+	/// <remarks>
+	/// While reflection-based serialization is enabled the options are <see cref="JsonSerializerOptions.Default"/>,
+	/// so the output matches <c>JsonSerializer.Serialize(value)</c> exactly. Trimmed and Native AOT applications turn
+	/// it off, and then a member is written through its value object's converter or the built-in converter for a
+	/// primitive; any other member type (an enum, for example) throws <see cref="NotSupportedException"/>.
+	/// </remarks>
+	/// <typeparam name="T">The type to write.</typeparam>
+	/// <typeparam name="TConverter">The converter that writes <typeparamref name="T"/>.</typeparam>
+	/// <param name="value">The value to write.</param>
+	/// <returns>The JSON text.</returns>
+	public static string Serialize<T, TConverter>(T value)
+		where TConverter : JsonConverter<T>, new()
+	{
+		ArrayBufferWriter<byte> buffer = new();
+		using (Utf8JsonWriter writer = new(buffer))
+			Write(writer, value, StringOptions.Instance, ConverterCache<T, TConverter>.Instance);
+
+		return Encoding.UTF8.GetString(buffer.WrittenSpan);
+	}
+
+	/// <summary>
+	/// Deserializes <paramref name="json"/> through <typeparamref name="TConverter"/>: the trim- and Native AOT-safe
+	/// equivalent of <c>JsonSerializer.Deserialize&lt;T&gt;(json)</c> for a type whose <c>[JsonConverter]</c> is
+	/// <typeparamref name="TConverter"/>. The generated Entity Framework Core JSON-column converters use it.
+	/// </summary>
+	/// <remarks>The options are chosen as for <see cref="Serialize{T, TConverter}"/>.</remarks>
+	/// <typeparam name="T">The type to read.</typeparam>
+	/// <typeparam name="TConverter">The converter that reads <typeparamref name="T"/>.</typeparam>
+	/// <param name="json">The JSON text.</param>
+	/// <returns>The value read.</returns>
+	/// <exception cref="JsonException"><paramref name="json"/> is not a single JSON value.</exception>
+	public static T? Deserialize<T, TConverter>(string json)
+		where TConverter : JsonConverter<T>, new()
+	{
+		ArgumentNullException.ThrowIfNull(json);
+
+		Utf8JsonReader reader = new(Encoding.UTF8.GetBytes(json));
+		if (!reader.Read())
+			throw new JsonException($"The JSON value could not be converted to {typeof(T)}: the input is empty.");
+
+		var value = Read(ref reader, StringOptions.Instance, ConverterCache<T, TConverter>.Instance);
+
+		// The reader rejects a second top-level value itself; this only guards a converter that stopped short.
+		if (reader.Read())
+			throw new JsonException($"The JSON value could not be converted to {typeof(T)}: unexpected trailing data.");
+
+		return value;
+	}
+
+	/// <summary>
 	/// Writes a member of a complex value object: its name (with the options' naming policy applied) and its value,
 	/// honouring <see cref="JsonSerializerOptions.DefaultIgnoreCondition"/>.
 	/// </summary>
@@ -194,6 +251,38 @@ public static class ValueObjectJson
 		);
 	}
 
+	/// <summary>
+	/// Whether <paramref name="exception"/>, thrown by a value object's factory during strict deserialization, is a
+	/// validation failure - and so is reported as <see cref="ValidationFailed"/> - rather than something that must
+	/// not be reported as bad input.
+	/// </summary>
+	/// <param name="exception">The exception the factory threw.</param>
+	/// <returns><see langword="true"/> for a validation failure.</returns>
+	public static bool IsValidationFailure(Exception exception) =>
+		exception
+			is not (OperationCanceledException or OutOfMemoryException or StackOverflowException or JsonException);
+
+	/// <summary>
+	/// The exception a strict converter throws when the value it read fails validation: a <see cref="JsonException"/>
+	/// whose <see cref="Exception.InnerException"/> is the validator's exception (<c>ArgumentException</c> by default,
+	/// <c>ZodException</c> with ZodSharp validation).
+	/// </summary>
+	/// <remarks>
+	/// System.Text.Json fills in <see cref="JsonException.Path"/> (<c>$.customerEmail</c>) as the exception leaves the
+	/// converter, which is the only way the member that held the value can be known; Purview.ZodSharp reads it to
+	/// report a <c>ZodException</c>'s errors under that member (<c>CustomerEmail.Value</c>). Hosts treat a
+	/// <see cref="JsonException"/> as bad input, so ASP.NET Core answers it with <c>400</c> rather than <c>500</c>.
+	/// </remarks>
+	/// <param name="valueObjectType">The value object being read.</param>
+	/// <param name="innerException">The validation failure.</param>
+	/// <returns>The exception to throw.</returns>
+	public static JsonException ValidationFailed(Type valueObjectType, Exception innerException)
+	{
+		ArgumentNullException.ThrowIfNull(valueObjectType);
+
+		return new($"Cannot deserialize {valueObjectType.Name}: the value failed validation.", innerException);
+	}
+
 	/// <summary>Adapts a converter for <typeparamref name="T"/> to <see cref="Nullable{T}"/>.</summary>
 	/// <typeparam name="T">The underlying value type.</typeparam>
 	/// <param name="converter">The converter for the underlying type.</param>
@@ -238,6 +327,42 @@ public static class ValueObjectJson
 				+ "JsonSerializerOptions it is called with; when those come from a source-generated JsonSerializerContext, "
 				+ $"add [JsonSerializable(typeof({type}))] to that context."
 		);
+
+	static class ConverterCache<T, TConverter>
+		where TConverter : JsonConverter<T>, new()
+	{
+		public static readonly TConverter Instance = new();
+	}
+
+	/// <summary>The options <see cref="Serialize{T, TConverter}"/> and <see cref="Deserialize{T, TConverter}"/> use.</summary>
+	static class StringOptions
+	{
+		public static readonly JsonSerializerOptions Instance = Create();
+
+		// JsonSerializerOptions.Default resolves metadata through reflection. It is only read while reflection-based
+		// serialization is enabled, which trimmed and Native AOT applications turn off by default
+		// (JsonSerializerIsReflectionEnabledByDefault), and the trimmer then removes the branch - the same rule
+		// TryGetTypeInfo follows for the options a converter is called with.
+		[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+			"Trimming",
+			"IL2026:RequiresUnreferencedCode",
+			Justification = "Only reached while JsonSerializer.IsReflectionEnabledByDefault is true."
+		)]
+		[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+			"AOT",
+			"IL3050:RequiresDynamicCode",
+			Justification = "Only reached while JsonSerializer.IsReflectionEnabledByDefault is true."
+		)]
+		static JsonSerializerOptions Create()
+		{
+			if (JsonSerializer.IsReflectionEnabledByDefault)
+				return JsonSerializerOptions.Default;
+
+			JsonSerializerOptions options = new() { TypeInfoResolver = JsonTypeInfoResolver.Combine() };
+			options.MakeReadOnly();
+			return options;
+		}
+	}
 
 	sealed class NullableConverter<T>(JsonConverter<T> converter) : JsonConverter<T?>
 		where T : struct

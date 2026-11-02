@@ -101,7 +101,11 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
   `scripts/test-packed-consumers.ps1`): it publishes a Native AOT console and a Blazor WebAssembly app (trimmed and
   `RunAOTCompilation`) from the packed package with `-warnaserror`, runs them, and leak-scans every output.
 - Generated JSON converters read and write through `ValueObjectJson` (runtime), never through the
-  `JsonSerializer` overloads that take only `JsonSerializerOptions`.
+  `JsonSerializer` overloads that take only `JsonSerializerOptions`. The generated Entity Framework Core
+  JSON-column converters likewise go through `ValueObjectJson.Serialize`/`Deserialize` with the type's converter;
+  only a value object with no usable converter (`VO1017`) keeps `JsonSerializer`.
+- The runtime declares `<SupportedPlatform Include="browser" />`, so the platform compatibility analyzer runs for
+  Blazor WebAssembly. A new CA1416 warning is a defect, like a trim/AOT warning.
 
 ## Testing conventions
 
