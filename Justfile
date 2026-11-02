@@ -18,7 +18,7 @@ default:
 # Restore the repository's .NET local tools (.config/dotnet-tools.json)
 [private]
 ensure-pipeline-tool:
-    dotnet tool restore
+    pwsh -NoProfile -File scripts/restore-dotnet-tools.ps1
 
 # Run the PR pipeline (restore, build, lint, tests, pack, validate)
 [group('Pipeline')]

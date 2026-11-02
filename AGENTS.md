@@ -134,7 +134,7 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 Prefer the `Justfile` recipes or their equivalent commands:
 
 ```text
-dotnet tool restore
+./scripts/restore-dotnet-tools.ps1
 just restore
 just build
 just test
@@ -151,7 +151,8 @@ headless browser, Blazor Server, net8.0, compiler-host leak scan). It needs the 
 `LOCAL_NUGET_FEED_PATH`. Run it when generated code, the runtime, packaging or a dependency version changes.
 
 The repository uses the shared `Purview.Build` pipeline (`purview-build.json` at the root). `just pipeline-pr`
-runs `dotnet tool restore`, which installs the pinned `Purview.Build` from `.config/dotnet-tools.json`.
+restores the local tools with `scripts/restore-dotnet-tools.ps1`, which installs the pinned `Purview.Build` from
+`.config/dotnet-tools.json` and retries a cold-cache `dotnet tool restore` failure (see that script's help).
 
 Local CI-equivalent validation:
 

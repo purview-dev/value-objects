@@ -69,5 +69,5 @@ jobs:
       - name: Prove every pack-validation forbidden-content rule rejects a package
         shell: pwsh
         run: |
-          dotnet tool restore
+          ./scripts/restore-dotnet-tools.ps1
           ./scripts/test-pack-validation-rules.ps1 -PackagesFolder artifacts/packed

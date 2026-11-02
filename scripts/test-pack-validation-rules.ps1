@@ -94,7 +94,9 @@ function Invoke-Validation([string] $name, [System.IO.FileInfo[]] $nupkgs, [stri
 
 	Push-Location $root
 	try {
-		& dotnet tool restore | Out-Null
+		# The scratch repository holds a copy of the manifest; the retry is scripts/restore-dotnet-tools.ps1's, so a
+		# cold package cache behaves the same here as in `just` and CI.
+		& (Join-Path $PSScriptRoot 'restore-dotnet-tools.ps1') -ToolManifest (Join-Path $root '.config/dotnet-tools.json')
 		$output = & dotnet purview-build `
 			--Build:Solution=empty.slnx `
 			--Build:ArtifactsFolder=artifacts `
