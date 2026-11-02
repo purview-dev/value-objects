@@ -560,7 +560,11 @@ try {
 	}
 
 	function Assert-WasmOutput([string] $publish) {
-		$framework = Join-Path $publish 'wwwroot/_framework'
+		$root = Join-Path $publish 'wwwroot'
+		$framework = Join-Path $root '_framework'
+		# Without it the static file host has nothing to serve and answers 500 for /, so name it here rather than in the
+		# browser step. The repository ignores *.html (see .gitignore), so a consumer's index.html must stay committed.
+		Assert-Contains $root '^index\.html$' 'the app''s index.html'
 		Assert-Contains $framework '^Purview\.ValueObjects\.[a-z0-9]+\.wasm$' 'Purview.ValueObjects'
 		Assert-Contains $framework '^Purview\.ZodSharp\.[a-z0-9]+\.wasm$' 'Purview.ZodSharp'
 		Assert-Contains $framework '^Purview\.ZodSharp\.Blazor\.[a-z0-9]+\.wasm$' 'Purview.ZodSharp.Blazor'

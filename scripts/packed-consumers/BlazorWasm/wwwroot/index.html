@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Packed Purview.ValueObjects Blazor WebAssembly consumer</title>
+	<base href="/" />
+</head>
+
+<body>
+	<!--
+		Packed-consumer gate (scripts/test-packed-consumers.ps1), consumer (b): the page a standalone Blazor WebAssembly
+		app needs before Program.cs can start it. #app is where App mounts (its router sends "/" to Pages/Index.razor,
+		which renders the shared self-test), and the HeadOutlet registered on "head::after" mounts after </head>. The
+		gate reads #self-test from this page in a headless browser.
+	-->
+	<div id="app">Loading...</div>
+	<script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

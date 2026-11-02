@@ -593,6 +593,12 @@ coverage/
 !src/src/EventSourcing/build
 !assets/packages/*
 
+# The packed-consumer fixtures under scripts/packed-consumers are real, hand-written Blazor apps, not build output.
+# The web section above ignores *.html/*.css/*.js at any depth, which silently kept the WebAssembly consumer's
+# wwwroot/index.html out of the repository: a fresh clone then published an app with no index.html and the gate's
+# static file host answered 500 for /.
+!scripts/packed-consumers/**/wwwroot/**
+
 .tools/
 
 # Agent skills are installed into the universal .agents/skills/ folder only, and that folder and
