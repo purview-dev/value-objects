@@ -54,7 +54,7 @@ generated `ModelCustomizer` that runs it after `OnModelCreating`, and works for 
 | --- | --- | --- |
 | `[Scalar]` | one column of the underlying primitive | via `{Type}.EF.Converter` + `ValueComparer`; `EmailAddress` is a `TEXT` column |
 | `[ValueObject]` (default) | an EF Core complex type — one column per member | EF Core 8+ only; nested scalars convert too |
-| `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` | a single JSON column | a value converter, so it works on every EF Core version |
+| `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` | a single JSON column | a value converter, so it works on every EF Core version; writes through the generated JSON converter, with no reflection |
 
 The provider-to-model direction always goes through `Hydrate(...)`. **Materialization is a replay
 path**: neither `OnValidate` nor a ZodSharp schema runs when a row is read. That matches
@@ -313,6 +313,15 @@ compiled-model `JsonReaderWriter` members. On EF Core 7, a complex value object 
 is left unmapped — use `EFMapping = Json` or configure the property manually. Everything else
 (converters, the key value generator, the convention, `ValueObjectSequentialGuid`) works on EF Core 7
 and later.
+
+## Trimming and Native AOT
+
+The generated mapping raises no IL2xxx/IL3xxx warning of its own. A JSON column goes through
+`ValueObjectJson` and the type's generated converter, not `JsonSerializer`, unless the type turned
+its converter off (`VO1017`). EF Core itself is not fully trim- or AOT-compatible — its `DbContext`
+constructor and migrations APIs are annotated — so a trimmed or AOT app warns there; that is EF's
+surface, not the generator's. Without reflection-based JSON metadata, an enum or custom member of a
+JSON-mapped value object throws `NotSupportedException`.
 
 ## Diagnostics
 

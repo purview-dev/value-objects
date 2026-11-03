@@ -11,7 +11,8 @@ incremental source generator produces:
   and format overloads), and implicit conversions (with explicit extraction for nullable scalars)
 - The underlying value's standard interfaces — `IEquatable<T>`, `ISpanFormattable`, `IUtf8SpanFormattable`,
   `IParsable<T>`, `ISpanParsable<T>`, and `IUtf8SpanParsable<T>` — mirrored per type
-- JSON converters (scalar value objects serialize as their underlying value)
+- JSON converters (scalar value objects serialize as their underlying value), with no reflection: generated code is
+  trim- and Native AOT-safe, including in Blazor WebAssembly
 - Contextual creation via `IContextualValueObject<,>` + `ValueObjectContext<T>`
 
 **Use cases**
@@ -21,6 +22,10 @@ incremental source generator produces:
   (value converters, comparers, complex-type mapping) plus a `ConfigureValueObjects` extension for automatic
   mapping. Queries use the value object type directly — no `.Value` required.
 - **Domain models** – the F#-style single-case union pattern in C#.
+- **Blazor and Native AOT** – trimmed, AOT-compiled and Blazor WebAssembly apps; validate forms over value objects
+  with Purview.ZodSharp 3 (`net10.0`+). See the
+  [Trimming, Native AOT and Blazor](https://github.com/purview-dev/value-objects/blob/main/docs/Trimming-AOT-and-Blazor.md)
+  guide.
 
 ## Install
 
@@ -98,18 +103,21 @@ intentionally not mirrored.
 
 ## JSON serialization
 
-Scalar value objects serialize as their underlying value. Register the converter factory on your
-`JsonSerializerOptions`:
+Scalar value objects serialize as their underlying value; complex value objects serialize as an object of their
+members. The generator emits a `[JsonConverter]` per value object, so no registration is needed. That generated
+converter is reflection-free and trim- and Native AOT-safe.
+
+`ScalarJsonConverterFactory` covers a hand-written scalar that has no generated converter. It uses reflection, so
+register it only in a host that is neither trimmed nor AOT-compiled:
 
 ```csharp
 var options = new JsonSerializerOptions();
 options.Converters.Add(new ScalarJsonConverterFactory());
 ```
 
-The generator also emits a `[JsonConverter]` per value object, so scalar/complex value objects serialize
-correctly even when the factory is not registered. That generated converter is reflection-free and trim- and
-Native AOT-safe; register `ScalarJsonConverterFactory` only for a hand-written scalar, in a host that is neither
-trimmed nor AOT-compiled.
+A source-generated `JsonSerializerContext` in the project that declares the value objects cannot see the generated
+`[JsonConverter]` attributes, so register the generated converters on its options
+(`new EmailAddress.EmailAddressJsonConverter()`); a value object from a referenced library needs nothing.
 
 ## Entity Framework Core
 
@@ -129,6 +137,16 @@ types (EF Core 8+) by default or JSON columns via `[ValueObject(EFMapping = Enti
 Queries compare the value object type directly — no `.Value` required — or the raw underlying value
 (`c.Email == "..."`, `m.Id == guid`). See the Entity Framework guide for automatic + manual mapping, keys and
 indexes, generated key values, query filters, schema/migrations, assembly defaults, and the opt-out levels.
+
+## Trimming, Native AOT and Blazor
+
+Generated code uses no reflection, so trimmed, Native AOT and Blazor WebAssembly applications get no
+IL2xxx/IL3xxx warning from it, including the Entity Framework Core JSON-column converters (EF Core itself is
+not fully trim- or AOT-compatible). The runtime declares `browser` as a supported platform. The package targets
+`net8.0`-`net11.0`; the optional Purview.ZodSharp 3 integration needs `net10.0`+, and `Purview.ZodSharp.Blazor`
+validates Blazor forms over value objects. See the
+[Trimming, Native AOT and Blazor](https://github.com/purview-dev/value-objects/blob/main/docs/Trimming-AOT-and-Blazor.md)
+guide.
 
 ## Validation with ZodSharp
 

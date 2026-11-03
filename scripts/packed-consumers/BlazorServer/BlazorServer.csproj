@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<!--
+		Packed-consumer gate (scripts/test-packed-consumers.ps1), consumer (c): a Blazor Web App that references
+		Purview.ValueObjects, Purview.ZodSharp and Purview.ZodSharp.Blazor as packages, and nothing else from the
+		repository. The script copies this folder (and ../Shared) outside the repository, beside guard
+		Directory.Build.props/.targets and Directory.Packages.props files that stop any inheritance, and supplies the
+		versions as $(ValueObjectsPackageVersion) and $(ZodSharpPackageVersion).
+
+		It is published and started. A statically rendered form (/register) is posted invalid and valid; an
+		interactive-server page (/interactive) is prerendered, then loaded in a headless browser when one is available,
+		where the shared self-test validates both forms over the live circuit.
+	-->
+	<PropertyGroup>
+		<TargetFramework>net11.0</TargetFramework>
+		<AssemblyName>PackedValueObjectsServer</AssemblyName>
+		<RootNamespace>PackedValueObjectsServer</RootNamespace>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Purview.ValueObjects" Version="$(ValueObjectsPackageVersion)" />
+		<PackageReference Include="Purview.ZodSharp" Version="$(ZodSharpPackageVersion)" />
+		<PackageReference Include="Purview.ZodSharp.Blazor" Version="$(ZodSharpPackageVersion)" />
+	</ItemGroup>
+
+	<Target Name="RequirePackageVersions" BeforeTargets="CollectPackageReferences;Restore">
+		<Error
+			Condition="'$(ValueObjectsPackageVersion)' == '' or '$(ZodSharpPackageVersion)' == ''"
+			Text="ValueObjectsPackageVersion and ZodSharpPackageVersion must be set. Run this consumer through scripts/test-packed-consumers.ps1."
+		/>
+	</Target>
+</Project>

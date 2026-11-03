@@ -12,12 +12,15 @@ dotnet run --project src/src/ZodSharp.AspNetCoreSample
 
 ## What it shows
 
-- **Strict deserialization of value objects** — `EmailAddress` and `OrderQuantity` are annotated with
-  `[Scalar]` + `[ZodSchema]` and `ValueObjectDeserializationMode.Strict`. Their generated `Create` runs
-  the ZodSharp-generated schema, so deserializing an invalid value throws a `ZodException`.
+- **Validating a request of value objects** — `EmailAddress` and `OrderQuantity` are `[Scalar]` +
+  `[ZodSchema]`, and `PlaceOrderRequest` is `[ZodSchema]`. The request binds with the default `Hydrate` mode,
+  and `.WithZodSharpValidation()` validates it with `PlaceOrderRequestSchema`, which validates each member
+  through that value object's own schema. Every invalid member is reported under its own path
+  (`CustomerEmail.Value`, `Quantity.Value`) in an `HttpValidationProblemDetails` response with the structured
+  `issues` extension. The validators are registered with the generated, trim-safe
+  `AddZodSharpPurviewValueObjectsZodSharpAspNetCoreSampleSchemas()`; nothing is registered on the JSON options.
 - **Automatic exception handling** — `AddZodSharpProblemDetails()` registers `ZodExceptionHandler` and
-  `app.UseExceptionHandler()` catches the thrown `ZodException`, converting it to a
-  `HttpValidationProblemDetails` response with the structured issues in the `issues` extension.
+  `app.UseExceptionHandler()` catches a thrown `ZodException` (below), converting it to the same contract.
 - **Mapping error types to status codes** — `ErrorTypes.SaveFailed` (a `[ErrorType]`-generated partial)
   is registered in `ErrorTypeRegistry.Default`; `ErrorTypes.ThrowSaveFailed(...)` throws a `ZodException`
   carrying the `aggregate_save_failed` code, which is returned as a `409 Conflict` with a message
@@ -37,13 +40,13 @@ curl -i -X POST http://localhost:5000/orders \
   -d '{"customerEmail":"demo@example.com","quantity":2}'
 ```
 
-Send an invalid email — the strict value object throws and the handler returns a 400 Problem Details
-payload:
+Send an invalid email and quantity — the filter returns a 400 Problem Details payload with
+`errors["CustomerEmail.Value"]` and `errors["Quantity.Value"]`:
 
 ```bash
 curl -i -X POST http://localhost:5000/orders \
   -H "Content-Type: application/json" \
-  -d '{"customerEmail":"not-an-email","quantity":2}'
+  -d '{"customerEmail":"not-an-email","quantity":500}'
 ```
 
 Simulate an optimistic-concurrency failure (returns `409 Conflict` with a formatted message):

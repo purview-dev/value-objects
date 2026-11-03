@@ -63,25 +63,28 @@ expresses a nullable scalar). See
 
 ## JSON serialization
 
-Scalar value objects serialize as their underlying value. Register the converter factory on your
-`JsonSerializerOptions`:
+Scalar value objects serialize as their underlying value; complex value objects serialize as an object of their
+members. The generator emits a `[JsonConverter]` per value object, so no registration is needed:
+
+```csharp
+var json = JsonSerializer.Serialize(EmailAddress.Create("demo@example.com"));   // "demo@example.com"
+```
+
+The generated converters are reflection-free, so they are trim- and Native AOT-safe. `ScalarJsonConverterFactory`
+covers a hand-written scalar that has no generated converter:
 
 ```csharp
 var options = new JsonSerializerOptions();
 options.Converters.Add(new ScalarJsonConverterFactory());
 ```
 
-The generator also emits a `[JsonConverter]` per value object, so scalar/complex value objects serialize correctly
-even when the factory is not registered.
+It uses reflection and is annotated `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]`, so a trimmed or AOT
+application should rely on the generated converters instead (see
+[Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md), which also covers source-generated
+`JsonSerializerContext`s).
 
-Use the same options for Entity Framework JSON columns:
-
-```csharp
-modelBuilder
-    .Entity<Customer>()
-    .Property(c => c.Email)
-    .HasColumnType("jsonb");
-```
+A complex value object mapped to an Entity Framework JSON column (`EFMapping = EntityFrameworkMapping.Json`) is
+stored through the same generated converter.
 
 ## Entity Framework Core
 
@@ -167,7 +170,23 @@ var result = EmailAddressSchema.Validate(EmailAddress.Create("demo@example.com")
 ```
 
 See [ZodSharp Validation](docs/ZodSharp-Validation.md), the `src/src/ZodSharpSample` project, and
-the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for strict deserialization failures).
+the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for a request of value objects, each
+invalid member reported under its own path).
+Purview.ZodSharp 3 targets `net10.0`/`net11.0` (this package still ships `net8.0`-`net11.0` and does not depend on
+it); `Purview.ZodSharp.Blazor` validates Blazor forms over value objects - see
+[Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#blazor).
+
+## Trimming, Native AOT and Blazor
+
+Generated code uses no reflection, so trimmed, Native AOT and Blazor WebAssembly applications get no IL2xxx/IL3xxx
+warning from it. `just smoke-packed-consumers` proves it against the packed package: a Native AOT console, a Blazor
+WebAssembly app (trimmed and `RunAOTCompilation`, run in a headless browser), a Blazor Server app and a `net8.0`
+console, all built with warnings as errors and scanned for compiler-host assemblies.
+
+The generated Entity Framework Core mapping, JSON-column converters included, adds no warning either, though EF Core
+itself is not fully trim- or AOT-compatible. The runtime declares `browser` as a supported platform, so the CA1416
+analyzer reports any API it calls that Blazor WebAssembly does not support. See
+[Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md).
 
 ## How it works
 
@@ -222,4 +241,6 @@ Set `DisableValueObjectsSourceGenerator` to `true` in your project:
   is the merged, self-contained artifact the `Purview.SourceGeneratorFramework` merge pass produces, and that
   pass strips every `InternalsVisibleTo` declaration.
 - `src/tests` – unit and source-generator tests.
+- `scripts` – the packed-consumer gate (`test-packed-consumers.ps1` and the consumers in `scripts/packed-consumers`),
+  the compiler-host leak scan and the pack-validation rule prover.
 - `docs` – design and usage guidance.

@@ -20,8 +20,14 @@ static partial class ComplexValueObjectEmitter
 			ValueObjectEmitterHelpers.EFConverterBaseType(model.TypeModel.FullyQualifiedName, "global::System.String"),
 			model.TypeModel.FullyQualifiedName,
 			"global::System.String",
-			"vo => global::System.Text.Json.JsonSerializer.Serialize(vo)",
-			$"v => global::System.Text.Json.JsonSerializer.Deserialize<{model.TypeModel.FullyQualifiedName}>(v)!",
+			ValueObjectEFConverterEmitter.ToJsonProviderExpression(
+				model.TypeModel.FullyQualifiedName,
+				model.EFJsonConverterTypeName
+			),
+			ValueObjectEFConverterEmitter.FromJsonProviderExpression(
+				model.TypeModel.FullyQualifiedName,
+				model.EFJsonConverterTypeName
+			),
 			ValueObjectEmitterHelpers.EFJsonReaderWriterType("global::System.String"),
 			model.IsEF8Referenced
 		);

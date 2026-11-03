@@ -29,6 +29,8 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `global.json` | Required .NET SDK and Microsoft.Testing.Platform selection |
 | `package.json` | Authoritative repository/package version |
 | `Justfile` | Supported local workflow commands |
+| `skills` | Authored agent skills, installable with the skills CLI (see [Agent skills](#agent-skills)) |
+| `.agents/skills`, `skills-lock.json` | Skills installed from other repositories, committed (see [Installed skills](#installed-skills-agentsskills)) |
 
 ## Standard workflow
 
@@ -79,6 +81,8 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 - `ScalarJsonConverterFactory` uses only reflection over `ScalarAttribute` + `Create`/`Hydrate`/constructor;
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).
+- Purview.ZodSharp 3 ships `net10.0`/`net11.0` only. A project that references it selects
+  `PurviewTargetFrameworkSet=Supported`; the runtime package does not reference it and keeps `All`.
 
 ## Trimming and Native AOT (non-negotiable)
 
@@ -92,7 +96,16 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
   suppressions accurate. Do not add reflection anywhere else in the runtime.
 - Never weaken or delete an AOT/trim annotation or suppression to silence a warning; fix the call site or move the
   reflection into the annotated factory.
-- A feature is not complete until the generated path is confirmed clean under the trim/AOT analyzers.
+- A feature is not complete until the generated path is confirmed clean under the trim/AOT analyzers. The in-repo
+  projects never trim-analyze generated code, so the proof is the packed-consumer gate (`just smoke-packed-consumers`,
+  `scripts/test-packed-consumers.ps1`): it publishes a Native AOT console and a Blazor WebAssembly app (trimmed and
+  `RunAOTCompilation`) from the packed package with `-warnaserror`, runs them, and leak-scans every output.
+- Generated JSON converters read and write through `ValueObjectJson` (runtime), never through the
+  `JsonSerializer` overloads that take only `JsonSerializerOptions`. The generated Entity Framework Core
+  JSON-column converters likewise go through `ValueObjectJson.Serialize`/`Deserialize` with the type's converter;
+  only a value object with no usable converter (`VO1017`) keeps `JsonSerializer`.
+- The runtime declares `<SupportedPlatform Include="browser" />`, so the platform compatibility analyzer runs for
+  Blazor WebAssembly. A new CA1416 warning is a defect, like a trim/AOT warning.
 
 ## Testing conventions
 
@@ -121,17 +134,25 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 Prefer the `Justfile` recipes or their equivalent commands:
 
 ```text
-dotnet tool restore
+./scripts/restore-dotnet-tools.ps1
 just restore
 just build
 just test
 just lint-check
 just pack
 just pipeline-pr
+just smoke-packed-consumers
+just verify-pack-rules
 ```
 
+`just smoke-packed-consumers` is the packed-consumer gate (Native AOT, Blazor WebAssembly trimmed and AOT in a
+headless browser, Blazor Server, net8.0, compiler-host leak scan). It needs the Native AOT toolchain, the
+`wasm-tools` workload and Chrome or Edge; dependency versions not yet on nuget.org restore from
+`LOCAL_NUGET_FEED_PATH`. Run it when generated code, the runtime, packaging or a dependency version changes.
+
 The repository uses the shared `Purview.Build` pipeline (`purview-build.json` at the root). `just pipeline-pr`
-runs `dotnet tool restore`, which installs the pinned `Purview.Build` from `.config/dotnet-tools.json`.
+restores the local tools with `scripts/restore-dotnet-tools.ps1`, which installs the pinned `Purview.Build` from
+`.config/dotnet-tools.json` and retries a cold-cache `dotnet tool restore` failure (see that script's help).
 
 Local CI-equivalent validation:
 
@@ -167,17 +188,69 @@ Before handing work back:
 - Update all affected docs, samples, analyzer metadata, and release notes when applicable.
 - Run appropriate build, test, formatting, and pack checks in proportion to risk.
 - State exactly what validation ran. If a check was skipped or blocked, give the concrete reason and remaining risk.
+
+## Installed skills (`.agents/skills/`)
+
+Specialist guidance this repository depends on - the Purview engineering playbook, `Purview.BuildSdk`
+configuration, the `Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is
+published by the repositories that own it, and installed here by the skills CLI. The installed skills are **committed**:
+`.agents/skills/**` and the CLI's `skills-lock.json` (source, skill path and content hash of every entry) are both
+in source, so a clone has them without running anything.
+
+| Skill | Source | Load before |
+| --- | --- | --- |
+| `purview-engineering-principles` | `purview-dev/engineering-playbook` | setting up, reviewing or rationalising the repository against the Purview conventions |
+| `purview-architecture` | `purview-dev/engineering-playbook` | deciding project shape or generating substantial implementation code |
+| `purview-architecture-testing` | `purview-dev/engineering-playbook` | adding or changing architecture tests |
+| `purview-testing-conventions` | `purview-dev/engineering-playbook` | writing or reviewing tests (TUnit, AAA, naming, builders) |
+| `purview-persistence` | `purview-dev/engineering-playbook` | choosing a storage approach, abstracting EF Core, or a GUID primary-key strategy |
+| `purview-telemetry` | `purview-dev/engineering-playbook` | adding or reviewing observability |
+| `purview-buildsdk-*` (8 skills) | `purview-dev/build-sdk` | build/SDK configuration, project layout and detection, testing, skill installation and skill tests |
+| `purview-sourcegenerator-codewriter` | `purview-dev/sourcegenerator-framework` | writing or reviewing emitter code (`CodeWriter`, scopes) |
+| `purview-sourcegenerator-pipeline` | `purview-dev/sourcegenerator-framework` | changing the incremental pipeline or its value-equatable models |
+| `purview-sourcegenerator-diagnostics` | `purview-dev/sourcegenerator-framework` | adding or changing a `VO1xxx` diagnostic or the analyzer |
+| `purview-sourcegenerator-packaging` | `purview-dev/sourcegenerator-framework` | changing how the generator is packed or merged |
+| `purview-sourcegenerator-testing` | `purview-dev/sourcegenerator-framework` | writing generator, analyzer or code-fix tests (`CodeQuery`) |
+| `purview-sourcegenerator-tunit-tests` | `purview-dev/sourcegenerator-framework` | the TUnit base classes and assertion extensions |
+| `purview-zodsharp-*` (6 skills) | `purview-dev/zodsharp` | the `[ZodSchema]` integration, custom rules, JSON, ASP.NET Core and `ZODSGEN` diagnostics |
+
+Skills are installed into the universal `.agents/skills/` location **only**. Never install copies into `.claude/`
+or any other per-agent folder, and never add a `CLAUDE.md`: `AGENTS.md` is the one instruction file, and
+`/.claude/` is gitignored. Pass `-a universal`, which writes `.agents/skills/` and nothing else:
+
+```bash
+# add or update every skill from a source
+npx -y skills@1 add purview-dev/engineering-playbook -s '*' -a universal -y
+npx -y skills@1 add purview-dev/build-sdk -s '*' -a universal -y
+npx -y skills@1 add purview-dev/sourcegenerator-framework -s '*' -a universal -y
+npx -y skills@1 add purview-dev/zodsharp -s '*' -a universal -y
+
+# restore the committed set from skills-lock.json
+npx -y skills@1 experimental_install
+```
+
+Commit the changed `.agents/skills/**` and `skills-lock.json` together, in their own `chore` commit. Do not edit
+anything under `.agents/skills/` by hand - the CLI is its only writer, and a hand edit no longer matches the
+lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills` target delegates to the same CLI;
+`src/Directory.Build.props` sets `PurviewSkillsAgents=universal` so it is restricted the same way rather than
+defaulting to every agent (`*`).
+
+`src/tests/Repository.UnitTests/InstalledSkillTests.cs` keeps this honest: every `skills-lock.json` entry has its
+`.agents/skills/<name>/SKILL.md`, every installed folder is in the lockfile, no skill authored in `skills/` is
+copied into `.agents/skills/`, no `.claude/skills/` copy exists, and there is no `CLAUDE.md` (at the root or in
+`.github/`).
+
 ## Agent skills
 
 Authored skills live in the repository-root `skills/` folder. Nothing packs them: `Purview.BuildSdk`
 delivers skills through the skills CLI, which clones the *git* repository and only discovers a root
 `skills/` folder.
 
-`.agents/skills/` is the CLI's install location for skills from **other** repositories, and is
-gitignored. This repository's own skills are never installed into it — that would leave two copies
-to drift apart. Read them at their authored path, `skills/<name>/SKILL.md`.
+`.agents/skills/` holds the skills installed from **other** repositories (above). This repository's own skills are
+never installed into it — that would leave two copies to drift apart. Read them at their authored path,
+`skills/<name>/SKILL.md`.
 
-Install these skills into your agent's directories with:
+Consumers install these skills with:
 
 ```bash
 npx skills add purview-dev/value-objects

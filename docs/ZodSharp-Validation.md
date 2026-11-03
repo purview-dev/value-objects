@@ -22,6 +22,15 @@ against the underlying value.
 ```text
 dotnet add package Purview.ZodSharp
 ```
+Purview.ZodSharp 3 targets `net10.0` and `net11.0` only, so a project that uses this integration must target
+`net10.0` or later; `Purview.ValueObjects` itself still ships `net8.0` to `net11.0` and does not depend on ZodSharp.
+The value object generator's output is the same for ZodSharp 2.x and 3.x. Two 3.x behaviour changes show up first in
+value object code: built-in rules report a structured `Origin` (the Zod type name of the underlying value, so
+`"string"` for a `Guid`) and `Category`, and generated schemas gain `ValidateAsync`, so CA1849 flags a synchronous
+`{Type}Schema.Validate` inside an async method. ZodSharp's own changelog lists the rest (paths, codes, messages).
+
+For Blazor forms over value objects (`Purview.ZodSharp.Blazor`) and for trimmed and AOT applications, see
+[Trimming, Native AOT and Blazor](Trimming-AOT-and-Blazor.md).
 
 ## 1. Generated validators on value objects
 
@@ -492,28 +501,13 @@ result.
 
 ### ASP.NET Core Problem Details
 
-In ASP.NET Core, `Purview.ZodSharp.AspNetCore` maps thrown `ZodException`s to standard
-`HttpValidationProblemDetails` responses. This covers strict deserialization of value objects
-(`ValueObjectDeserializationMode.Strict`) and any `Create`/`Parse` failure that bubbles up as a
-`ZodException`.
-
-Wire the handler into the pipeline:
+In ASP.NET Core, `Purview.ZodSharp.AspNetCore` turns validation failures into standard `HttpValidationProblemDetails`
+responses. For a request body of value objects, bind it with the default `Hydrate` mode and validate the bound
+request. The request's generated schema validates each value object member through that value object's own schema, so
+every invalid member is reported under its own path:
 
 ```csharp
-builder.Services.AddZodSharpProblemDetails();
-builder.Services.AddProblemDetails();
-
-var app = builder.Build();
-app.UseExceptionHandler();
-```
-
-Mark the value object for strict deserialization and ZodSharp validation so invalid request bodies throw
-during model binding:
-
-```csharp
-[Scalar(
-    ZodSchemaMode = ZodSchemaMode.InsteadOfHooks,
-    DeserializationMode = ValueObjectDeserializationMode.Strict)]
+[Scalar(ZodSchemaMode = ZodSchemaMode.InsteadOfHooks)]
 [ZodSchema]
 public readonly partial record struct EmailAddress
 {
@@ -521,12 +515,103 @@ public readonly partial record struct EmailAddress
     public string Value { get; }
 }
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new ScalarJsonConverterFactory()));
+[ZodSchema]
+public sealed partial record PlaceOrderRequest(EmailAddress CustomerEmail, OrderQuantity Quantity);
+
+builder.Services.AddZodSharpMyAppSchemas();      // generated: AddZodSharp{Assembly}Schemas(), trim- and AOT-safe
+builder.Services.AddZodSharpProblemDetails();
+builder.Services.AddProblemDetails();
+
+var app = builder.Build();
+app.UseExceptionHandler();
+
+app.MapPost("/orders", (PlaceOrderRequest request) => TypedResults.Ok())
+    .WithZodSharpValidation();
 ```
 
-A `POST` body with an invalid email now returns `400 application/problem+json` with the structured issues
-in the `issues` extension.
+`{"customerEmail":"not-an-email","quantity":500}` returns `400 application/problem+json`:
+
+```json
+{
+  "errors": {
+    "CustomerEmail.Value": ["Field 'CustomerEmail' must be a valid email address."],
+    "Quantity.Value": ["Field 'Quantity' must be greater than or equal to 1 and less than or equal to 100."]
+  },
+  "issues": [{ "path": "CustomerEmail.Value", "segments": ["CustomerEmail", "Value"], "code": "invalid_string", ... }]
+}
+```
+
+On `net11.0`, `AddZodSharpValidation()` from `Purview.ZodSharp.Extensions.Validation` does the same for every endpoint
+through ASP.NET Core's built-in validation pipeline. Both work under Native AOT with the generated registration. For
+Native AOT (`WebApplication.CreateSlimBuilder` and a source-generated `JsonSerializerContext`), also register the
+generated converters on the options, because a context in the project that declares the value objects cannot see
+their `[JsonConverter]` attributes:
+
+```csharp
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
+    options.SerializerOptions.Converters.Add(new EmailAddress.EmailAddressJsonConverter());
+});
+```
+
+#### Strict deserialization
+
+With `ValueObjectDeserializationMode.Strict` the value object validates while it is deserialized. The generated
+converter reports a failure as a `JsonException` whose inner exception is the validator's (`ZodException` here), so
+System.Text.Json records where the value sat (`$.customerEmail`). `ZodExceptionHandler` joins the two, so the
+response is the same contract as above, located under the member: `errors["CustomerEmail.Value"]`,
+`Field 'CustomerEmail' ...`, and `Copies[1].Value` for a collection element.
+
+```csharp
+// .NET 10: binding answers a body it cannot deserialize itself (a bare 400) unless it is told to throw.
+builder.Services.AddZodSharpProblemDetails(options => options.HandleBindingFailures = true);
+
+// .NET 11: binding hands the exception to the ProblemDetails service, which ZodSharp rewrites; nothing to set.
+builder.Services.AddZodSharpProblemDetails();
+```
+
+`HandleBindingFailures` sets `RouteHandlerOptions.ThrowOnBadRequest` for the whole application, so every minimal-API
+binding failure travels through `UseExceptionHandler()`. Malformed JSON is still a standard `400` ProblemDetails. This
+needs Purview.ZodSharp 3.0.0-prerelease.2 or later, and works under Native AOT.
+
+One limit remains: binding stops at the first invalid member. The bound-request validation above reports every one,
+so prefer it for request bodies, and keep `Strict` for payloads that are not validated any other way.
+
+`ScalarJsonConverterFactory` throws the same exception, but it uses reflection: under Native AOT it cannot build its
+converters and every request returns `500`. The generated converters need no registration.
+
+### Typed HTTP clients
+
+`Purview.ZodSharp.Http` (`net10.0`/`net11.0`, no ASP.NET Core dependency, so it runs in Blazor WebAssembly) validates
+on the client side of the wire. `PostAsJsonValidatedAsync`, `PutAsJsonValidatedAsync` and `PatchAsJsonValidatedAsync`
+validate a body before sending it, so an invalid one is never sent. `ReadFromJsonAndValidateAsync` validates a
+response, and `TryReadZodValidationProblemAsync` turns the server's ProblemDetails back into ZodSharp errors. Every
+API takes a `JsonTypeInfo<T>`, so the package is trim-, AOT- and WebAssembly-safe.
+
+When the value objects are declared in the same project as the `JsonSerializerContext`, do not pass the context's own
+property (`AppJsonContext.Default.PlaceOrderRequest`). That context cannot see the generated converters and writes
+`{"customerEmail":{"value":"a@example.com"}}`, which the server rejects. Build the type info from options that carry
+the converters:
+
+```csharp
+JsonSerializerOptions options = new(AppJsonContext.Default.Options)
+{
+    Converters = { new EmailAddress.EmailAddressJsonConverter(), new OrderQuantity.OrderQuantityJsonConverter() },
+};
+var requestInfo = (JsonTypeInfo<PlaceOrderRequest>)options.GetTypeInfo(typeof(PlaceOrderRequest));
+
+var sent = await http.PostAsJsonValidatedAsync(
+    "orders", request, new PlaceOrderRequestSchemaValidator(), requestInfo);
+if (!sent.IsSuccess)
+    return sent.Errors;                          // e.g. CustomerEmail.Value: invalid_string - nothing was sent
+
+using var response = sent.Value!;
+if (await response.TryReadZodValidationProblemAsync() is { } problem)
+    return problem.ToValidationErrors();         // rejected by the server
+```
+
+A value object from a referenced library needs none of this, and the context's own property works.
 
 Map error codes to HTTP statuses and formatted messages with `ErrorType` + `ErrorTypeRegistry`. Mark a
 static partial class with `[ErrorType]` on a `static readonly ErrorType` field and the bundled

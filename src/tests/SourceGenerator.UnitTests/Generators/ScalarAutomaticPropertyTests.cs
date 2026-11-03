@@ -477,17 +477,21 @@ public sealed class ScalarAutomaticPropertyTests : ValueObjectSourceGeneratorTes
 
 			public static class Harness
 			{
+				public sealed record Holder(StrictId Id);
+
 				public static bool RejectsEmpty()
 				{
 					try
 					{
-						System.Text.Json.JsonSerializer.Deserialize<StrictId>(
-							"\"00000000-0000-0000-0000-000000000000\"");
+						System.Text.Json.JsonSerializer.Deserialize<Holder>(
+							"{\"Id\":\"00000000-0000-0000-0000-000000000000\"}");
 						return false;
 					}
-					catch (System.ArgumentException)
+					catch (System.Text.Json.JsonException ex)
+						when (ex.InnerException is System.ArgumentException && ex.Path == "$.Id")
 					{
-						// Strict re-validates through Create, which throws the OnValidate exception.
+						// Strict re-validates through Create. Its OnValidate exception leaves the converter inside a
+						// JsonException, so System.Text.Json records where the value sat.
 						return true;
 					}
 				}
@@ -506,6 +510,41 @@ public sealed class ScalarAutomaticPropertyTests : ValueObjectSourceGeneratorTes
 		var rejects = (bool)harnessType.GetMethod("RejectsEmpty")!.Invoke(null, null)!;
 
 		await Assert.That(rejects).IsTrue();
+	}
+
+	[Test]
+	public async Task ScalarGeneration_GivenDeserializationMode_WrapsOnlyStrictValidationFailures(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+			[Purview.ValueObjects.Serialization.Scalar<System.Guid>(
+				DeserializationMode = Purview.ValueObjects.Serialization.ValueObjectDeserializationMode.Strict
+			)]
+			public readonly partial record struct StrictId { }
+
+			[Purview.ValueObjects.Serialization.Scalar<System.Guid>]
+			public readonly partial record struct HydratedId { }
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var strict = result.Generated().GetRecord("StrictId", "Testing").Node.ToString();
+		var hydrated = result.Generated().GetRecord("HydratedId", "Testing").Node.ToString();
+
+		await Assert.That(strict).Contains("ValueObjectJson.IsValidationFailure(exception)");
+		await Assert
+			.That(strict)
+			.Contains("ValueObjectJson.ValidationFailed(typeof(global::Testing.StrictId), exception)");
+		await Assert.That(hydrated).DoesNotContain("ValidationFailed");
+		await Assert.That(hydrated).Contains("return Hydrate(value);");
 	}
 
 	[Test]

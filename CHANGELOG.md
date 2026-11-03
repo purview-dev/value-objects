@@ -9,7 +9,132 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
-## Unreleased
+## 1.3.0-prerelease.2
+
+A prerelease of fixes and guidance: no target framework is dropped and the public API only grows.
+
+### Fixed
+
+- **The generated Entity Framework Core JSON-column converters are trim- and Native AOT-safe.** A complex value
+  object with `EFMapping = EntityFrameworkMapping.Json` (its own `EF.Converter`, or the inline converter a
+  consumer's registry emits for a value object from an assembly without EF Core) converted through
+  `JsonSerializer.Serialize(vo)`/`JsonSerializer.Deserialize<T>(v)`, so every trimmed or AOT build got IL2026/IL3050
+  from generated code. The converter now writes and reads through the type's JSON converter (its own
+  `[JsonConverter]`, otherwise the generated one) with `ValueObjectJson.Serialize`/`Deserialize`, and the column
+  content is unchanged. A value object with `GenerateJsonConverter = false` (`VO1017`), or whose `[JsonConverter]`
+  names a factory, keeps the `JsonSerializer` call.
+- **ZodSharp issue paths for a request of value objects.** A strict value object that failed its ZodSharp schema
+  while a request was deserialized was reported at its own path (`Value`, `Field 'Value' ...`): a converter cannot
+  know where in the document it sits. The generated strict converters now throw the validator's exception inside a
+  `JsonException`, so System.Text.Json records the member (`$.customerEmail`), and Purview.ZodSharp
+  3.0.0-prerelease.2 re-roots the errors there: `CustomerEmail.Value`, `Field 'CustomerEmail' ...`,
+  `Copies[1].Value`. Verified under the JIT on .NET 10 and 11 and under Native AOT; on .NET 10 it needs
+  `AddZodSharpProblemDetails(o => o.HandleBindingFailures = true)`.
+- **ZodSharp Problem Details guidance.** The docs, the ZodSharp skill and the ASP.NET Core sample registered
+  `ScalarJsonConverterFactory` for strict value objects. Under Native AOT every request then returned `500`, and with
+  earlier ZodSharp builds the response never reached `ZodExceptionHandler` (a bare `400`, or a `500` in Development).
+  The guidance, skill and sample now validate the bound request with the default `Hydrate` mode,
+  `WithZodSharpValidation()` and the generated `AddZodSharp{Assembly}Schemas()` registration. That reports **every**
+  invalid member at its full path; `Strict` stops at the first.
+
+### Added
+
+- `ValueObjectJson.Serialize<T, TConverter>`/`Deserialize<T, TConverter>`, the reflection-free string helpers the
+  Entity Framework Core JSON-column converters call, and `ValueObjectJson.IsValidationFailure`/`ValidationFailed`,
+  the rule and exception the strict converters (generated and `ScalarJsonConverterFactory`) share.
+- The runtime declares `browser` as a supported platform (`<SupportedPlatform Include="browser" />`), so the
+  platform compatibility analyzer (CA1416) reports any API it calls that Blazor WebAssembly does not support.
+- Guidance for `Purview.ZodSharp.Http` with value objects, and an account of each ZodSharp package under trimming
+  and Native AOT, in [ZodSharp Validation](docs/ZodSharp-Validation.md#typed-http-clients) and
+  [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#zodsharp-packages).
+
+### Changed
+
+- **A generated strict converter throws `JsonException` for a value that fails validation**, with the validator's
+  exception (`ArgumentException` by default, `ZodException` with ZodSharp) as its `InnerException` and the
+  member's location in `Path`. It used to let the validator's exception escape unwrapped. This is what
+  `ScalarJsonConverterFactory` already did, so the two paths now agree, and ASP.NET Core answers the failure as bad
+  input. `Hydrate` (the default) is unchanged: it never validates.
+- Built and tested against Purview.ZodSharp 3.0.0-prerelease.2. The ASP.NET Core sample uses the
+  `ToHttpValidationProblemDetails(ZodProblemDetailsOptions, HttpContext)` overload that replaces the registry-only
+  one this release made obsolete.
+
+### Upgrade notes
+
+- **Strict deserialization failures are `JsonException`s.** Code that deserializes a strict value object and catches
+  `ArgumentException` or `ZodException` should catch `JsonException` and read its `InnerException`; with ZodSharp,
+  `ZodJsonExceptions.TryGetErrors(exception, typeInfo, out var errors)` returns the errors under the member.
+- **ZodSharp Problem Details:** take Purview.ZodSharp 3.0.0-prerelease.2 or later. On .NET 10 with strict value
+  objects, set `AddZodSharpProblemDetails(o => o.HandleBindingFailures = true)`. Remove any
+  `ScalarJsonConverterFactory` registration. To report every invalid member rather than the first, validate the
+  bound request instead: drop `Strict`, mark the request `[ZodSchema]`, register `AddZodSharp{Assembly}Schemas()`
+  and add `.WithZodSharpValidation()` (or, on `net11.0`, `AddZodSharpValidation()`). Either way, error keys change
+  from `Value` to the member path (`CustomerEmail.Value`).
+- **`Purview.ZodSharp.Http` and a same-project `JsonSerializerContext`.** Pass a `JsonTypeInfo<T>` built from options
+  that carry the generated converters, not the context's own property, which writes each value object as
+  `{"value": ...}`.
+
+## 1.3.0-prerelease.1
+
+A minor prerelease: no target framework is dropped and the public API only grows. `Purview.ValueObjects` still
+ships `net8.0`, `net9.0`, `net10.0` and `net11.0`, and has no dependency on ZodSharp.
+
+### Fixed
+
+- **The generated JSON converters are trim- and Native AOT-safe.** The scalar converter read and wrote its
+  underlying value through `JsonSerializer.Deserialize<T>(ref reader, options)` and
+  `JsonSerializer.Serialize(writer, value, options)`, and the complex converter round-tripped a generated
+  `{Name}JsonModel` class the same way. Those overloads are `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]`,
+  so every trimmed or AOT application - Blazor WebAssembly included - got IL2026/IL3050 from generated code, and the
+  model class needed metadata no source-generated context could provide. The converters now go through the new
+  `ValueObjectJson` runtime helper, which uses the options' metadata when they have it (so converters, naming
+  policies and number handling behave as before), the generated converter of a value-object-typed member, and the
+  built-in converter for a primitive a source-generated context never listed. The complex converter reads and
+  writes its members directly, honouring `PropertyNamingPolicy`, `PropertyNameCaseInsensitive` and
+  `DefaultIgnoreCondition`, skipping unknown members and defaulting missing ones, as before.
+
+### Added
+
+- `ValueObjectJson` (`Purview.ValueObjects.Serialization`, hidden from IntelliSense): the reflection-free JSON
+  helpers the generated converters call.
+- **A packed-consumer gate** (`just smoke-packed-consumers`, `scripts/test-packed-consumers.ps1`, PR job
+  `packed-consumers`). It packs the package to an isolated feed and cache, then publishes and runs, from the package
+  alone: a Native AOT console; a Blazor WebAssembly app with a `<ZodValidator>` form and a
+  `<DataAnnotationsValidator />` form over a model of value objects, published trimmed and with
+  `RunAOTCompilation=true` and run in a headless browser; a Blazor Server app whose static form is posted and whose
+  interactive page runs over a live circuit; and a `net8.0` console. Every publish uses `-warnaserror`, and every
+  output is scanned for compiler-host assemblies (`scripts/assert-no-compiler-host-assemblies.ps1`).
+- **Pack-validation `ForbiddenContent` rules** keep Purview.SourceGeneratorFramework, Roslyn and the generator out
+  of every folder an application loads from; `just verify-pack-rules` proves each rule rejects a package.
+- [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md): target frameworks, source-generated JSON,
+  binding a value object in a Blazor form, and validating it with ZodSharp.
+
+### Changed
+
+- **The generated complex converter no longer emits a public `{Name}JsonModel` nested type.** It was an
+  implementation detail of the converter; code that referenced it should serialize the value object itself.
+- Built and tested against Purview.SourceGeneratorFramework 1.2.2, Purview.ZodSharp 3.0.0-prerelease.1,
+  Purview.BuildSdk 1.2.0 and Purview.Skills.Testing 1.2.0, on the .NET 11 rc.3 SDK. The ZodSharp samples target
+  `net10.0`/`net11.0`.
+
+### Upgrade notes
+
+- **Upgrading to Purview.ZodSharp 3.** It ships `net10.0` and `net11.0` only, so a project that uses the ZodSharp
+  integration must target `net10.0` or later; the value object generator's output is unchanged and works with 2.x
+  and 3.x. Read ZodSharp's own upgrade notes for the behaviour changes - the ones a value object user meets first:
+  built-in rules now report `Origin` (`"string"` for a `Guid`) and `Category`; collection paths render as `"0"` and
+  `Items[0].Name` (`FullPath.ToDottedString()`); `MergeParametersIntoExtensions` defaults to `false`; generated
+  schemas gain `ValidateAsync`, so CA1849 flags a synchronous `Validate` inside an async method.
+- **Source-generated JSON contexts.** A `JsonSerializerContext` in the project that declares the value objects
+  cannot see their generated `[JsonConverter]` attribute, so register the generated converters on the options (see
+  [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#systemtextjson-source-generation)).
+- **A nested scalar's ZodSharp messages name the owning member.** With ZodSharp 3, an error inside a value object
+  member (`Email.Value`) reads `Field 'Email' ...` rather than `Field 'Value' ...`, and Blazor shows it on the
+  owning member's field; its path is still `Email.Value`. Update any assertion on the old text.
+
+## 1.2.0 - 1.2.3
+
+These changes shipped across the 1.2.x releases while they were still recorded under *Unreleased*.
 
 ### Added
 

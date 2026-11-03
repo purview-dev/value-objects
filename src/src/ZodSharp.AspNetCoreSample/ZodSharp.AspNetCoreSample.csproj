@@ -1,6 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 	<PropertyGroup>
 		<IsPackable>false</IsPackable>
+		<!-- Purview.ZodSharp 3 ships net10.0 and net11.0 only, so a project that references it cannot carry
+		     the repository's 'All' set. The runtime package itself does not depend on ZodSharp and keeps it. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 		<!-- Minimal API samples are inherently coupled to many framework types. -->
 		<NoWarn>$(NoWarn);CA1506</NoWarn>
 	</PropertyGroup>

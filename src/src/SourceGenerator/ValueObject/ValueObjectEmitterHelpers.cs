@@ -48,6 +48,34 @@ static class ValueObjectEmitterHelpers
 	}
 
 	/// <summary>
+	/// Emits a generated JSON converter's <c>return {factoryCall};</c>. Under strict deserialization the factory is
+	/// <c>Create</c>, and a validation failure leaves the converter as the <c>JsonException</c>
+	/// <c>ValueObjectJson.ValidationFailed</c> builds, with the validator's exception inside: System.Text.Json then
+	/// records where the value sat (<c>JsonException.Path</c>), which Purview.ZodSharp uses to report the errors under
+	/// that member, and hosts answer it as bad input. <c>ScalarJsonConverterFactory</c> throws the same exception.
+	/// </summary>
+	public static void EmitJsonFactoryReturn(
+		CodeWriter body,
+		string factoryCall,
+		bool isStrict,
+		string valueObjectTypeName
+	)
+	{
+		if (!isStrict)
+		{
+			body.Return(factoryCall);
+			return;
+		}
+
+		var helper = TypeLibrary.ValueObjectJsonGlobalName;
+		body.Block("try", tryBlock => tryBlock.Return(factoryCall));
+		body.Block(
+			$"catch (global::System.Exception exception) when ({helper}.IsValidationFailure(exception))",
+			catchBlock => catchBlock.Throw($"{helper}.ValidationFailed(typeof({valueObjectTypeName}), exception)")
+		);
+	}
+
+	/// <summary>
 	/// ZodSharp refinement emission shared by the scalar and complex value object emitters.
 	/// </summary>
 	/// <remarks>

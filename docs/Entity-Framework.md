@@ -138,7 +138,10 @@ What the mapping does:
 - **Complex value objects** (`[ValueObject]`) map as **EF Core complex types** (EF Core 8+) by default, producing
   a column per member — including nested scalar value objects (e.g. `Money.Currency` converts to its primitive).
 - Complex value objects with `[ValueObject(EFMapping = EntityFrameworkMapping.Json)]` map to a single JSON column using the
-  generated JSON converter.
+  generated JSON converter (or the type's own `[JsonConverter]`), through `ValueObjectJson` rather than the
+  reflection-based `JsonSerializer` overloads, so the column converter adds no trim or Native AOT warning. The
+  column content is what `JsonSerializer.Serialize(value)` would write. Only with `GenerateJsonConverter = false`
+  (`VO1017`), or a `[JsonConverter]` naming a factory, does it fall back to `JsonSerializer`.
 
 ## Nullable scalars and nullable columns
 
@@ -570,6 +573,10 @@ value-object provider assemblies referenced by EF consumers:
   `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, so version-specific API shifts (for example
   `ValueGeneratorFactory.Create`'s second parameter changing to `ITypeBase`) are caught by the build rather
   than by a consumer.
+- **Trimming and Native AOT.** The generated mapping code raises no IL2xxx/IL3xxx warning of its own, but EF Core
+  itself is not fully trim- or AOT-compatible: its `DbContext` constructor and migrations APIs carry
+  `[RequiresUnreferencedCode]`/`[RequiresDynamicCode]`, and a trimmed or AOT application warns at those calls.
+  Follow EF Core's own guidance (compiled models and precompiled queries) for that part.
 - Value objects are immutable; EF tracks them by value like any struct/record. The generator emits a
   parameterless constructor for `[ValueObject]` types to support EF Core materialization.
 - **Materialization is a replay path.** Entity Framework Core rebuilds a value object with `Hydrate(...)`,

@@ -409,8 +409,81 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(converterType.TypeArguments[1].SpecialType).IsEqualTo(SpecialType.System_String);
 
 		var moneyRecord = Normalize(result.Generated().GetRecord("Money", "Testing").Node.ToString());
-		await Assert.That(moneyRecord).Contains("JsonSerializer.Serialize(vo)");
+		await Assert
+			.That(moneyRecord)
+			.Contains("ValueObjectJson.Serialize<global::Testing.Money,global::Testing.Money.MoneyJsonConverter>(vo)");
+		await Assert
+			.That(moneyRecord)
+			.Contains("ValueObjectJson.Deserialize<global::Testing.Money,global::Testing.Money.MoneyJsonConverter>(v)");
+		await Assert.That(moneyRecord).DoesNotContain("JsonSerializer.Serialize(");
+		await Assert.That(moneyRecord).DoesNotContain("JsonSerializer.Deserialize<");
 		await Assert.That(moneyRecord).Contains("JsonStringReaderWriter.Instance");
+	}
+
+	[Test]
+	public async Task ComplexEFGeneration_JsonMappingWithDeclaredConverter_SerializesThroughDeclaredConverter(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json)]
+				[System.Text.Json.Serialization.JsonConverter(typeof(MoneyConverter))]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+				}
+
+				public sealed class MoneyConverter : System.Text.Json.Serialization.JsonConverter<Money>
+				{
+					public override Money Read(ref System.Text.Json.Utf8JsonReader reader, System.Type typeToConvert, System.Text.Json.JsonSerializerOptions options) =>
+						Money.Hydrate(reader.GetDecimal());
+
+					public override void Write(System.Text.Json.Utf8JsonWriter writer, Money value, System.Text.Json.JsonSerializerOptions options) =>
+						writer.WriteNumberValue(value.Amount);
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var moneyRecord = Normalize(result.Generated().GetRecord("Money", "Testing").Node.ToString());
+		await Assert
+			.That(moneyRecord)
+			.Contains("ValueObjectJson.Serialize<global::Testing.Money,global::Testing.MoneyConverter>(vo)");
+		await Assert.That(moneyRecord).DoesNotContain("JsonSerializer.Serialize(");
+	}
+
+	[Test]
+	public async Task ComplexEFGeneration_JsonMappingWithoutGeneratedConverter_FallsBackToJsonSerializer(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject(EFMapping = Purview.ValueObjects.Serialization.EntityFrameworkMapping.Json, GenerateJsonConverter = false)]
+				public readonly partial record struct Money
+				{
+					public decimal Amount { get; }
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsEFGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var moneyRecord = Normalize(result.Generated().GetRecord("Money", "Testing").Node.ToString());
+		await Assert.That(moneyRecord).Contains("global::System.Text.Json.JsonSerializer.Serialize(vo)");
+		await Assert.That(moneyRecord).DoesNotContain("ValueObjectJson.Serialize<");
 	}
 
 	[Test]
@@ -988,7 +1061,10 @@ public sealed class ValueObjectEFSourceGeneratorTests : ValueObjectEFSourceGener
 		await Assert.That(registry).Contains("[typeof(global::Shared.Audit)]");
 		await Assert.That(registry).Contains("ValueConverter<global::Shared.Audit,global::System.String>");
 		await Assert.That(registry).Contains("JsonStringReaderWriter.Instance");
-		await Assert.That(registry).Contains("JsonSerializer.Serialize(vo)");
+		await Assert
+			.That(registry)
+			.Contains("ValueObjectJson.Serialize<global::Shared.Audit,global::Shared.Audit.AuditJsonConverter>(vo)");
+		await Assert.That(registry).DoesNotContain("JsonSerializer.Serialize(");
 		await Assert.That(registry).DoesNotContain("global::Shared.Audit.EF.Converter");
 
 		var compilationErrors = result

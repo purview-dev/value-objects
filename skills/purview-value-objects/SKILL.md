@@ -205,6 +205,14 @@ Both attributes default to `ValueObjectDeserializationMode.Hydrate`, so a JSON r
 re-validate. Choose `Strict` only when round-trip fidelity genuinely requires re-running validation
 on read — and then make sure a `Create` overload exists to re-validate through, or you get `VO1007`.
 
+The generated `[JsonConverter]`s use no reflection, so trimmed, Native AOT and Blazor WebAssembly apps
+get no IL2026/IL3050 from them (`ScalarJsonConverterFactory` is the reflection-based exception). A
+source-generated `JsonSerializerContext` **in the project that declares the value objects** cannot see the
+generated `[JsonConverter]` attribute (one generator never sees another's output) and describes each value
+object as an object with a `Value` property: register the generated converters on its options
+(`new JsonSerializerOptions(AppJsonContext.Default.Options) { Converters = { new EmailAddress.EmailAddressJsonConverter() } }`).
+A value object from a referenced library needs nothing. Repository guide: `docs/Trimming-AOT-and-Blazor.md`.
+
 ## Assembly-level defaults
 
 Repeat nothing per type that the assembly can say once:

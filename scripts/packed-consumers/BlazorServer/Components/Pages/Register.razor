@@ -1,0 +1,45 @@
+@page "/register"
+
+@* Statically rendered: the gate posts this form and reads the response. The value objects bind from the posted
+   strings through their generated IParsable implementation, so an unparseable value is a form mapping error and a
+   parsed one is validated by <ZodValidator> through the value objects' own schemas. *@
+
+<h1>Register (static server rendering)</h1>
+
+<EditForm Model="Model" FormName="register" OnValidSubmit="Submit">
+	<ZodValidator />
+
+	<label for="name">Name</label>
+	<InputText id="name" @bind-Value="Model!.Name" />
+	<ZodValidationMessage For="() => Model!.Name" ShowCode="true" />
+
+	<label for="email">Email</label>
+	<InputScalar TScalar="EmailAddress" id="email" @bind-Value="Model!.Email" />
+	<ValidationMessage For="() => Model!.Email" />
+
+	<label for="postcode">Postcode</label>
+	<InputScalar TScalar="PostalCode" id="postcode" @bind-Value="Model!.Postcode" />
+	<ValidationMessage For="() => Model!.Postcode" />
+
+	@* The plan is chosen elsewhere; it travels with the form so its own rule still applies. *@
+	<input type="hidden" name="Model.Plan" value="@Model!.Plan.Value" />
+
+	<ValidationSummary />
+	<button type="submit">Register</button>
+</EditForm>
+
+@if (_registered)
+{
+	<p id="registered" role="status">Registered @Model!.Name &lt;@Model.Email.Value&gt; at @Model.Postcode.Value.</p>
+}
+
+@code {
+	[SupplyParameterFromForm]
+	Registration? Model { get; set; }
+
+	bool _registered;
+
+	protected override void OnInitialized() => Model ??= new() { Plan = PlanId.Create(Guid.NewGuid()) };
+
+	void Submit() => _registered = true;
+}
