@@ -59,6 +59,8 @@ $failures = [System.Collections.Generic.List[string]]::new()
 for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
 	$output = & dotnet tool restore --tool-manifest $manifest 2>&1 | ForEach-Object { "$_" }
 	if ($LASTEXITCODE -eq 0) {
+		# A retried attempt leaves the failed attempt's 1 in $LASTEXITCODE; a caller run as a CI step exits with it.
+		$global:LASTEXITCODE = 0
 		Write-Host 'Local tools restored.' -ForegroundColor Green
 		return
 	}

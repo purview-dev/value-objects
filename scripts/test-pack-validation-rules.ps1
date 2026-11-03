@@ -180,3 +180,7 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Host "Every ForbiddenContent rule ($($cases.Count)) rejected its file, in every package ($($packages.Count))." -ForegroundColor Green
+
+# The 27 runs validate by expecting purview-build to fail, so $LASTEXITCODE is 1 here; GitHub's pwsh step appends
+# `exit $LASTEXITCODE`, which would fail the step despite every rule passing.
+exit 0
