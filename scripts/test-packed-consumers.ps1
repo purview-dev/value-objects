@@ -32,8 +32,8 @@
 	       the outcome in the DOM.
 	   (c) BlazorServer - a Blazor Web App. Published and started: a statically rendered form is posted invalid and
 	       valid, and an interactive-server page is prerendered and then run over a live circuit in the browser.
-	   (d) Net8Console - a net8.0 console without ZodSharp, built and (when the runtime is installed) run: the runtime
-	       package still serves every target framework it ships.
+	   (d) Net10Console - a net10.0 console without ZodSharp, built and (when the runtime is installed) run: the oldest
+	       target framework the runtime package ships.
 	4. Scans every consumer bin and publish folder with scripts/assert-no-compiler-host-assemblies.ps1.
 
 	Every check is a hard failure, including the ones that exercise Purview.ZodSharp behaviour the consumers rely on.
@@ -707,22 +707,22 @@ try {
 		Assert-NoLeaks @((Join-Path $consumers 'BlazorServer/bin'), $publish)
 	}
 
-	Invoke-Step '(d) net8.0 console without ZodSharp: build and run' {
-		$project = Join-Path $consumers 'Net8Console/Net8Console.csproj'
-		Invoke-Dotnet 'net8-console-build' (@('build', $project, '--configuration', 'Release', '-warnaserror') + $consumerProperties)
-		$bin = Join-Path $consumers 'Net8Console/bin/Release/net8.0'
+	Invoke-Step '(d) net10.0 console without ZodSharp: build and run' {
+		$project = Join-Path $consumers 'Net10Console/Net10Console.csproj'
+		Invoke-Dotnet 'net10-console-build' (@('build', $project, '--configuration', 'Release', '-warnaserror') + $consumerProperties)
+		$bin = Join-Path $consumers 'Net10Console/bin/Release/net10.0'
 
-		$net8 = [bool] (& dotnet --list-runtimes 2>$null | Select-String -Pattern '^Microsoft\.NETCore\.App 8\.')
-		if ($net8) {
-			& dotnet (Join-Path $bin 'PackedValueObjectsNet8.dll') | Out-Host
-			if ($LASTEXITCODE -ne 0) { throw "The net8.0 console exited with ${LASTEXITCODE}." }
+		$net10 = [bool] (& dotnet --list-runtimes 2>$null | Select-String -Pattern '^Microsoft\.NETCore\.App 10\.')
+		if ($net10) {
+			& dotnet (Join-Path $bin 'PackedValueObjectsNet10.dll') | Out-Host
+			if ($LASTEXITCODE -ne 0) { throw "The net10.0 console exited with ${LASTEXITCODE}." }
 		}
 		else {
-			Write-Host '  the .NET 8 runtime is not installed: built for net8.0 but NOT run.' -ForegroundColor Yellow
-			if ($env:GITHUB_ACTIONS) { Write-Host '::warning::The net8.0 consumer was built but not run: no .NET 8 runtime.' }
+			Write-Host '  the .NET 10 runtime is not installed: built for net10.0 but NOT run.' -ForegroundColor Yellow
+			if ($env:GITHUB_ACTIONS) { Write-Host '::warning::The net10.0 consumer was built but not run: no .NET 10 runtime.' }
 		}
 
-		Assert-NoLeaks @((Join-Path $consumers 'Net8Console/bin'))
+		Assert-NoLeaks @((Join-Path $consumers 'Net10Console/bin'))
 	}
 }
 catch {

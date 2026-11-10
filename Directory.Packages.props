@@ -1,20 +1,16 @@
 <Project>
 	<PropertyGroup>
-		<!-- Set explicitly rather than relying on auto-detection, so projects outside src/ (samples)
-		     also use central package management. -->
-		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
 		<RoslynVersion>5.9.0</RoslynVersion>
-		<TUnitVersion>1.76.0</TUnitVersion>
-		<PurviewSGFVersion>1.2.2</PurviewSGFVersion>
-		<PurviewZodSharpVersion>3.0.0-prerelease.2</PurviewZodSharpVersion>
+		<TUnitVersion>1.81.16</TUnitVersion>
+		<PurviewSGFVersion>2.0.0</PurviewSGFVersion>
+		<PurviewZodSharpVersion>3.0.0-prerelease.5</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />
 		<PackageVersion Include="Purview.SourceGeneratorFramework.Testing.TUnit" Version="$(PurviewSGFVersion)" />
 		<PackageVersion Include="Purview.ZodSharp" Version="$(PurviewZodSharpVersion)" />
 		<PackageVersion Include="Purview.ZodSharp.AspNetCore" Version="$(PurviewZodSharpVersion)" />
-		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.402" />
+		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.Common" Version="$(RoslynVersion)" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" />
@@ -25,16 +21,13 @@
 		<PackageVersion Include="TUnit.Core" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Mocks" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Assertions" Version="$(TUnitVersion)" />
-		<PackageVersion Include="Purview.Skills.Testing" Version="1.2.0" />
+		<PackageVersion Include="Purview.Skills.Testing" Version="2.0.0" />
 		<PackageVersion Include="Bogus" Version="35.6.5" />
 	</ItemGroup>
 	<ItemGroup Label="Entity Framework (test/sample only)">
-		<PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
-		<PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
-		<!-- Entity Framework Core 7's SQLite provider resolves SQLitePCLRaw 2.1.4, which has a published
-		     advisory (GHSA-2m69-gcr7-jv3q). Central transitive pinning moves every consumer onto the
-		     patched version that the newer providers already use. -->
-		<PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />
-		<PackageVersion Include="SQLitePCLRaw.core" Version="2.1.14" />
+		<!-- The central version is EF Core 10, so every net10.0 target restores. The net11.0 leg of the
+		     compatibility matrix pins EF Core 11 with a VersionOverride. -->
+		<PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.15" />
+		<PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
 	</ItemGroup>
 </Project>

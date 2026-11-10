@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<!--
-		Packed-consumer gate (scripts/test-packed-consumers.ps1), consumer (d): a net8.0 console over Purview.ValueObjects
-		alone. Purview.ZodSharp 3 needs net10.0, but the runtime package does not depend on it and still ships net8.0;
-		this proves that target framework restores, the generated code compiles against it, and it runs.
+		Packed-consumer gate (scripts/test-packed-consumers.ps1), consumer (d): a net10.0 console over
+		Purview.ValueObjects alone. This is the package's oldest supported target framework, so it proves that
+		target restores, the generated code compiles against it, and it runs without ZodSharp.
 	-->
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net8.0</TargetFramework>
-		<AssemblyName>PackedValueObjectsNet8</AssemblyName>
-		<RootNamespace>PackedValueObjectsNet8</RootNamespace>
+		<TargetFramework>net10.0</TargetFramework>
+		<AssemblyName>PackedValueObjectsNet10</AssemblyName>
+		<RootNamespace>PackedValueObjectsNet10</RootNamespace>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<IsAotCompatible>true</IsAotCompatible>

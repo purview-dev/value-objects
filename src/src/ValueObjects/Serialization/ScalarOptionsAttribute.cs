@@ -9,6 +9,12 @@ namespace Purview.ValueObjects.Serialization;
 /// (<see cref="ScalarAttribute"/>) scalar declarations configure the generator identically without
 /// duplicating the option set. It is abstract and is never applied directly.
 /// </para>
+/// <para>
+/// It is deliberately <b>not</b> declared <see langword="closed"/>: C# 15 requires every type parameter of a
+/// generic descendant to appear in a closed base's specification, and <see cref="ScalarAttribute{TValue}"/>
+/// derives from this non-generic base (CS9383). The two forms are therefore kept in step by their shared
+/// base rather than by the compiler's hierarchy check.
+/// </para>
 /// </remarks>
 /// <remarks>
 /// Initializes the attribute.

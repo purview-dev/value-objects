@@ -5,9 +5,23 @@
 		<!-- The runtime's reach, inherited by every project that does not name a narrower set. Selected
 		     through the SDK's set mechanism rather than assigned to TargetFrameworks after the import:
 		     assigning it applied the list to every project unconditionally, so a project could not narrow
-		     itself, and anything carrying a single Entity Framework Core 10 pin could not restore for
-		     net8.0/net9.0. Roslyn components are excluded by the SDK, which targets them at netstandard2.0. -->
-		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
+		     itself. 'Supported' is net10.0 and net11.0: .NET 8 and .NET 9 are out of support, and both
+		     were dropped alongside the .NET 11 GA. Roslyn components are excluded by the SDK, which
+		     targets them at netstandard2.0. -->
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
+		<!--
+			.NET 11 compiler features. Runtime Async is on for the net11.0 leg. No async code is generated
+			today, so the benefit arrives with any future async member; pinning it records that the runtime
+			relies on the feature and keeps a future SDK default change from silently opting out.
+
+			The updated memory-safety rules are deliberately left off. They are a preview feature, the
+			repository has no unsafe code for them to guard, and the .NET 11 SDK's System.Text.Json source
+			generator emits the preview 'safe' modifier when they are on, which fails with CS8652 unless
+			every consuming project also opts into LangVersion=preview. Opt in per project if unsafe code is
+			ever introduced.
+		-->
+		<PurviewRuntimeAsync>true</PurviewRuntimeAsync>
+		<MemorySafetyRules>0</MemorySafetyRules>
 		<!--
 			Installed skills live in the universal .agents/skills/ folder only, and are committed. The
 			SDK's default (*) would make InstallPurviewSkills write a copy into every agent's folder.

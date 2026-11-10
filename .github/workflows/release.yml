@@ -30,7 +30,7 @@ jobs:
         with:
           release-mode: NuGet
           # Keep in sync with `sdk.version` in global.json (and with .github/workflows/pr.yml).
-          dotnet-version: "11.0.100-rc.3.26522.148"
+          dotnet-version: "11.0.100"
           trusted-publishing: true
           # The nuget.org profile name, not the sign-in email.
           nuget-user: kieronlanning

@@ -23,8 +23,8 @@ ZodSharp source generator is active in any project that references the package.
 ```text
 dotnet add package Purview.ZodSharp
 ```
-**Purview.ZodSharp 3** targets `net10.0`/`net11.0` only, so a project using the integration needs
-`net10.0`+ (Purview.ValueObjects itself still ships `net8.0`-`net11.0`). The generated integration works
+**Purview.ZodSharp 3** targets `net10.0`/`net11.0` only, the same two targets as Purview.ValueObjects
+(.NET 8 and .NET 9 are no longer supported). The generated integration works
 with 2.x and 3.x. In 3.x built-in rules report `Origin`/`Category`, paths render as `Items[0].Name`
 (`FullPath.ToDottedString()`), and generated schemas gain `ValidateAsync` (CA1849 flags a synchronous
 `Validate` in async code).

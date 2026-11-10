@@ -22,10 +22,10 @@ For the examples below, also add a provider such as SQLite:
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite
 ```
 
-The generated integration is compiled and tested against EF Core **7, 9, and 10** (EF Core 7 needs `net8.0`),
-so version-specific API differences are resolved by the generator rather than surfacing in your build. EF Core
-7 has no complex-type mapping, which is the one feature difference: a complex value object reports `VO1019`
-there. See [Notes](#notes) for the full version matrix.
+The generated integration is compiled and tested against EF Core **10 and 11**, the versions that pair with the
+package's `net10.0` and `net11.0` targets, so version-specific API differences are resolved by the generator
+rather than surfacing in your build. Both support complex-type mapping. See [Notes](#notes) for the full
+version matrix.
 
 ## Automatic mapping
 
@@ -559,17 +559,17 @@ value-object provider assemblies referenced by EF consumers:
 
 - Only `[Scalar]`/`[ValueObject]` types are given a conversion; a plain `enum` property keeps Entity Framework
   Core's own enum mapping untouched.
-- EF Core 8+ is required for **complex type mapping**. An EF Core 7 reference set reports `VO1019` and leaves
-  complex value objects unmapped; use `EFMapping = Json` (a value converter, so it works on every version) or
-  configure the property manually. The complex-type block in the registry and the compiled-model members the
-  generated converters expose (`JsonReaderWriter`) are EF Core 8+ only as well. Everything else the generator
-  emits — converters, the key value generator, the convention, and `ValueObjectSequentialGuid` — works on
-  EF Core 7 and later.
+- EF Core 8+ is required for **complex type mapping**; the supported versions (10 and 11) both have it. A
+  project still referencing EF Core 7 reports `VO1019` and leaves complex value objects unmapped; use
+  `EFMapping = Json` (a value converter) or configure the property manually. The complex-type block in the
+  registry and the compiled-model members the generated converters expose (`JsonReaderWriter`) are EF Core 8+
+  only as well. Everything else the generator emits — converters, the key value generator, the convention, and
+  `ValueObjectSequentialGuid` — works on EF Core 8 and later.
 - A generated key value generator is typed as the **value object**, not as its provider value, because Entity
   Framework Core assigns what a generator returns straight to the property. Application code that mints keys
   before `SaveChanges` calls the generated `ValueObjectSequentialGuid` helper, which is public in the
   `Microsoft.EntityFrameworkCore` namespace and produces the same values the convention would assign.
-- The generated code is compiled against EF Core 7, 9, and 10 in
+- The generated code is compiled against EF Core 10 (`net10.0`) and EF Core 11 (`net11.0`) in
   `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, so version-specific API shifts (for example
   `ValueGeneratorFactory.Create`'s second parameter changing to `ITypeBase`) are caught by the build rather
   than by a consumer.

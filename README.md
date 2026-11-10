@@ -28,6 +28,10 @@ incremental source generator produces:
 dotnet add package Purview.ValueObjects
 ```
 
+The package targets `net10.0` (LTS) and `net11.0`. .NET 8 and .NET 9 are no longer supported. The `net11.0`
+build uses C# 15 as its default language version and compiles with Runtime Async (`runtime-async=on`); the
+generated code is identical on both targets.
+
 The package ships the runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, ...), the source generator,
 the diagnostic analyzer, and code fixes for the analyzer's diagnostics (for example `VO1001` offers
 **Add 'partial' modifier**). There is no dependency on any event-sourcing library.
@@ -172,7 +176,7 @@ var result = EmailAddressSchema.Validate(EmailAddress.Create("demo@example.com")
 See [ZodSharp Validation](docs/ZodSharp-Validation.md), the `src/src/ZodSharpSample` project, and
 the `src/src/ZodSharp.AspNetCoreSample` project (ASP.NET Core Problem Details for a request of value objects, each
 invalid member reported under its own path).
-Purview.ZodSharp 3 targets `net10.0`/`net11.0` (this package still ships `net8.0`-`net11.0` and does not depend on
+Purview.ZodSharp 3 targets `net10.0`/`net11.0` (this package ships the same two targets and does not depend on
 it); `Purview.ZodSharp.Blazor` validates Blazor forms over value objects - see
 [Trimming, Native AOT and Blazor](docs/Trimming-AOT-and-Blazor.md#blazor).
 
@@ -180,7 +184,7 @@ it); `Purview.ZodSharp.Blazor` validates Blazor forms over value objects - see
 
 Generated code uses no reflection, so trimmed, Native AOT and Blazor WebAssembly applications get no IL2xxx/IL3xxx
 warning from it. `just smoke-packed-consumers` proves it against the packed package: a Native AOT console, a Blazor
-WebAssembly app (trimmed and `RunAOTCompilation`, run in a headless browser), a Blazor Server app and a `net8.0`
+WebAssembly app (trimmed and `RunAOTCompilation`, run in a headless browser), a Blazor Server app and a `net10.0`
 console, all built with warnings as errors and scanned for compiler-host assemblies.
 
 The generated Entity Framework Core mapping, JSON-column converters included, adds no warning either, though EF Core
