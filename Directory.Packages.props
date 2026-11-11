@@ -1,7 +1,7 @@
 <Project>
 	<PropertyGroup>
 		<RoslynVersion>5.9.0</RoslynVersion>
-		<TUnitVersion>1.81.16</TUnitVersion>
+		<TUnitVersion>1.83.0</TUnitVersion>
 		<PurviewSGFVersion>2.0.0</PurviewSGFVersion>
 		<PurviewZodSharpVersion>3.0.0-prerelease.5</PurviewZodSharpVersion>
 	</PropertyGroup>
