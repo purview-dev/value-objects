@@ -32,10 +32,8 @@ app.UseExceptionHandler();
 // HttpValidationProblemDetails response listing every invalid member under its own path
 // (CustomerEmail.Value, Quantity.Value). Strict deserialization reports the same path (on .NET 10 with
 // AddZodSharpProblemDetails(o => o.HandleBindingFailures = true)), but stops at the first invalid member.
-app.MapPost(
-		"/orders",
-		(PlaceOrderRequest request) =>
-			Results.Ok(new { Email = request.CustomerEmail.Value, Quantity = request.Quantity.Value })
+app.MapPost("/orders", (PlaceOrderRequest request) =>
+		Results.Ok(new { Email = request.CustomerEmail.Value, Quantity = request.Quantity.Value })
 	)
 	.WithZodSharpValidation();
 
@@ -49,29 +47,26 @@ static void ConfirmOrder(string orderId) => ErrorTypes.ThrowSaveFailed(orderId, 
 
 // Demonstrates on-demand mapping: a ZodException caught in the handler is converted explicitly
 // with ErrorType resolution, without relying on the exception-handling middleware.
-app.MapGet(
-	"/orders/{orderId}/email",
-	(string orderId, string email, HttpContext httpContext) =>
+app.MapGet("/orders/{orderId}/email", (string orderId, string email, HttpContext httpContext) =>
+{
+	try
 	{
-		try
-		{
-			var parsed = EmailAddress.Create(email);
-			return Results.Ok(new { Email = parsed.Value, OrderId = orderId });
-		}
-		catch (ZodException ex)
-		{
-			var problem = ex.ToHttpValidationProblemDetails(
-				new ZodProblemDetailsOptions { Registry = ErrorTypeRegistry.Default },
-				httpContext
-			);
-			return Results.Problem(
-				problem.Detail,
-				statusCode: problem.Status,
-				title: problem.Title,
-				extensions: new Dictionary<string, object?> { ["issues"] = problem.Extensions["issues"] }
-			);
-		}
+		var parsed = EmailAddress.Create(email);
+		return Results.Ok(new { Email = parsed.Value, OrderId = orderId });
 	}
-);
+	catch (ZodException ex)
+	{
+		var problem = ex.ToHttpValidationProblemDetails(
+			new ZodProblemDetailsOptions { Registry = ErrorTypeRegistry.Default },
+			httpContext
+		);
+		return Results.Problem(
+			problem.Detail,
+			statusCode: problem.Status,
+			title: problem.Title,
+			extensions: new Dictionary<string, object?> { ["issues"] = problem.Extensions["issues"] }
+		);
+	}
+});
 
 app.Run();

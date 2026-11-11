@@ -31,8 +31,8 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
+		var createBody = result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString()
+			?? string.Empty;
 		await Assert.That(createBody).Contains("value = value?.Trim()!;");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
@@ -64,8 +64,8 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Email", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
+		var createBody = result.Generated().GetRecord("Email", "Testing").GetMethod("Create").Node.Body?.ToString()
+			?? string.Empty;
 		await Assert.That(createBody).Contains("value = value?.ToLowerInvariant()!;");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
@@ -98,8 +98,11 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("CurrencyCode", "Testing").GetMethod("Create").Node.Body?.ToString()
+		var createBody = result
+			.Generated()
+			.GetRecord("CurrencyCode", "Testing")
+			.GetMethod("Create")
+			.Node.Body?.ToString()
 			?? string.Empty;
 		await Assert.That(createBody).Contains("value = value?.Trim().ToUpperInvariant()!;");
 
@@ -207,8 +210,7 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
+		var createBody = result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
 			?? string.Empty;
 		await Assert.That(createBody).Contains("email = email?.Trim().ToLowerInvariant()!;");
 		await Assert.That(createBody).DoesNotContain("name = name?");
@@ -260,8 +262,7 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
+		var createBody = result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
 			?? string.Empty;
 		await Assert.That(createBody).Contains("email = email?.Trim()!;");
 		await Assert.That(createBody).Contains("name = name?.Trim()!;");
@@ -299,8 +300,8 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
+		var createBody = result.Generated().GetRecord("Name", "Testing").GetMethod("Create").Node.Body?.ToString()
+			?? string.Empty;
 		await Assert.That(createBody).DoesNotContain("value = value?.Trim()");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
@@ -351,8 +352,7 @@ public sealed class StringNormalizationGeneratorTests : ValueObjectSourceGenerat
 			cancellationToken
 		);
 
-		var createBody =
-			result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
+		var createBody = result.Generated().GetRecord("Contact", "Testing").GetMethod("Create").Node.Body?.ToString()
 			?? string.Empty;
 		await Assert.That(createBody).DoesNotContain("email = email?.Trim()");
 

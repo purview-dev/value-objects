@@ -272,8 +272,7 @@ static class ComplexValueObjectModelBuilder
 		if (type is not INamedTypeSymbol { IsGenericType: false } named)
 			return null;
 
-		var converterTypeName =
-			ResolveDeclaredJsonConverterTypeName(named)
+		var converterTypeName = ResolveDeclaredJsonConverterTypeName(named)
 			?? ResolveGeneratedJsonConverterTypeName(named, compilationAssembly, assemblyDefaults);
 		if (converterTypeName is null)
 			return null;

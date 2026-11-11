@@ -148,19 +148,16 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			static (compilation, _) => ZodSharpScalarRuleAdapterEmitter.ResolveState(compilation)
 		);
 
-		context.RegisterSourceOutput(
-			adapterState.Combine(generationContext),
-			static (spc, tuple) =>
-			{
-				var (state, generationContext) = tuple;
-				if (generationContext.Settings.IsSourceGeneratorDisabled || !state.ShouldEmit)
-					return;
+		context.RegisterSourceOutput(adapterState.Combine(generationContext), static (spc, tuple) =>
+		{
+			var (state, generationContext) = tuple;
+			if (generationContext.Settings.IsSourceGeneratorDisabled || !state.ShouldEmit)
+				return;
 
-				var writer = generationContext.CreateCodeWriter();
-				ZodSharpScalarRuleAdapterEmitter.Emit(writer);
-				spc.AddSource(TypeLibrary.ScalarRuleAdapterHintName, writer);
-			}
-		);
+			var writer = generationContext.CreateCodeWriter();
+			ZodSharpScalarRuleAdapterEmitter.Emit(writer);
+			spc.AddSource(TypeLibrary.ScalarRuleAdapterHintName, writer);
+		});
 	}
 
 	static void RegisterEFRegistryOutput(
@@ -216,52 +213,49 @@ public sealed partial class ValueObjectSourceGenerator : IIncrementalGenerator
 			.Combine(generationContext)
 			.Combine(isEF8Referenced);
 
-		context.RegisterSourceOutput(
-			registryInput,
-			static (spc, tuple) =>
+		context.RegisterSourceOutput(registryInput, static (spc, tuple) =>
+		{
+			var (left, isEF8Referenced) = tuple;
+			var (leftInner, generationContext) = left;
+			var (anyEF, combined) = leftInner;
+			var (anyValueObject, efOptions) = anyEF;
+			var (efDisabled, registryDisabled) = efOptions;
+			if (generationContext.Settings.IsSourceGeneratorDisabled)
+				return;
+
+			if (!anyValueObject || efDisabled || registryDisabled)
+				return;
+
+			var scalars = ImmutableArray.CreateBuilder<EFScalarDescriptor>();
+			var complex = ImmutableArray.CreateBuilder<EFComplexDescriptor>();
+			foreach (var descriptor in combined.Left.Left.Left)
 			{
-				var (left, isEF8Referenced) = tuple;
-				var (leftInner, generationContext) = left;
-				var (anyEF, combined) = leftInner;
-				var (anyValueObject, efOptions) = anyEF;
-				var (efDisabled, registryDisabled) = efOptions;
-				if (generationContext.Settings.IsSourceGeneratorDisabled)
-					return;
-
-				if (!anyValueObject || efDisabled || registryDisabled)
-					return;
-
-				var scalars = ImmutableArray.CreateBuilder<EFScalarDescriptor>();
-				var complex = ImmutableArray.CreateBuilder<EFComplexDescriptor>();
-				foreach (var descriptor in combined.Left.Left.Left)
-				{
-					if (descriptor is not null)
-						scalars.Add(descriptor.Value);
-				}
-
-				foreach (var descriptor in combined.Left.Left.Right)
-				{
-					if (descriptor is not null)
-						scalars.Add(descriptor.Value);
-				}
-
-				foreach (var descriptor in combined.Left.Right)
-				{
-					if (descriptor is not null)
-						complex.Add(descriptor.Value);
-				}
-
-				scalars.AddRange(combined.Right.Scalars);
-				complex.AddRange(combined.Right.Complex);
-
-				if (scalars.Count == 0 && complex.Count == 0)
-					return;
-
-				var writer = generationContext.CreateCodeWriter();
-				ValueObjectEFRegistryEmitter.Emit(writer, scalars, complex, isEF8Referenced);
-				spc.AddSource($"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs", writer);
+				if (descriptor is not null)
+					scalars.Add(descriptor.Value);
 			}
-		);
+
+			foreach (var descriptor in combined.Left.Left.Right)
+			{
+				if (descriptor is not null)
+					scalars.Add(descriptor.Value);
+			}
+
+			foreach (var descriptor in combined.Left.Right)
+			{
+				if (descriptor is not null)
+					complex.Add(descriptor.Value);
+			}
+
+			scalars.AddRange(combined.Right.Scalars);
+			complex.AddRange(combined.Right.Complex);
+
+			if (scalars.Count == 0 && complex.Count == 0)
+				return;
+
+			var writer = generationContext.CreateCodeWriter();
+			ValueObjectEFRegistryEmitter.Emit(writer, scalars, complex, isEF8Referenced);
+			spc.AddSource($"{TypeLibrary.EFValueObjectExtensionsClassName}.g.cs", writer);
+		});
 	}
 
 	static EFScalarDescriptor? BuildScalarEFDescriptor(ScalarValueObjectModel model)

@@ -529,8 +529,7 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
-			var location =
-				GetArgumentLocation(attribute, optionName, cancellationToken)
+			var location = GetArgumentLocation(attribute, optionName, cancellationToken)
 				?? attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation();
 			if (location is null)
 				continue;
