@@ -36,11 +36,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The SDK from global.json, plus the .NET 10 runtime the oldest consumer runs on.
+      # The SDK global.json pins, plus the .NET 10 SDK and runtime the oldest consumer builds and runs on. The pin is
+      # named here rather than left to global-json-file: setup-dotnet reads a global.json whose rollForward is
+      # latestMajor as "the latest" and installs the LTS channel, so global-json-file alone installs 10.0.x and every
+      # later `dotnet` command fails with "A compatible .NET SDK was not found" for the 11.x pin.
+      # Keep both versions in sync with `sdk.version` in global.json.
       - uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            11.0.100
+            10.0.x
 
       # First, before any toolchain is installed: the generator is built against the Purview.SourceGeneratorFramework
       # version Directory.Packages.props pins, and the consumers use the pinned Purview.ZodSharp. Until both are on

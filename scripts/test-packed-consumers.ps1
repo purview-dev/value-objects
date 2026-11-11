@@ -14,8 +14,9 @@
 
 	This gate consumes the package exactly as a user does:
 
-	1. Preflight: checks the build-time Purview.SourceGeneratorFramework and the Purview.ZodSharp packages the
-	   consumers use can be restored, and fails early, with what to do, if they cannot.
+	1. Preflight: checks the SDK global.json pins is installed, and that the build-time
+	   Purview.SourceGeneratorFramework and the Purview.ZodSharp packages the consumers use can be restored, failing
+	   early, with what to do, if either is not.
 	2. Packs every shipping package (the ids in .config/purview-build.json PackValidation.RequiredContent) to an
 	   isolated feed, with an isolated NUGET_PACKAGES, so no previously extracted package of the same version can be
 	   reused. Package validation against the API baseline runs as part of the pack. The feed must hold exactly the
@@ -428,9 +429,22 @@ try {
 </Project>
 "@ | Set-Content (Join-Path $probe 'probe.csproj') -Encoding utf8
 
-		& dotnet restore (Join-Path $probe 'probe.csproj') "-p:RestoreConfigFile=$packConfig" 2>&1 |
-			Tee-Object -FilePath (Join-Path $logs 'dependency-probe.log') | Out-Host
+		$restoreOutput = & dotnet restore (Join-Path $probe 'probe.csproj') "-p:RestoreConfigFile=$packConfig" 2>&1
+		$restoreOutput | Set-Content (Join-Path $logs 'dependency-probe.log')
+		$restoreOutput | Out-Host
 		if ($LASTEXITCODE -ne 0) {
+			# An unsatisfied global.json pin fails here too, with a non-zero exit and no package resolution at all.
+			# Reporting it as a missing dependency would send the reader to nuget.org for nothing.
+			if (($restoreOutput | Out-String) -match 'A compatible \.NET SDK was not found') {
+				throw (
+					"No .NET SDK satisfies the $($sdk.version) pin in global.json, so the dependency probe cannot be " +
+					'restored and nothing can be checked. This is not a missing package: no package resolution ran. ' +
+					'Install that SDK (or a newer one, which rollForward allows) before this gate. actions/setup-dotnet ' +
+					'must name it explicitly: it reads a global.json with rollForward latestMajor as "the latest" and ' +
+					"installs the LTS channel, so global-json-file alone does not install $($sdk.version)."
+				)
+			}
+
 			$from = ((@($nugetOrg) + $dependencySources) | ForEach-Object Value) -join ', '
 			throw (
 				"Purview.SourceGeneratorFramework $sgfVersion or Purview.ZodSharp $zodSharpVersion (Directory.Packages.props) " +
