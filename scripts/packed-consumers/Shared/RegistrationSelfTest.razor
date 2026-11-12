@@ -79,6 +79,7 @@
 		{
 			failures++;
 			report.AppendLine($"FAIL the self-test threw {ex.GetType().Name}: {ex.Message}");
+			report.AppendLine(ex.ToString());
 		}
 
 		_result = failures == 0 ? "passed" : "failed";
