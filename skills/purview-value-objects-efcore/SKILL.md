@@ -304,15 +304,15 @@ public readonly partial record struct Notes { }
 
 ## Version support
 
-Compiled and tested against EF Core **7, 9 and 10** (EF Core 7 needs `net8.0`), in
+Compiled and tested against EF Core **10** (`net10.0`) and **11** (`net11.0`), in
 `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, so version-specific API shifts are caught
 by this build rather than by a consumer.
 
 EF Core 8+ is required for **complex type mapping**, the complex-type block in the registry, and the
-compiled-model `JsonReaderWriter` members. On EF Core 7, a complex value object reports `VO1019` and
-is left unmapped — use `EFMapping = Json` or configure the property manually. Everything else
-(converters, the key value generator, the convention, `ValueObjectSequentialGuid`) works on EF Core 7
-and later.
+compiled-model `JsonReaderWriter` members; both supported versions have it. On EF Core 7, a complex
+value object reports `VO1019` and is left unmapped — use `EFMapping = Json` or configure the property
+manually. Everything else (converters, the key value generator, the convention,
+`ValueObjectSequentialGuid`) works on EF Core 8 and later.
 
 ## Trimming and Native AOT
 

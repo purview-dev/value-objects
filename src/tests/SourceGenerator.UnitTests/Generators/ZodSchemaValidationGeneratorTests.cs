@@ -387,8 +387,8 @@ public sealed class ZodSchemaValidationGeneratorTests
 		var query = result.Generated();
 		await Assert.That(query.GetClass("CorporateEmailSchema", "Testing").Node).IsNotNull();
 
-		var createBody =
-			query.GetRecord("CorporateEmail", "Testing").GetMethod("Create").Node.Body?.ToString() ?? string.Empty;
+		var createBody = query.GetRecord("CorporateEmail", "Testing").GetMethod("Create").Node.Body?.ToString()
+			?? string.Empty;
 		await Assert.That(createBody).Contains("CorporateEmailSchema.Validate(instance)");
 
 		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();

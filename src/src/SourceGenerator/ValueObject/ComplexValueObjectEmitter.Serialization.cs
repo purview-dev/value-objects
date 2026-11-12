@@ -76,44 +76,40 @@ static partial class ComplexValueObjectEmitter
 						for (var index = 0; index < properties.Length; index++)
 							methodBody.Line($"{properties[index].TypeName} {MemberLocal(index)} = default!;");
 
-						methodBody.While(
-							"reader.Read()",
-							loop =>
+						methodBody.While("reader.Read()", loop =>
+						{
+							loop.IfBlock(
+								"reader.TokenType == global::System.Text.Json.JsonTokenType.EndObject",
+								ifBody =>
+									ValueObjectEmitterHelpers.EmitJsonFactoryReturn(
+										ifBody,
+										$"{model.HydrateFactoryName}({hydrateArgs})",
+										model.Options.DeserializationMode == ValueObjectSymbolInspector.StrictModeName,
+										model.TypeModel.FullyQualifiedName
+									)
+							);
+
+							loop.Line("var jsonName = reader.GetString();");
+							loop.Line("reader.Read();");
+
+							for (var index = 0; index < properties.Length; index++)
 							{
-								loop.IfBlock(
-									"reader.TokenType == global::System.Text.Json.JsonTokenType.EndObject",
-									ifBody =>
-										ValueObjectEmitterHelpers.EmitJsonFactoryReturn(
-											ifBody,
-											$"{model.HydrateFactoryName}({hydrateArgs})",
-											model.Options.DeserializationMode
-												== ValueObjectSymbolInspector.StrictModeName,
-											model.TypeModel.FullyQualifiedName
-										)
-								);
+								var property = properties[index];
+								var condition = $"{helper}.IsMember(jsonName, \"{property.Name}\", options)";
+								var statement =
+									$"{MemberLocal(index)} = {helper}.Read<{property.TypeName}>(ref reader, options{ConverterArgument(property, index)})!;";
 
-								loop.Line("var jsonName = reader.GetString();");
-								loop.Line("reader.Read();");
-
-								for (var index = 0; index < properties.Length; index++)
-								{
-									var property = properties[index];
-									var condition = $"{helper}.IsMember(jsonName, \"{property.Name}\", options)";
-									var statement =
-										$"{MemberLocal(index)} = {helper}.Read<{property.TypeName}>(ref reader, options{ConverterArgument(property, index)})!;";
-
-									if (index == 0)
-										loop.IfBlock(condition, branch => branch.Line(statement));
-									else
-										loop.ElseIf(condition, branch => branch.Line(statement));
-								}
-
-								if (properties.Length == 0)
-									loop.Line("reader.Skip();");
+								if (index == 0)
+									loop.IfBlock(condition, branch => branch.Line(statement));
 								else
-									loop.Else(static branch => branch.Line("reader.Skip();"));
+									loop.ElseIf(condition, branch => branch.Line(statement));
 							}
-						);
+
+							if (properties.Length == 0)
+								loop.Line("reader.Skip();");
+							else
+								loop.Else(static branch => branch.Line("reader.Skip();"));
+						});
 
 						methodBody.Line($"throw new global::System.Text.Json.JsonException({unableToDeserialize});");
 					}

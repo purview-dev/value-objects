@@ -99,21 +99,15 @@ public sealed class ScalarJsonConverterFactory() : JsonConverterFactory
 		Justification = "Only reachable through the annotated ScalarJsonConverterFactory constructor."
 	)]
 	public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
-		Cache.GetOrAdd(
-			typeToConvert,
-			static t =>
-			{
-				var attr = t.GetCustomAttribute<ScalarOptionsAttribute>()!;
-				var scalarProp =
-					t.GetProperty(attr.PropertyName, BindingFlags.Instance | BindingFlags.Public)
-					?? throw new InvalidOperationException(
-						$"'{t.Name}' missing scalar property '{attr.PropertyName}'."
-					);
+		Cache.GetOrAdd(typeToConvert, static t =>
+		{
+			var attr = t.GetCustomAttribute<ScalarOptionsAttribute>()!;
+			var scalarProp = t.GetProperty(attr.PropertyName, BindingFlags.Instance | BindingFlags.Public)
+				?? throw new InvalidOperationException($"'{t.Name}' missing scalar property '{attr.PropertyName}'.");
 
-				var converterType = typeof(ScalarJsonConverter<,>).MakeGenericType(t, scalarProp.PropertyType);
-				return (JsonConverter)Activator.CreateInstance(converterType, scalarProp, attr.DeserializationMode)!;
-			}
-		);
+			var converterType = typeof(ScalarJsonConverter<,>).MakeGenericType(t, scalarProp.PropertyType);
+			return (JsonConverter)Activator.CreateInstance(converterType, scalarProp, attr.DeserializationMode)!;
+		});
 
 	// Instances are only ever created by CreateConverter, which is itself only reachable through the
 	// annotated constructor, so the requirement is already declared to the consumer at the opt-in point.

@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup Label="NuGet Package Values">
 		<IsPackable>true</IsPackable>
-		<!-- Every shipped release plus the newest major. Selected from Purview.BuildSdk's 'All' set rather
-		     than listed here, so a runtime lifecycle change is an SDK bump instead of an edit in this
-		     file. net11.0 is covered by the Entity Framework compatibility matrix in
+		<!-- Every release still in support: net10.0 (LTS) and net11.0 (the current release). Selected
+		     from Purview.BuildSdk's 'Supported' set rather than listed here, so a runtime lifecycle change
+		     is an SDK bump instead of an edit in this file. .NET 8 and .NET 9 were dropped at the .NET 11
+		     GA. net11.0 is covered by the Entity Framework compatibility matrix in
 		     src/tests/ValueObjects.EFCompatibility.IntegrationTests. -->
-		<PurviewTargetFrameworkSet>All</PurviewTargetFrameworkSet>
+		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 		<Title>Purview Value Objects</Title>
 		<Description>Source-generated scalar and complex value objects for .NET. Brings F#-style single-case types to C# with Create/Hydrate factories, normalization, validation, equality, comparison, implicit conversions, JSON serialization, and the underlying value's formatting and parsing interfaces for DTOs, Entity Framework, and domain models.</Description>
 		<PackageTags>$(PackageTags);purview;dotnet;value-objects;value-object;scalar;source-generator;domain-driven-design;dto;serialization;json;entity-framework;formatting;parsing;</PackageTags>

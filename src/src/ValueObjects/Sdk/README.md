@@ -143,8 +143,8 @@ indexes, generated key values, query filters, schema/migrations, assembly defaul
 Generated code uses no reflection, so trimmed, Native AOT and Blazor WebAssembly applications get no
 IL2xxx/IL3xxx warning from it, including the Entity Framework Core JSON-column converters (EF Core itself is
 not fully trim- or AOT-compatible). The runtime declares `browser` as a supported platform. The package targets
-`net8.0`-`net11.0`; the optional Purview.ZodSharp 3 integration needs `net10.0`+, and `Purview.ZodSharp.Blazor`
-validates Blazor forms over value objects. See the
+`net10.0` and `net11.0` (.NET 8 and .NET 9 are no longer supported); the optional Purview.ZodSharp 3 integration
+needs `net10.0`+, and `Purview.ZodSharp.Blazor` validates Blazor forms over value objects. See the
 [Trimming, Native AOT and Blazor](https://github.com/purview-dev/value-objects/blob/main/docs/Trimming-AOT-and-Blazor.md)
 guide.
 

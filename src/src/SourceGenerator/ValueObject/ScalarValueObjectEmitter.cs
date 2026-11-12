@@ -367,36 +367,27 @@ static partial class ScalarValueObjectEmitter
 			},
 			body =>
 			{
-				body.Block(
-					"try",
-					tryBlock =>
-					{
-						tryBlock.Assignment("result", "Create(value)");
-						tryBlock.Return("true");
-					}
-				);
-				body.Block(
-					"catch (global::System.ArgumentException)",
-					catchBlock =>
-					{
-						catchBlock.Assignment("result", "default!");
-						catchBlock.Return("false");
-					}
-				);
+				body.Block("try", tryBlock =>
+				{
+					tryBlock.Assignment("result", "Create(value)");
+					tryBlock.Return("true");
+				});
+				body.Block("catch (global::System.ArgumentException)", catchBlock =>
+				{
+					catchBlock.Assignment("result", "default!");
+					catchBlock.Return("false");
+				});
 
 				// A ZodSharp-validated Create throws ZodException, not ArgumentException, so without this
 				// catch TryCreate threw for every [ZodSchema] value object instead of returning false —
 				// the documented "try" contract did not hold for a headline feature.
 				if (model.HasZodSchemaValidation)
 				{
-					body.Block(
-						$"catch (global::{TypeLibrary.ZodExceptionTypeName})",
-						catchBlock =>
-						{
-							catchBlock.Assignment("result", "default!");
-							catchBlock.Return("false");
-						}
-					);
+					body.Block($"catch (global::{TypeLibrary.ZodExceptionTypeName})", catchBlock =>
+					{
+						catchBlock.Assignment("result", "default!");
+						catchBlock.Return("false");
+					});
 				}
 			}
 		);

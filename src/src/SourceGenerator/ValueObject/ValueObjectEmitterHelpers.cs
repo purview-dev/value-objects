@@ -101,9 +101,8 @@ static class ValueObjectEmitterHelpers
 		public static void EmitCreateValidation(CodeWriter body, string schemaReference)
 		{
 			body.Assignment("var", "result", $"{schemaReference}.Validate(instance)");
-			body.IfBlock(
-				"!result.IsSuccess",
-				ifBody => ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(result.Errors)")
+			body.IfBlock("!result.IsSuccess", ifBody =>
+				ifBody.Throw($"new global::{TypeLibrary.ZodExceptionTypeName}(result.Errors)")
 			);
 		}
 	}

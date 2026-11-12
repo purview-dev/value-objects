@@ -9,6 +9,9 @@
 	-->
 	<PropertyGroup Label="NuGet package validation" Condition="'$(IsPackable)' == 'true'">
 		<EnablePackageValidation>true</EnablePackageValidation>
-		<PackageValidationBaselineVersion>1.0.1</PackageValidationBaselineVersion>
+		<!-- The last stable release. The 2.0.0 package intentionally drops net8.0 and net9.0; the
+		     CompatibilitySuppressions.xml beside the runtime project records PKV006 for those two
+		     frameworks only, so a future public API regression is still caught. -->
+		<PackageValidationBaselineVersion>1.2.3</PackageValidationBaselineVersion>
 	</PropertyGroup>
 </Project>

@@ -1,44 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<!-- One reference set per Entity Framework Core major version: EF Core 7 needs net8.0, EF Core 9 needs
-		     net9.0, and the centrally managed version covers net10.0 and net11.0. The generated code must
-		     compile and run against every one of them, which is what makes the EF Core 8 API gates verifiable.
+		<!-- One reference set per Entity Framework Core major version: EF Core 10 needs net10.0, and EF Core 11
+		     needs net11.0. The generated code must compile and run against every one of them, which is what
+		     makes the Entity Framework Core API gates verifiable.
 
 		     Deliberately spelled out rather than selected through PurviewTargetFrameworkSet: each target
 		     below is paired with an explicit Entity Framework reference set, so a target arriving from a
 		     curated set would silently build with no EF pin of its own. Keep this list in step with the
-		     runtime's set (currently 'All') in src/src/ValueObjects/ValueObjects.csproj. -->
-		<TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+		     runtime's set ('Supported') in src/src/ValueObjects/ValueObjects.csproj. -->
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 	</PropertyGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<!-- Entity Framework Core 7 is the oldest supported reference set. It has no complex-type mapping,
-		     so the generator reports VO1019 for the complex-type value object this project declares: that is
-		     the case under test, hence the suppression rather than a weaker fixture. -->
-		<PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="7.0.20" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" VersionOverride="7.0.20" />
-	</ItemGroup>
-
-	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-		<PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="9.0.20" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" VersionOverride="9.0.20" />
-	</ItemGroup>
-
-	<!-- net10.0 and net11.0 share the centrally managed Entity Framework Core version: there is no EF Core
-	     release targeting net11.0 yet, and a net11.0 project resolves the net10.0 assets. Give net11.0 its
-	     own pin here when one ships. -->
-	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0' OR '$(TargetFramework)' == 'net11.0'">
+	<!-- net10.0 takes the centrally managed Entity Framework Core 10 version. A net10.0 project cannot
+	     restore EF Core 11: it targets net11.0 and refuses to run on an earlier runtime. -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
 		<PackageReference Include="Microsoft.EntityFrameworkCore" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
 	</ItemGroup>
 
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<NoWarn>$(NoWarn);VO1019</NoWarn>
-	</PropertyGroup>
+	<!-- EF Core 11 is the reference set for the current runtime. Pin it explicitly because the centrally
+	     managed version must stay on EF Core 10 for the net10.0 leg. -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+		<PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="11.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" VersionOverride="11.0.0" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<!-- The shared testing infrastructure targets the newest framework only, and this project deliberately
-		     spans three of them, so the SDK's automatic reference is dropped. -->
+		     spans two of them, so the SDK's automatic reference is dropped. -->
 		<ProjectReference Remove="../SharedTesting*/SharedTesting*.csproj" />
 	</ItemGroup>
 

@@ -2,8 +2,8 @@
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
-		<!-- Purview.ZodSharp 3 ships net10.0 and net11.0 only, so a project that references it cannot carry
-		     the repository's 'All' set. The runtime package itself does not depend on ZodSharp and keeps it. -->
+		<!-- Purview.ZodSharp 3 ships net10.0 and net11.0 only, which is also the runtime's supported set.
+		     The runtime package itself does not depend on ZodSharp. -->
 		<PurviewTargetFrameworkSet>Supported</PurviewTargetFrameworkSet>
 	</PropertyGroup>
 

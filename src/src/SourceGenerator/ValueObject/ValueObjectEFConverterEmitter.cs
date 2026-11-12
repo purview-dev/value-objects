@@ -300,9 +300,8 @@ static class ValueObjectEFConverterEmitter
 				{
 					method.IfBlock("value is null", branch => branch.Return("null"));
 					method.Assignment("var", "providerType", providerTypeExpression);
-					method.IfBlock(
-						"value.GetType() == providerType",
-						branch => branch.Return("base.ConvertFromProvider(value)")
+					method.IfBlock("value.GetType() == providerType", branch =>
+						branch.Return("base.ConvertFromProvider(value)")
 					);
 					method.IfBlock($"value is {valueObjectTypeName} model", branch => branch.Return("model"));
 					method.Return("base.ConvertFromProvider(value)");

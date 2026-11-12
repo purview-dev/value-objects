@@ -75,14 +75,11 @@ static partial class ScalarValueObjectEmitter
 				// ToString override returning the empty string.
 				if (model.IsNullable)
 				{
-					body.IfBlock(
-						$"{model.ScalarPropertyName} is null",
-						ifBody =>
-						{
-							ifBody.Assignment(writtenName, "0");
-							ifBody.Return("true");
-						}
-					);
+					body.IfBlock($"{model.ScalarPropertyName} is null", ifBody =>
+					{
+						ifBody.Assignment(writtenName, "0");
+						ifBody.Return("true");
+					});
 				}
 
 				body.Return(

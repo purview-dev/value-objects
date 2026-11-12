@@ -9,6 +9,49 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
+## 2.0.0-prerelease.1
+
+A major release for the .NET 11 GA. It drops the two out-of-support target frameworks and modernises the build;
+the generated API and the serialized payload shapes are unchanged.
+
+### Breaking
+
+- **`net8.0` and `net9.0` are no longer supported.** The runtime now targets `net10.0` (the current LTS) and
+  `net11.0`. A consumer on .NET 8 or .NET 9 must stay on the 1.x line. `Purview.ValueObjects` was the only
+  package in this repository; the source generator and code fixes still target `netstandard2.0`, so they load in
+  every compiler host.
+- **The Entity Framework Core compatibility matrix is now EF Core 10 (`net10.0`) and EF Core 11 (`net11.0`).**
+  The EF Core 7 and EF Core 9 legs, and the `VO1019` suppression that the EF Core 7 leg needed, are gone. The
+  generated EF members are unchanged; `VO1019` is still reported for a project that references EF Core 7.
+- **The packed-consumer gate's oldest consumer is now `net10.0`**, replacing the `net8.0` console.
+
+### Changed
+
+- **Package validation now records the dropped frameworks.** The baseline is the last stable release (1.2.3) and
+  `CompatibilitySuppressions.xml` suppresses only `PKV006` for `net8.0` and `net9.0`, so any future public API
+  regression is still a `dotnet pack` failure.
+- Built and tested against Purview.BuildSdk 2.0.0, Purview.SourceGeneratorFramework 2.0.0 and
+  Purview.ZodSharp 3.0.0-prerelease.5 on the .NET 11 GA SDK (11.0.100), TUnit 1.81.16,
+  Microsoft.SourceLink.GitHub 11.0.100, and EF Core 10.0.15 and 11.0.0.
+- The `net11.0` leg compiles with Runtime Async (`runtime-async=on`) and C# 15 as the default language version.
+  The updated memory-safety rules are deliberately left off: they are preview, this repository has no unsafe
+  code, and the .NET 11 System.Text.Json source generator emits the preview `safe` modifier when they are on,
+  which fails with CS8652 unless every consuming project also selects `LangVersion=preview`.
+- The EF compatibility tests read an identifier's RFC 9562 version with `Guid.Version` (available since .NET 9)
+  instead of the hand-rolled nibble.
+
+### Evaluated and not adopted
+
+- **`closed` hierarchies.** `ScalarOptionsAttribute` is the only fixed hierarchy in the runtime, but its generic
+  descendant `ScalarAttribute<TValue>` cannot derive from a non-generic closed base (CS9383: the type parameter
+  must appear in the base specification). The API was left unchanged rather than reshaped to satisfy the
+  modifier. A future hierarchy with only non-generic descendants can adopt it behind
+  `#if NET11_0_OR_GREATER`.
+- **Union types.** No union is required by the current API. The `TryCreate` contract stays the documented
+  `bool`/`out` shape. If a union is ever added, the `union` keyword is not suitable: it always stores
+  `object?` and boxes value-type cases. The public surface will use the custom non-boxing pattern
+  (`[Union]` with `HasValue` and `TryGetValue`) described in the C# union reference.
+
 ## 1.3.0-prerelease.2
 
 A prerelease of fixes and guidance: no target framework is dropped and the public API only grows.

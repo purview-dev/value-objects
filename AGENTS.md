@@ -75,14 +75,30 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 
 ## Runtime project rules
 
-- The runtime targets `net8.0;net9.0;net10.0;net11.0`, selected through `PurviewTargetFrameworkSet=All` rather
-  than a literal list, so the set moves with `Purview.BuildSdk`. Static abstract interface members
-  (`IScalarValueObject`) require a net7+ floor.
+- The runtime targets `net10.0;net11.0`, selected through `PurviewTargetFrameworkSet=Supported` rather
+  than a literal list, so the set moves with `Purview.BuildSdk`. .NET 8 and .NET 9 were dropped at the
+  .NET 11 GA: they are out of support and the package's minimum is the current LTS. Static abstract
+  interface members (`IScalarValueObject`) require a net7+ floor, which this preserves.
+- C# 15 language features are available only on the `net11.0` leg, so do not put C# 15 syntax in
+  generated output, which has to compile on both targets. `closed` was evaluated for
+  `ScalarOptionsAttribute` and is not applicable: a generic descendant's type parameter must appear in
+  the closed base's specification, and `ScalarAttribute<TValue>` derives from that non-generic base
+  (CS9383). A future fixed hierarchy can use it behind `#if NET11_0_OR_GREATER`, keeping the `net10.0`
+  declaration equivalent.
+- A C# `union` declaration always boxes value-type cases. If the public surface ever needs a union, use
+  the custom non-boxing pattern (`[Union]` plus `HasValue` and `TryGetValue` overloads) rather than the
+  `union` keyword, and keep the net10.0 polyfill honest. No union is required by the current API: the
+  `Create`/`Hydrate`/`TryCreate` contract is deliberately unchanged.
+- The `.NET 11` **updated memory-safety rules** stay off repo-wide (`MemorySafetyRules=0`): they are a
+  preview feature, the repository has no unsafe code, and the in-box System.Text.Json source generator
+  emits the preview `safe` modifier when they are on, which fails with `CS8652` unless every consuming
+  project selects `LangVersion=preview`. Runtime Async stays on (`PurviewRuntimeAsync=true`). Do not flip
+  either without reproving the System.Text.Json source-generated contexts on `net11.0`.
 - `ScalarJsonConverterFactory` uses only reflection over `ScalarAttribute` + `Create`/`Hydrate`/constructor;
   keep it free of event-sourcing dependencies.
 - Keep the runtime package dependency-free (System.Text.Json is in-box for the supported TFMs).
-- Purview.ZodSharp 3 ships `net10.0`/`net11.0` only. A project that references it selects
-  `PurviewTargetFrameworkSet=Supported`; the runtime package does not reference it and keeps `All`.
+- Purview.ZodSharp 3 ships `net10.0`/`net11.0` only, the same set as the runtime. A project that
+  references it uses `PurviewTargetFrameworkSet=Supported`; the runtime package does not reference it.
 
 ## Trimming and Native AOT (non-negotiable)
 
@@ -116,10 +132,10 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 - Unit tests should cover domain logic, contracts, failure behavior, and regressions without external
   infrastructure.
 - Entity Framework Core version differences are covered by
-  `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, which targets `net8.0` with EF Core 7, `net9.0`
-  with EF Core 9, and `net10.0` with EF Core 10. Add version-dependent behavior there (and, where a synthetic
-  reference set is enough, to `SourceGenerator.IntegrationTests`) rather than weakening generated output gated
-  on `IsEF8Referenced`.
+  `src/tests/ValueObjects.EFCompatibility.IntegrationTests`, which targets `net10.0` with EF Core 10 and
+  `net11.0` with EF Core 11. Add version-dependent behavior there (and, where a synthetic reference set is
+  enough, to `SourceGenerator.IntegrationTests`) rather than weakening generated output gated on
+  `IsEF8Referenced`.
 - Source-generator tests assert generated code and diagnostics using the existing testing framework
   (`Purview.SourceGeneratorFramework.Testing.TUnit`).
 
@@ -146,7 +162,7 @@ just verify-pack-rules
 ```
 
 `just smoke-packed-consumers` is the packed-consumer gate (Native AOT, Blazor WebAssembly trimmed and AOT in a
-headless browser, Blazor Server, net8.0, compiler-host leak scan). It needs the Native AOT toolchain, the
+headless browser, Blazor Server, net10.0, compiler-host leak scan). It needs the Native AOT toolchain, the
 `wasm-tools` workload and Chrome or Edge; dependency versions not yet on nuget.org restore from
 `LOCAL_NUGET_FEED_PATH`. Run it when generated code, the runtime, packaging or a dependency version changes.
 
@@ -271,7 +287,7 @@ collides and the loser is whichever installed second.
 `Purview.Skills.Testing`'s rule set (the Agent Skills specification: frontmatter fields, name and
 description constraints, bundled links, body size). The `[InheritsTests]` attribute on that class is
 load-bearing — TUnit does not walk base types during discovery, so without it the run is green and
-nothing is checked. That project pins `net10.0` rather than taking the repository's `All` set,
+nothing is checked. That project pins `net10.0` rather than taking the repository's `Supported` set,
 because it asserts something about the repository rather than about the runtime's reach.
 
 A relative link from one `SKILL.md` into another skill's folder is a rule violation: only a skill's

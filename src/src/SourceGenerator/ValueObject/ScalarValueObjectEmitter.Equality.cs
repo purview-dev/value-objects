@@ -317,29 +317,24 @@ static partial class ScalarValueObjectEmitter
 						// every trimmed or Native AOT consumer got IL2026/IL3050 from this generated code. The
 						// helper resolves the same metadata from the options, and falls back to the built-in
 						// converter for a primitive that a source-generated context never listed.
-						methodBody.Assignment(
-							"var",
-							"value",
-							writeValue =>
-								writeValue.MethodCall(
-									"Read",
-									[new MethodCallArgumentOptions("reader", ParameterModifier.Ref), "options"],
-									receiver: TypeLibrary.ValueObjectJsonGlobalName,
-									genericArguments: [model.ScalarTypeReference]
-								)
+						methodBody.Assignment("var", "value", writeValue =>
+							writeValue.MethodCall(
+								"Read",
+								[new MethodCallArgumentOptions("reader", ParameterModifier.Ref), "options"],
+								receiver: TypeLibrary.ValueObjectJsonGlobalName,
+								genericArguments: [model.ScalarTypeReference]
+							)
 						);
 
 						// A nullable scalar (`string?`, `int?`) round-trips JSON null; only a non-nullable
 						// reference scalar rejects it.
 						if (model.ScalarCanBeNull && !model.IsNullable)
 						{
-							methodBody.IfBlock(
-								"value is null",
-								ifBody =>
-									ifBody.Throw(
-										TypeLibrary.System.Text.Json.JsonException,
-										$"{model.TypeModel.Name} cannot be null."
-									)
+							methodBody.IfBlock("value is null", ifBody =>
+								ifBody.Throw(
+									TypeLibrary.System.Text.Json.JsonException,
+									$"{model.TypeModel.Name} cannot be null."
+								)
 							);
 						}
 

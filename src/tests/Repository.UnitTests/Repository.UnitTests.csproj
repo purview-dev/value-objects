@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<!-- Pinned rather than taking the repository's 'All' set from src/Directory.Build.props. These
+		<!-- Pinned rather than taking the repository's 'Supported' set from src/Directory.Build.props. These
 		     tests assert something about the repository itself - its skills/ folder - not about the
 		     runtime's reach, so running them once is the whole job, and Purview.Skills.Testing ships
 		     net10.0 only. -->

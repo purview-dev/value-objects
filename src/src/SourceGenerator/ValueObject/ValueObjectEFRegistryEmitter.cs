@@ -301,9 +301,8 @@ static class ValueObjectEFRegistryEmitter
 			static body =>
 			{
 				body.Comment("Not readable, or not an instance member: never mapped.");
-				body.IfBlock(
-					"property.GetMethod is null || property.GetMethod.IsStatic",
-					static ifBody => ifBody.Return("false")
+				body.IfBlock("property.GetMethod is null || property.GetMethod.IsStatic", static ifBody =>
+					ifBody.Return("false")
 				);
 
 				body.Comment("The author excluded it with [NotMapped].");
@@ -346,89 +345,80 @@ static class ValueObjectEFRegistryEmitter
 
 		// The entity types are snapshotted: configuring a property adds it to the model, and an enumerator
 		// over the live collection throws as soon as the set of entity types changes underneath it.
-		writer.Block(
-			"foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())",
-			entityType =>
-				entityType.Block(
-					"foreach (var property in entityType.ClrType.GetProperties().Where(p => IsMappableValueObjectProperty(entityType, p)))",
-					property =>
-					{
-						// A nullable value object property is Nullable<T>; match the underlying type so the
-						// same T converter maps both T and T? properties.
-						property.Comment(
-							"A T? property arrives as Nullable<T>; match the underlying type so the same",
-							"converter maps both T and T? properties."
-						);
-						property.Assignment(
-							"var",
-							"propertyType",
-							"global::System.Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType"
-						);
-						property.IfElse(
-							"scalarMappings.TryGetValue(propertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
-							scalar =>
-								ApplyConverterAndComparer(
-									writer,
-									"scalar",
-									"property",
-									"entityType.ClrType!",
-									nullabilityExpression: "scalar.IsNullable"
-								),
-							elseBody =>
-								elseBody.IfBlock(
-									"jsonMappings.TryGetValue(propertyType, out var json) && json.Converter is not null",
-									json => ApplyConverterAndComparer(writer, "json", "property", "entityType.ClrType!")
-								)
-						);
-					}
-				)
+		writer.Block("foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())", entityType =>
+			entityType.Block(
+				"foreach (var property in entityType.ClrType.GetProperties().Where(p => IsMappableValueObjectProperty(entityType, p)))",
+				property =>
+				{
+					// A nullable value object property is Nullable<T>; match the underlying type so the
+					// same T converter maps both T and T? properties.
+					property.Comment(
+						"A T? property arrives as Nullable<T>; match the underlying type so the same",
+						"converter maps both T and T? properties."
+					);
+					property.Assignment(
+						"var",
+						"propertyType",
+						"global::System.Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType"
+					);
+					property.IfElse(
+						"scalarMappings.TryGetValue(propertyType, out var scalar) && scalar.Converter is not null && scalar.ProviderMappable",
+						scalar =>
+							ApplyConverterAndComparer(
+								writer,
+								"scalar",
+								"property",
+								"entityType.ClrType!",
+								nullabilityExpression: "scalar.IsNullable"
+							),
+						elseBody =>
+							elseBody.IfBlock(
+								"jsonMappings.TryGetValue(propertyType, out var json) && json.Converter is not null",
+								json => ApplyConverterAndComparer(writer, "json", "property", "entityType.ClrType!")
+							)
+					);
+				}
+			)
 		);
 	}
 
 	static void EmitComplexMappingBlock(CodeWriter writer)
 	{
-		writer.IfBlock(
-			"complexTypeMappings.Length > 0",
-			complex =>
-			{
-				// Declaring a complex property can add complex types to the model, so the entity types are
-				// snapshotted before the loop mutates the model it is walking.
-				complex.Block(
-					"foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())",
-					entityType =>
-						entityType.Block(
-							"foreach (var property in entityType.ClrType.GetProperties().Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic))",
-							property =>
-								property.IfBlock(
-									"global::System.Array.IndexOf(complexTypeMappings, property.PropertyType) >= 0",
-									isComplex =>
-										isComplex.IfBlock(
-											"!entityType.GetComplexProperties().Any(cp => cp.Name == property.Name)",
-											notMapped =>
-												notMapped.MethodCall(
-													"ComplexProperty",
-													["property.PropertyType", "property.Name"],
-													receiver: "modelBuilder.Entity(entityType.ClrType!)"
-												)
+		writer.IfBlock("complexTypeMappings.Length > 0", complex =>
+		{
+			// Declaring a complex property can add complex types to the model, so the entity types are
+			// snapshotted before the loop mutates the model it is walking.
+			complex.Block("foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())", entityType =>
+				entityType.Block(
+					"foreach (var property in entityType.ClrType.GetProperties().Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic))",
+					property =>
+						property.IfBlock(
+							"global::System.Array.IndexOf(complexTypeMappings, property.PropertyType) >= 0",
+							isComplex =>
+								isComplex.IfBlock(
+									"!entityType.GetComplexProperties().Any(cp => cp.Name == property.Name)",
+									notMapped =>
+										notMapped.MethodCall(
+											"ComplexProperty",
+											["property.PropertyType", "property.Name"],
+											receiver: "modelBuilder.Entity(entityType.ClrType!)"
 										)
 								)
 						)
-				);
+				)
+			);
 
-				complex.Block(
-					"foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())",
-					entityType =>
-						entityType.Block(
-							"foreach (var complexProperty in entityType.GetComplexProperties())",
-							complexProperty =>
-								complexProperty.Block(
-									"foreach (var member in complexProperty.ComplexType.ClrType.GetProperties().Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic))",
-									member => EmitComplexMember(member)
-								)
+			complex.Block("foreach (var entityType in modelBuilder.Model.GetEntityTypes().ToList())", entityType =>
+				entityType.Block(
+					"foreach (var complexProperty in entityType.GetComplexProperties())",
+					complexProperty =>
+						complexProperty.Block(
+							"foreach (var member in complexProperty.ComplexType.ClrType.GetProperties().Where(p => p.GetMethod is not null && !p.GetMethod.IsStatic))",
+							member => EmitComplexMember(member)
 						)
-				);
-			}
-		);
+				)
+			);
+		});
 	}
 
 	/// <summary>
@@ -473,9 +463,8 @@ static class ValueObjectEFRegistryEmitter
 
 		if (nullabilityExpression is not null)
 		{
-			writer.IfBlock(
-				EmittedNullabilityCondition(nullabilityExpression, propertyName, builderName),
-				body => body.MethodCall("IsRequired", ["false"], receiver: builderName)
+			writer.IfBlock(EmittedNullabilityCondition(nullabilityExpression, propertyName, builderName), body =>
+				body.MethodCall("IsRequired", ["false"], receiver: builderName)
 			);
 		}
 	}
@@ -521,9 +510,8 @@ static class ValueObjectEFRegistryEmitter
 					withoutComparer =>
 						withoutComparer.MethodCall("HasConversion", ["scalar.Converter"], receiver: "memberBuilder")
 				);
-				scalar.IfBlock(
-					EmittedNullabilityCondition("scalar.IsNullable", "member", "memberBuilder"),
-					body => body.MethodCall("IsRequired", ["false"], receiver: "memberBuilder")
+				scalar.IfBlock(EmittedNullabilityCondition("scalar.IsNullable", "member", "memberBuilder"), body =>
+					body.MethodCall("IsRequired", ["false"], receiver: "memberBuilder")
 				);
 			},
 			elseBody =>
@@ -1051,14 +1039,11 @@ static class ValueObjectEFRegistryEmitter
 				method =>
 				{
 					EmitReadTimestampFromBytes(method, 0);
-					method.IfBlock(
-						"(bytes[6] & 0xF0) != 0x70",
-						rejected =>
-						{
-							rejected.Assignment("timestamp", "default");
-							rejected.Return("false");
-						}
-					);
+					method.IfBlock("(bytes[6] & 0xF0) != 0x70", rejected =>
+					{
+						rejected.Assignment("timestamp", "default");
+						rejected.Return("false");
+					});
 					EmitAcceptTimestamp(method);
 				}
 			);
@@ -1104,14 +1089,11 @@ static class ValueObjectEFRegistryEmitter
 	/// <summary>Emits the range check and the timestamp a reader assigns once the value is known good.</summary>
 	static void EmitAcceptTimestamp(CodeWriter method)
 	{
-		method.IfBlock(
-			"unixMilliseconds < 0L || unixMilliseconds > MaxUnixMilliseconds",
-			rejected =>
-			{
-				rejected.Assignment("timestamp", "default");
-				rejected.Return("false");
-			}
-		);
+		method.IfBlock("unixMilliseconds < 0L || unixMilliseconds > MaxUnixMilliseconds", rejected =>
+		{
+			rejected.Assignment("timestamp", "default");
+			rejected.Return("false");
+		});
 		method.Assignment("timestamp", "global::System.DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds)");
 		method.Return("true");
 	}

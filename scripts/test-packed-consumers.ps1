@@ -14,8 +14,9 @@
 
 	This gate consumes the package exactly as a user does:
 
-	1. Preflight: checks the build-time Purview.SourceGeneratorFramework and the Purview.ZodSharp packages the
-	   consumers use can be restored, and fails early, with what to do, if they cannot.
+	1. Preflight: checks the SDK global.json pins is installed, and that the build-time
+	   Purview.SourceGeneratorFramework and the Purview.ZodSharp packages the consumers use can be restored, failing
+	   early, with what to do, if either is not.
 	2. Packs every shipping package (the ids in .config/purview-build.json PackValidation.RequiredContent) to an
 	   isolated feed, with an isolated NUGET_PACKAGES, so no previously extracted package of the same version can be
 	   reused. Package validation against the API baseline runs as part of the pack. The feed must hold exactly the
@@ -32,8 +33,8 @@
 	       the outcome in the DOM.
 	   (c) BlazorServer - a Blazor Web App. Published and started: a statically rendered form is posted invalid and
 	       valid, and an interactive-server page is prerendered and then run over a live circuit in the browser.
-	   (d) Net8Console - a net8.0 console without ZodSharp, built and (when the runtime is installed) run: the runtime
-	       package still serves every target framework it ships.
+	   (d) Net10Console - a net10.0 console without ZodSharp, built and (when the runtime is installed) run: the oldest
+	       target framework the runtime package ships.
 	4. Scans every consumer bin and publish folder with scripts/assert-no-compiler-host-assemblies.ps1.
 
 	Every check is a hard failure, including the ones that exercise Purview.ZodSharp behaviour the consumers rely on.
@@ -428,9 +429,22 @@ try {
 </Project>
 "@ | Set-Content (Join-Path $probe 'probe.csproj') -Encoding utf8
 
-		& dotnet restore (Join-Path $probe 'probe.csproj') "-p:RestoreConfigFile=$packConfig" 2>&1 |
-			Tee-Object -FilePath (Join-Path $logs 'dependency-probe.log') | Out-Host
+		$restoreOutput = & dotnet restore (Join-Path $probe 'probe.csproj') "-p:RestoreConfigFile=$packConfig" 2>&1
+		$restoreOutput | Set-Content (Join-Path $logs 'dependency-probe.log')
+		$restoreOutput | Out-Host
 		if ($LASTEXITCODE -ne 0) {
+			# An unsatisfied global.json pin fails here too, with a non-zero exit and no package resolution at all.
+			# Reporting it as a missing dependency would send the reader to nuget.org for nothing.
+			if (($restoreOutput | Out-String) -match 'A compatible \.NET SDK was not found') {
+				throw (
+					"No .NET SDK satisfies the $($sdk.version) pin in global.json, so the dependency probe cannot be " +
+					'restored and nothing can be checked. This is not a missing package: no package resolution ran. ' +
+					'Install that SDK (or a newer one, which rollForward allows) before this gate. actions/setup-dotnet ' +
+					'must name it explicitly: it reads a global.json with rollForward latestMajor as "the latest" and ' +
+					"installs the LTS channel, so global-json-file alone does not install $($sdk.version)."
+				)
+			}
+
 			$from = ((@($nugetOrg) + $dependencySources) | ForEach-Object Value) -join ', '
 			throw (
 				"Purview.SourceGeneratorFramework $sgfVersion or Purview.ZodSharp $zodSharpVersion (Directory.Packages.props) " +
@@ -707,22 +721,22 @@ try {
 		Assert-NoLeaks @((Join-Path $consumers 'BlazorServer/bin'), $publish)
 	}
 
-	Invoke-Step '(d) net8.0 console without ZodSharp: build and run' {
-		$project = Join-Path $consumers 'Net8Console/Net8Console.csproj'
-		Invoke-Dotnet 'net8-console-build' (@('build', $project, '--configuration', 'Release', '-warnaserror') + $consumerProperties)
-		$bin = Join-Path $consumers 'Net8Console/bin/Release/net8.0'
+	Invoke-Step '(d) net10.0 console without ZodSharp: build and run' {
+		$project = Join-Path $consumers 'Net10Console/Net10Console.csproj'
+		Invoke-Dotnet 'net10-console-build' (@('build', $project, '--configuration', 'Release', '-warnaserror') + $consumerProperties)
+		$bin = Join-Path $consumers 'Net10Console/bin/Release/net10.0'
 
-		$net8 = [bool] (& dotnet --list-runtimes 2>$null | Select-String -Pattern '^Microsoft\.NETCore\.App 8\.')
-		if ($net8) {
-			& dotnet (Join-Path $bin 'PackedValueObjectsNet8.dll') | Out-Host
-			if ($LASTEXITCODE -ne 0) { throw "The net8.0 console exited with ${LASTEXITCODE}." }
+		$net10 = [bool] (& dotnet --list-runtimes 2>$null | Select-String -Pattern '^Microsoft\.NETCore\.App 10\.')
+		if ($net10) {
+			& dotnet (Join-Path $bin 'PackedValueObjectsNet10.dll') | Out-Host
+			if ($LASTEXITCODE -ne 0) { throw "The net10.0 console exited with ${LASTEXITCODE}." }
 		}
 		else {
-			Write-Host '  the .NET 8 runtime is not installed: built for net8.0 but NOT run.' -ForegroundColor Yellow
-			if ($env:GITHUB_ACTIONS) { Write-Host '::warning::The net8.0 consumer was built but not run: no .NET 8 runtime.' }
+			Write-Host '  the .NET 10 runtime is not installed: built for net10.0 but NOT run.' -ForegroundColor Yellow
+			if ($env:GITHUB_ACTIONS) { Write-Host '::warning::The net10.0 consumer was built but not run: no .NET 10 runtime.' }
 		}
 
-		Assert-NoLeaks @((Join-Path $consumers 'Net8Console/bin'))
+		Assert-NoLeaks @((Join-Path $consumers 'Net10Console/bin'))
 	}
 }
 catch {

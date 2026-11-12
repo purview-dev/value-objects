@@ -5,10 +5,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Purview.ValueObjects.EFCompatibility;
 
 /// <summary>
-/// Proves the generated Entity Framework Core integration compiles and runs against EF Core 7, 9, and 10.
-/// Each target framework resolves a different EF Core version, so assertions that depend on EF Core 8 APIs
-/// are guarded per target: the complex type is mapped from EF Core 8, and the compiled-model members the
-/// generated converters expose exist only there.
+/// Proves the generated Entity Framework Core integration compiles and runs against EF Core 10 and 11.
+/// Each target framework resolves a different EF Core version. Both support complex types and the
+/// compiled-model members the generated converters expose, so those assertions are unconditional.
 /// </summary>
 public sealed class EntityFrameworkCompatibilityTests
 {
@@ -250,26 +249,20 @@ public sealed class EntityFrameworkCompatibilityTests
 	}
 
 	[Test]
-	public async Task CompiledModelMembers_AreEmittedOnlyWhenEntityFramework8IsReferenced()
+	public async Task CompiledModelMembers_AreEmittedForEverySupportedEntityFrameworkVersion()
 	{
-		// The compiled-model members use Entity Framework Core 8's JsonValueReaderWriter, so their presence
-		// is the observable difference between the two generations of the API. The design-time model
-		// generator reads the member by reflection, which is what this test does.
+		// The compiled-model members use Entity Framework Core's JsonValueReaderWriter, which every
+		// supported version provides. The design-time model generator reads the member by reflection,
+		// which is what this test does.
 		var idReaderWriter = CompiledModelReaderWriter(CompatibilityId.EF.Converter);
 		var stampReaderWriter = CompiledModelReaderWriter(CompatibilityStamp.EF.Converter);
 
-#if NET8_0
-		await Assert.That(idReaderWriter).IsNull();
-		await Assert.That(stampReaderWriter).IsNull();
-#else
 		await Assert.That(idReaderWriter).IsNotNull();
 		await Assert.That(stampReaderWriter).IsNotNull();
-#endif
 	}
 
-#if !NET8_0
 	[Test]
-	public async Task ComplexTypeValueObject_GivenEntityFramework8OrLater_IsMappedToColumns()
+	public async Task ComplexTypeValueObject_IsMappedToColumns()
 	{
 		// Arrange
 		await using var connection = await OpenConnectionAsync();
@@ -289,7 +282,7 @@ public sealed class EntityFrameworkCompatibilityTests
 	}
 
 	[Test]
-	public async Task ComplexTypeValueObject_GivenEntityFramework8OrLater_RoundTrips()
+	public async Task ComplexTypeValueObject_RoundTrips()
 	{
 		// Arrange
 		await using var connection = await OpenConnectionAsync();
@@ -308,7 +301,6 @@ public sealed class EntityFrameworkCompatibilityTests
 		// Assert
 		await Assert.That(found.Total).IsEqualTo(total);
 	}
-#endif
 
 	/// <summary>
 	/// A value object column declared by a base type that is not an entity type is mapped on the entity type
@@ -361,10 +353,10 @@ public sealed class EntityFrameworkCompatibilityTests
 		converter.GetType().GetProperty("JsonReaderWriter");
 
 	/// <summary>
-	/// Reads the RFC 9562 version nibble from an identifier's bytes. <c>Guid.Version</c> needs net9.0, and
-	/// this project deliberately spans earlier frameworks.
+	/// Reads the RFC 9562 version from an identifier. <c>Guid.Version</c> has been in the BCL since
+	/// .NET 9, and the runtime's floor is now .NET 10, so the property replaces the hand-rolled nibble.
 	/// </summary>
-	static int GuidVersion(Guid value) => (value.ToByteArray(bigEndian: true)[6] & 0xF0) >> 4;
+	static int GuidVersion(Guid value) => value.Version;
 
 	static CompatibilityStamp CreateStamp() =>
 		CompatibilityStamp.Create(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero), "compatibility");
@@ -379,9 +371,7 @@ public sealed class EntityFrameworkCompatibilityTests
 			RecordedAt = CompatibilityRecordedAt.Create(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero)),
 			Count = CompatibilityCount.Create(0),
 			Stamp = CreateStamp(),
-#if !NET8_0
 			Total = CompatibilityMoney.Create(1250.75m, CompatibilityCode.Create("GBP")),
-#endif
 		};
 
 	static async Task<SqliteConnection> OpenConnectionAsync()

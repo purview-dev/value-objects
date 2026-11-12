@@ -122,9 +122,8 @@ static partial class ComplexValueObjectEmitter
 							$"compare{property.Name}",
 							$"global::System.Collections.Generic.Comparer<{property.TypeName}>.Default.Compare({property.Name}, other.{property.Name})"
 						);
-						body.IfBlock(
-							$"compare{property.Name} != 0",
-							ifBody => ifBody.Return($"compare{property.Name}")
+						body.IfBlock($"compare{property.Name} != 0", ifBody =>
+							ifBody.Return($"compare{property.Name}")
 						);
 					}
 
@@ -143,9 +142,8 @@ static partial class ComplexValueObjectEmitter
 				body =>
 				{
 					body.IfBlock("obj is null", ifBody => ifBody.Return("1"));
-					body.IfBlock(
-						$"obj is {model.TypeName} otherValueObject",
-						ifBody => ifBody.Return("CompareTo(otherValueObject)")
+					body.IfBlock($"obj is {model.TypeName} otherValueObject", ifBody =>
+						ifBody.Return("CompareTo(otherValueObject)")
 					);
 					body.Throw(
 						$"new global::System.ArgumentException($\"Object must be of type {{nameof({model.TypeModel.Name})}}.\", nameof(obj))"

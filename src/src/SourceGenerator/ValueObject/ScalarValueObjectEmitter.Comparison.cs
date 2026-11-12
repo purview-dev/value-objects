@@ -82,13 +82,11 @@ static partial class ScalarValueObjectEmitter
 				body =>
 				{
 					body.IfBlock("obj is null", ifBody => ifBody.Return("1"));
-					body.IfBlock(
-						$"obj is {model.TypeName} otherValueObject",
-						ifBody => ifBody.Return("CompareTo(otherValueObject)")
+					body.IfBlock($"obj is {model.TypeName} otherValueObject", ifBody =>
+						ifBody.Return("CompareTo(otherValueObject)")
 					);
-					body.IfBlock(
-						$"obj is {ScalarPatternTypeName(model)} primitive",
-						ifBody => ifBody.Return($"CompareTo({ScalarPatternArgument(model)})")
+					body.IfBlock($"obj is {ScalarPatternTypeName(model)} primitive", ifBody =>
+						ifBody.Return($"CompareTo({ScalarPatternArgument(model)})")
 					);
 					body.Throw(
 						$"new global::System.ArgumentException($\"Object must be of type {{nameof({model.TypeModel.Name})}} or {model.ScalarTypeName}.\", nameof(obj))"

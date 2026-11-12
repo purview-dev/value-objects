@@ -85,8 +85,8 @@ public readonly partial record struct CompatibilityStamp
 }
 
 /// <summary>
-/// A complex value object mapped as an Entity Framework Core complex type, which needs EF Core 8 or later.
-/// Against EF Core 7 the generator reports VO1019 and leaves the mapping out.
+/// A complex value object mapped as an Entity Framework Core complex type. EF Core 10 and 11 both support
+/// complex types, so every reference set in this project maps it to columns.
 /// </summary>
 [ValueObject]
 public readonly partial record struct CompatibilityMoney
@@ -100,7 +100,7 @@ public readonly partial record struct CompatibilityMoney
 
 /// <summary>
 /// An entity that uses every value object mapping this project declares, so one model exercises the
-/// converters, the JSON column, and - from EF Core 8 - the complex type.
+/// converters, the JSON column, and the complex type.
 /// </summary>
 sealed class CompatibilityEntity
 {
@@ -149,10 +149,8 @@ sealed class CompatibilityEntity
 	/// <summary>Gets or sets the JSON column.</summary>
 	public CompatibilityStamp Stamp { get; set; }
 
-#if !NET8_0
-	/// <summary>Gets or sets the complex type mapped to columns, which needs EF Core 8 or later.</summary>
+	/// <summary>Gets or sets the complex type mapped to columns.</summary>
 	public CompatibilityMoney Total { get; set; }
-#endif
 }
 
 /// <summary>

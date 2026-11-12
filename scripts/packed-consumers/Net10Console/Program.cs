@@ -1,5 +1,5 @@
-// Packed-consumer gate, consumer (d): the net8.0 target of the runtime package, with the trim and AOT analyzers on
-// (IsAotCompatible), so the generated code is analyzed for that target too.
+// Packed-consumer gate, consumer (d): the net10.0 target of the runtime package, with the trim and AOT analyzers on
+// (IsAotCompatible), so the generated code is analyzed for the package's oldest supported target too.
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Purview.ValueObjects.Serialization;
@@ -12,14 +12,14 @@ void Check(bool condition, string description)
 		failures++;
 }
 
-Console.WriteLine($"net8.0 consumer on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
-Check(Environment.Version.Major == 8, "running on the .NET 8 runtime");
+Console.WriteLine($"net10.0 consumer on {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+Check(Environment.Version.Major == 10, "running on the .NET 10 runtime");
 
 var sku = Sku.Create("  abc-1234 ");
 Check(sku.Value == "ABC-1234", $"Create normalizes (got '{sku.Value}')");
 Check(!Sku.TryCreate("nope", out _), "TryCreate rejects an invalid value");
 
-JsonSerializerOptions options = new(Net8JsonContext.Default.Options)
+JsonSerializerOptions options = new(Net10JsonContext.Default.Options)
 {
 	Converters = { new Sku.SkuJsonConverter(), new Price.PriceJsonConverter() },
 };
@@ -57,4 +57,4 @@ public readonly partial record struct Price
 
 [JsonSerializable(typeof(Price))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-partial class Net8JsonContext : JsonSerializerContext;
+partial class Net10JsonContext : JsonSerializerContext;

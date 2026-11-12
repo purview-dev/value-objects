@@ -101,7 +101,7 @@ pack *args:
 
 # Prove the packed package works for real consumers: packs Purview.ValueObjects to an isolated feed, then publishes
 # and runs a Native AOT console, a Blazor WebAssembly app (trimmed and RunAOTCompilation, run in a headless browser),
-# a Blazor Server app and a net8.0 console against it, and leak-scans every output for compiler-host assemblies.
+# a Blazor Server app and a net10.0 console against it, and leak-scans every output for compiler-host assemblies.
 # Needs the Native AOT toolchain, the wasm-tools workload for the WebAssembly AOT step, and Chrome or Edge for the
 # browser steps. Purview.ZodSharp/Purview.SourceGeneratorFramework versions not yet on nuget.org restore from
 # LOCAL_NUGET_FEED_PATH (or VALUEOBJECTS_DEPENDENCY_FEED). See scripts/test-packed-consumers.ps1 for the options.

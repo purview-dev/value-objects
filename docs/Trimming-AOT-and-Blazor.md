@@ -7,19 +7,20 @@ from it.
 
 That is proven against the packed package, not the repository's own projects: `just smoke-packed-consumers`
 packs `Purview.ValueObjects`, then publishes and runs a Native AOT console, a Blazor WebAssembly app (trimmed, and
-with `RunAOTCompilation=true`, loaded in a headless browser), a Blazor Server app and a `net8.0` console against
+with `RunAOTCompilation=true`, loaded in a headless browser), a Blazor Server app and a `net10.0` console against
 it, every one with warnings as errors, and scans every output for compiler-host assemblies.
 
 ## Target frameworks
 
 | Package | Target frameworks |
 | --- | --- |
-| `Purview.ValueObjects` | `net8.0`, `net9.0`, `net10.0`, `net11.0` |
+| `Purview.ValueObjects` | `net10.0`, `net11.0` |
 | `Purview.ZodSharp` 3.x (optional) | `net10.0`, `net11.0` |
 | `Purview.ZodSharp.Blazor` 3.x (optional) | `net11.0` |
 
+.NET 8 and .NET 9 were dropped at the .NET 11 GA; `net10.0` is the current LTS and is the package's floor.
 `Purview.ValueObjects` has no dependency on ZodSharp. A project that adds the ZodSharp integration needs the
-target frameworks ZodSharp supports; a project that does not keeps the full range.
+target frameworks ZodSharp supports; a project that does not keeps the same two targets.
 
 The runtime assembly declares `browser` as a supported platform, so the platform compatibility analyzer (CA1416)
 reports any API it calls that is unsupported in Blazor WebAssembly.
