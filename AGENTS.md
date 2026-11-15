@@ -30,7 +30,7 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `package.json` | Authoritative repository/package version |
 | `Justfile` | Supported local workflow commands |
 | `skills` | Authored agent skills, installable with the skills CLI (see [Agent skills](#agent-skills)) |
-| `.agents/skills`, `skills-lock.json` | Skills installed from other repositories, committed (see [Installed skills](#installed-skills-agentsskills)) |
+| `.agents/skills`, `skills-lock.json` | Skills installed from other repositories (gitignored; `skills-lock.json` is the tracked record) - see [Installed skills](#installed-skills-agentsskills) |
 
 ## Standard workflow
 
@@ -209,9 +209,10 @@ Before handing work back:
 
 Specialist guidance this repository depends on - the Purview engineering playbook, `Purview.BuildSdk`
 configuration, the `Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is
-published by the repositories that own it, and installed here by the skills CLI. The installed skills are **committed**:
-`.agents/skills/**` and the CLI's `skills-lock.json` (source, skill path and content hash of every entry) are both
-in source, so a clone has them without running anything.
+published by the repositories that own it, and installed here by the skills CLI. Only the CLI's
+`skills-lock.json` (source, skill path and content hash of every entry) is committed: `.agents/skills/` is a local
+install, gitignored so a skill this repository installs but does not publish can never be found through
+`skills add purview-dev/value-objects`. A fresh clone restores the set with `just skills-install`.
 
 | Skill | Source | Load before |
 | --- | --- | --- |
@@ -231,8 +232,9 @@ in source, so a clone has them without running anything.
 | `purview-zodsharp-*` (6 skills) | `purview-dev/zodsharp` | the `[ZodSchema]` integration, custom rules, JSON, ASP.NET Core and `ZODSGEN` diagnostics |
 
 Skills are installed into the universal `.agents/skills/` location **only**. Never install copies into `.claude/`
-or any other per-agent folder, and never add a `CLAUDE.md`: `AGENTS.md` is the one instruction file, and
-`/.claude/` is gitignored. Pass `-a universal`, which writes `.agents/skills/` and nothing else:
+or any other per-agent folder, and never add a `CLAUDE.md`: `AGENTS.md` is the one instruction file. Both folders
+are gitignored, so neither an installed copy nor a per-agent one can be committed. Pass `-a universal`, which writes
+`.agents/skills/` and nothing else:
 
 ```bash
 # add or update every skill from a source
@@ -245,7 +247,9 @@ npx -y skills@1 add purview-dev/zodsharp -s '*' -a universal -y
 npx -y skills@1 experimental_install
 ```
 
-Commit the changed `.agents/skills/**` and `skills-lock.json` together, in their own `chore` commit. Do not edit
+Commit the changed `skills-lock.json` in its own `chore` commit; `.agents/skills/` is gitignored and must not be
+committed, or a skill this repository installs but does not publish becomes findable through
+`skills add purview-dev/value-objects`. Do not edit
 anything under `.agents/skills/` by hand - the CLI is its only writer, and a hand edit no longer matches the
 lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills` target delegates to the same CLI;
 `src/Directory.Build.props` sets `PurviewSkillsAgents=universal` so it is restricted the same way rather than
