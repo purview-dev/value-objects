@@ -291,7 +291,7 @@ register the generated converters (`new EmailAddress.EmailAddressJsonConverter()
 throws `JsonException(inner: ZodException)`, System.Text.Json records `$.customerEmail`, and
 `ZodExceptionHandler` re-roots the errors (`CustomerEmail.Value`, `Copies[1].Value`). On .NET 10 set
 `AddZodSharpProblemDetails(o => o.HandleBindingFailures = true)`, or binding answers a bare `400`; .NET 11
-needs nothing. Requires Purview.ZodSharp 3.0.0-prerelease.2+. It still stops at the first invalid member, so
+needs nothing. Requires Purview.ZodSharp 3.0.0+. It still stops at the first invalid member, so
 prefer bound-request validation for request bodies. Don't register `ScalarJsonConverterFactory`: under Native
 AOT every request fails.
 

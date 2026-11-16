@@ -28,9 +28,10 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | `src/Directory.Build.props` / `src/Directory.Build.targets` | Solution-wide SDK, package, analyzer, and build behavior |
 | `global.json` | Required .NET SDK and Microsoft.Testing.Platform selection |
 | `package.json` | Authoritative repository/package version |
-| `Justfile` | Supported local workflow commands |
+| `Justfile` | Repository-specific recipes; imports the shared modules in `.build/just/` (copied verbatim from the `purview-buildsdk-justfile` skill) |
 | `skills` | Authored agent skills, installable with the skills CLI (see [Agent skills](#agent-skills)) |
-| `.agents/skills`, `skills-lock.json` | Skills installed from other repositories (gitignored; `skills-lock.json` is the tracked record) - see [Installed skills](#installed-skills-agentsskills) |
+| `.agents/skills` | Skills installed from other repositories - a local install the CLI owns, gitignored (see [Installed skills](#installed-skills-agentsskills)) |
+| `skills-lock.json` | The record of that install - committed, so a fresh clone restores it |
 
 ## Standard workflow
 
@@ -209,10 +210,12 @@ Before handing work back:
 
 Specialist guidance this repository depends on - the Purview engineering playbook, `Purview.BuildSdk`
 configuration, the `Purview.SourceGeneratorFramework` generator and test APIs, and the ZodSharp integration - is
-published by the repositories that own it, and installed here by the skills CLI. Only the CLI's
-`skills-lock.json` (source, skill path and content hash of every entry) is committed: `.agents/skills/` is a local
-install, gitignored so a skill this repository installs but does not publish can never be found through
-`skills add purview-dev/value-objects`. A fresh clone restores the set with `just skills-install`.
+published by the repositories that own it, and installed here by the skills CLI. The install is **local and not
+tracked**: `.agents/skills/**` is gitignored, because it is the CLI's copy of someone else's skills - committing it
+would publish them as this repository's own, make a skill this repository installs but does not publish findable
+through `npx skills add purview-dev/value-objects` (which discovers the root `skills/` folder, not them), and put a
+second writer on a path the CLI owns. The CLI's `skills-lock.json` (source, skill path and content hash of every
+entry) **is** committed, so a fresh clone restores the exact recorded set with `just skills-install`.
 
 | Skill | Source | Load before |
 | --- | --- | --- |
@@ -243,22 +246,23 @@ npx -y skills@1 add purview-dev/build-sdk -s '*' -a universal -y
 npx -y skills@1 add purview-dev/sourcegenerator-framework -s '*' -a universal -y
 npx -y skills@1 add purview-dev/zodsharp -s '*' -a universal -y
 
-# restore the committed set from skills-lock.json
+# restore the recorded set from skills-lock.json (a fresh clone has no install)
 npx -y skills@1 experimental_install
 ```
 
-Commit the changed `skills-lock.json` in its own `chore` commit; `.agents/skills/` is gitignored and must not be
-committed, or a skill this repository installs but does not publish becomes findable through
-`skills add purview-dev/value-objects`. Do not edit
-anything under `.agents/skills/` by hand - the CLI is its only writer, and a hand edit no longer matches the
-lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills` target delegates to the same CLI;
-`src/Directory.Build.props` sets `PurviewSkillsAgents=universal` so it is restricted the same way rather than
-defaulting to every agent (`*`).
+Commit `skills-lock.json` when it changes, in its own `chore` commit, and never commit anything under
+`.agents/skills/` - the ignore rule refuses it, and `git add -f` is not the way around that: a committed copy would
+make a skill this repository installs but does not publish findable through
+`skills add purview-dev/value-objects`. Do not edit anything under `.agents/skills/` by hand either: the CLI is its
+only writer, and a hand edit no longer matches the lockfile's hash. `Purview.BuildSdk`'s `InstallPurviewSkills`
+target delegates to the same CLI; `src/Directory.Build.props` sets `PurviewSkillsAgents=universal` so it is
+restricted the same way rather than defaulting to every agent (`*`).
 
-`src/tests/Repository.UnitTests/InstalledSkillTests.cs` keeps this honest: every `skills-lock.json` entry has its
-`.agents/skills/<name>/SKILL.md`, every installed folder is in the lockfile, no skill authored in `skills/` is
-copied into `.agents/skills/`, no `.claude/skills/` copy exists, and there is no `CLAUDE.md` (at the root or in
-`.github/`).
+`src/tests/Repository.UnitTests/InstalledSkillTests.cs` keeps this honest: `.agents/skills/` and `/.claude/` are
+ignored, every `skills-lock.json` entry records a source, skill path and hash a clone can restore, an install that is
+present holds exactly what the lockfile records, no skill authored in `skills/` is copied into `.agents/skills/`, no
+`.claude/skills/` copy exists, and there is no `CLAUDE.md` (at the root or in `.github/`). The install checks are
+skipped when no install is present, because a fresh clone legitimately has none.
 
 ## Agent skills
 
@@ -266,9 +270,9 @@ Authored skills live in the repository-root `skills/` folder. Nothing packs them
 delivers skills through the skills CLI, which clones the *git* repository and only discovers a root
 `skills/` folder.
 
-`.agents/skills/` holds the skills installed from **other** repositories (above). This repository's own skills are
-never installed into it — that would leave two copies to drift apart. Read them at their authored path,
-`skills/<name>/SKILL.md`.
+`.agents/skills/` holds the skills installed from **other** repositories (above) - a gitignored local install. This
+repository's own skills are never installed into it — that would leave two copies to drift apart. Read them at their
+authored path, `skills/<name>/SKILL.md`.
 
 Consumers install these skills with:
 

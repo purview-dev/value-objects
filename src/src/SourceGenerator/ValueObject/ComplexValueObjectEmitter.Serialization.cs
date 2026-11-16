@@ -69,8 +69,7 @@ static partial class ComplexValueObjectEmitter
 					{
 						methodBody.IfBlock(
 							"reader.TokenType != global::System.Text.Json.JsonTokenType.StartObject",
-							ifBody =>
-								ifBody.Line($"throw new global::System.Text.Json.JsonException({unableToDeserialize});")
+							ifBody => ifBody.Throw(TypeLibrary.System.Text.Json.JsonException, unableToDeserialize)
 						);
 
 						for (var index = 0; index < properties.Length; index++)
@@ -89,8 +88,8 @@ static partial class ComplexValueObjectEmitter
 									)
 							);
 
-							loop.Line("var jsonName = reader.GetString();");
-							loop.Line("reader.Read();");
+							loop.Assignment("var", "jsonName", "reader.GetString()");
+							loop.MethodCallOn("reader", "Read");
 
 							for (var index = 0; index < properties.Length; index++)
 							{
@@ -106,12 +105,12 @@ static partial class ComplexValueObjectEmitter
 							}
 
 							if (properties.Length == 0)
-								loop.Line("reader.Skip();");
+								loop.MethodCallOn("reader", "Skip");
 							else
-								loop.Else(static branch => branch.Line("reader.Skip();"));
+								loop.Else(static branch => branch.MethodCallOn("reader", "Skip"));
 						});
 
-						methodBody.Line($"throw new global::System.Text.Json.JsonException({unableToDeserialize});");
+						methodBody.Throw(TypeLibrary.System.Text.Json.JsonException, unableToDeserialize);
 					}
 				);
 
@@ -128,16 +127,26 @@ static partial class ComplexValueObjectEmitter
 					},
 					methodBody =>
 					{
-						methodBody.Line("writer.WriteStartObject();");
+						methodBody.MethodCallOn("writer", "WriteStartObject");
 						for (var index = 0; index < properties.Length; index++)
 						{
 							var property = properties[index];
-							methodBody.Line(
-								$"{helper}.WriteMember<{property.TypeName}>(writer, \"{property.Name}\", value.{property.Name}, options{ConverterArgument(property, index)});"
+
+							methodBody.MethodCallOn(
+								helper,
+								"WriteMember",
+								arguments:
+								[
+									"writer",
+									$"\"{property.Name}\"",
+									$"value.{property.Name}",
+									$"options{ConverterArgument(property, index)}",
+								],
+								genericArguments: [property.Type]
 							);
 						}
 
-						methodBody.Line("writer.WriteEndObject();");
+						methodBody.MethodCallOn("writer", "WriteEndObject");
 					}
 				);
 			}

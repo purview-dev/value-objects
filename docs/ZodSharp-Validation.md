@@ -573,7 +573,7 @@ builder.Services.AddZodSharpProblemDetails();
 
 `HandleBindingFailures` sets `RouteHandlerOptions.ThrowOnBadRequest` for the whole application, so every minimal-API
 binding failure travels through `UseExceptionHandler()`. Malformed JSON is still a standard `400` ProblemDetails. This
-needs Purview.ZodSharp 3.0.0-prerelease.2 or later, and works under Native AOT.
+needs Purview.ZodSharp 3.0.0 or later, and works under Native AOT.
 
 One limit remains: binding stops at the first invalid member. The bound-request validation above reports every one,
 so prefer it for request bodies, and keep `Strict` for payloads that are not validated any other way.

@@ -2,8 +2,8 @@
 	<PropertyGroup>
 		<RoslynVersion>5.9.0</RoslynVersion>
 		<TUnitVersion>1.83.0</TUnitVersion>
-		<PurviewSGFVersion>2.0.0</PurviewSGFVersion>
-		<PurviewZodSharpVersion>3.0.0-prerelease.6</PurviewZodSharpVersion>
+		<PurviewSGFVersion>2.1.0</PurviewSGFVersion>
+		<PurviewZodSharpVersion>3.0.0</PurviewZodSharpVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="Purview.SourceGeneratorFramework" Version="$(PurviewSGFVersion)" />
@@ -21,7 +21,7 @@
 		<PackageVersion Include="TUnit.Core" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Mocks" Version="$(TUnitVersion)" />
 		<PackageVersion Include="TUnit.Assertions" Version="$(TUnitVersion)" />
-		<PackageVersion Include="Purview.Skills.Testing" Version="2.0.0" />
+		<PackageVersion Include="Purview.Skills.Testing" Version="2.1.0" />
 		<PackageVersion Include="Bogus" Version="35.6.5" />
 	</ItemGroup>
 	<ItemGroup Label="Entity Framework (test/sample only)">

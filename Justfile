@@ -1,103 +1,37 @@
+# Recipes for Purview.ValueObjects. Run `just` for the list.
+#
+# The shared recipes come from .build/just/, copied verbatim from the purview-buildsdk-justfile
+# skill. Change them there, not here; this file holds what belongs to this repository.
+
 set quiet
 
+# Let a definition here override a module's default variable or no-op hook.
+set allow-duplicate-variables
+set allow-duplicate-recipes
+
+import ".build/just/index.just"
+
+# The one solution. Purview.Build names the same path in .config/purview-build.json.
+solution_file := "src/ValueObjects.slnx"
+
+# Every test, matching TestFilter in .config/purview-build.json so a local run selects what CI does.
+test_filter := "/*/*/*/*"
+
 root_folder := "./src/"
-solution_file := root_folder + "ValueObjects.slnx"
-test_solution := solution_file
-build_configuration := "Debug"
-
-pipeline_tool := "dotnet purview-build"
-
-artifact_folder := "./artifacts/"
-
-# Displays the list of available commands
 
 [private]
 default:
     just --list
 
 # Restore the repository's .NET local tools (.config/dotnet-tools.json)
-[private]
-ensure-pipeline-tool:
+#
+# The shared recipe runs a plain `dotnet tool restore`. This repository's script also retries the
+# cold-cache failure the .NET 11 SDK can produce, and is the only place the tools are restored, so
+# `just` and CI behave the same way.
+[doc("Restore the repository's .NET local tools (.config/dotnet-tools.json)")]
+[group('Build and Test')]
+ensure-tools:
     pwsh -NoProfile -File scripts/restore-dotnet-tools.ps1
-
-# Run the PR pipeline (restore, build, lint, tests, pack, validate)
-[group('Pipeline')]
-pipeline-pr *args:
-    just ensure-pipeline-tool
-    echo "Running PR pipeline..."
-    {{ pipeline_tool }} {{ args }}
-
-# Run the build pipeline (restore, build, lint)
-[group('Pipeline')]
-pipeline-build *args:
-    just ensure-pipeline-tool
-    echo "Running build pipeline..."
-    {{ pipeline_tool }} --Build:RunTests=false --Release:Mode=None {{ args }}
-
-# Run the release pipeline (restore, build, lint, tests, pack, publish, GitHub release)
-[group('Pipeline')]
-pipeline-release *args:
-    just ensure-pipeline-tool
-    echo "Running release pipeline..."
-    {{ pipeline_tool }} --Release:Mode=NuGet {{ args }}
-
-# Run the release pipeline (restore, build, lint, tests, pack, local nuget publish)
-# Note: `just` runs recipes through the shell, which strips backslashes from unquoted arguments.
-# Use the LOCAL_NUGET_FEED_PATH environment variable or forward slashes, e.g.
-# just pipeline-local-release --PublishLocalNuGet:LocalFeedPath=p:/_sync-projects/.local-nuget/
-[group('Pipeline')]
-pipeline-local-release *args:
-    just ensure-pipeline-tool
-    echo "Running local release pipeline..."
-    {{ pipeline_tool }} --Release:Mode=LocalNuGet {{ args }}
-
-# Run the pipeline with tests enabled
-[group('Pipeline')]
-pipeline-tests *args:
-    just ensure-pipeline-tool
-    echo "Running tests pipeline..."
-    {{ pipeline_tool }} --Build:RunTests=true --Release:Mode=None {{ args }}
-
-# Run the pipeline through pack + validate (restore, build, lint, tests, pack, validate pack contents) without publishing/releasing
-[group('Pipeline')]
-pipeline-pack-validate *args:
-    just ensure-pipeline-tool
-    echo "Running pack + validate pipeline..."
-    {{ pipeline_tool }} --Build:RunPack=true --Build:ValidatePack=true --Release:Mode=None {{ args }}
-
-# -----------------------------------------------------------------------------
-# Build and Test
-# -----------------------------------------------------------------------------
-
-# Builds the solution with the specified configuration (default: Debug)
-[group('Build and Test')]
-build *args:
-    echo "Building {{ BLUE }}{{ solution_file }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
-    dotnet build "{{ solution_file }}" --configuration "{{ build_configuration }}" {{ args }}
-
-# Restore NuGet packages for the solution
-[group('Build and Test')]
-restore *args:
-    dotnet restore {{ solution_file }} {{ args }}
-
-# Runs tests for the solution with the specified configuration (default: Debug)
-[group('Build and Test')]
-test filter="/*/*/*/*/" *args:
-    echo "Running tests for {{ BLUE }}{{ test_solution }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
-    dotnet test --solution "{{ test_solution }}" --configuration "{{ build_configuration }}" --treenode-filter={{ filter }} {{ args }}
-
-# Cleans the solution with the specified configuration (default: Debug)
-[group('Build and Test')]
-clean *args:
-    echo "Cleaning {{ BLUE }}{{ solution_file }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
-    dotnet clean "{{ solution_file }}" --configuration "{{ build_configuration }}" {{ args }}
-
-# Packs the package into a NuGet package and outputs it to the specified folder
-[group('Build and Test')]
-pack *args:
-    just build
-    echo "Packing {{ BLUE }}{{ solution_file }}{{ NORMAL }} with {{ YELLOW }}{{ build_configuration }}{{ NORMAL }}..."
-    dotnet pack "{{ solution_file }}" --configuration "{{ build_configuration }}" --no-restore --output "{{ artifact_folder }}" {{ args }}
 
 # Prove the packed package works for real consumers: packs Purview.ValueObjects to an isolated feed, then publishes
 # and runs a Native AOT console, a Blazor WebAssembly app (trimmed and RunAOTCompilation, run in a headless browser),
@@ -105,66 +39,24 @@ pack *args:
 # Needs the Native AOT toolchain, the wasm-tools workload for the WebAssembly AOT step, and Chrome or Edge for the
 # browser steps. Purview.ZodSharp/Purview.SourceGeneratorFramework versions not yet on nuget.org restore from
 # LOCAL_NUGET_FEED_PATH (or VALUEOBJECTS_DEPENDENCY_FEED). See scripts/test-packed-consumers.ps1 for the options.
+[doc('Pack, then publish and run Native AOT, Blazor WebAssembly and Blazor Server consumers of the package')]
 [group('Build and Test')]
 smoke-packed-consumers *args:
     echo "Running the packed consumer gate..."
     pwsh -NoProfile -File scripts/test-packed-consumers.ps1 {{ args }}
 
 # Prove every PackValidation ForbiddenContent rule in .config/purview-build.json rejects a package: injects a matching
-# file into scratch copies of the packed packages and runs the real purview-build validation on them. Reads artifacts/,
-# so pack first (`just pipeline-pack-validate`); `just pipeline-local-release` moves its packages to the local feed, so
-# pass -PackagesFolder <feed> after it.
+# file into scratch copies of the packed packages and runs the real purview-build validation on them. Reads
+# ./artifacts, so pack first (`just pipeline-pack-validate`); `just pipeline-local-release` moves its packages to the
+# local feed, so pass -PackagesFolder <feed> after it.
+[doc('Prove every PackValidation ForbiddenContent rule in .config/purview-build.json rejects a package')]
 [group('Build and Test')]
-verify-pack-rules *args:
-    just ensure-pipeline-tool
+verify-pack-rules *args: ensure-tools
+    echo "Proving the pack-validation forbidden-content rules..."
     pwsh -NoProfile -File scripts/test-pack-validation-rules.ps1 {{ args }}
 
-# -----------------------------------------------------------------------------
-# Formatting
-# -----------------------------------------------------------------------------
-
-# Checks for linting issues in the root folder
-[group('Formatting')]
-lint-check:
-    echo "Linting checking {{ BLUE }}root folder{{ NORMAL }}..."
-    dotnet csharpier check .
-
-# Fixes linting issues in the root folder
-[group('Formatting')]
-lint-fix:
-    echo "Linting fixing {{ BLUE }}root folder{{ NORMAL }}..."
-    dotnet csharpier format .
-
-# -----------------------------------------------------------------------------
-# Versioning and Release
-# -----------------------------------------------------------------------------
-
-# Displays the current version of the project.
-# Requires Bun.
-[group('Versioning and Release')]
-version:
-    bun -e "console.log('Current Version: {{ GREEN }}' + require('./package.json').version + '{{ NORMAL }}')"
-
-# -----------------------------------------------------------------------------
-# System / Shell
-# -----------------------------------------------------------------------------
-
-# Opens the solution in the default associated application
-[group('Utilities')]
-vs:
-    echo "Opening {{ BLUE }}{{ solution_file }}{{ NORMAL }}..."
-    open "{{ solution_file }}"
-
-# Opens the root folder in Visual Studio Code
+# Open the source folder in Visual Studio Code
 [group('Utilities')]
 code:
     echo "Opening {{ BLUE }}Visual Studio Code{{ NORMAL }}..."
     code "{{ root_folder }}"
-
-# Clean up the repository by removing build artifacts, bin/obj folders etc, and shutting down the build server
-[group('Utilities')]
-scrub:
-    find . -type d \( -name bin -o -name obj \) -exec rm -rf {} +
-    just clean
-    just restore --force-evaluate
-    dotnet build-server shutdown

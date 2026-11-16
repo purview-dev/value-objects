@@ -75,7 +75,7 @@ Inside a generated converter:
 ## ZodSharp packages
 
 A Native AOT minimal API with `[Scalar]` + `[ZodSchema]` value objects in `Strict` mode, built against ZodSharp
-3.0.0-prerelease.2, raises no trim or AOT warning from any ZodSharp API it uses, under the build analyzers or ILC's
+3.0.0, raises no trim or AOT warning from any ZodSharp API it uses, under the build analyzers or ILC's
 whole-program analysis:
 
 | Package | Under trimming and Native AOT |
