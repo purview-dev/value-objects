@@ -22,6 +22,8 @@ incremental source generator produces:
   mapping. Queries use the value object type directly — no `.Value` required.
 - **Domain models** – the F#-style single-case union pattern in C#.
 
+**Documentation:** [Value Objects documentation](https://purview.dev/docs/value-objects/)
+
 ## Install
 
 ```text
