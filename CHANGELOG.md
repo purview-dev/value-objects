@@ -9,7 +9,7 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
-## 2.0.0-prerelease.1
+## 2.0.0
 
 A major release for the .NET 11 GA. It drops the two out-of-support target frameworks and modernises the build;
 the generated API and the serialized payload shapes are unchanged.
@@ -25,13 +25,22 @@ the generated API and the serialized payload shapes are unchanged.
   generated EF members are unchanged; `VO1019` is still reported for a project that references EF Core 7.
 - **The packed-consumer gate's oldest consumer is now `net10.0`**, replacing the `net8.0` console.
 
+### Added
+
+- **Seven diagnostics now ship in a stable release.** `VO1025`-`VO1031` arrived with the `1.3.0` prereleases and are
+  recorded in `AnalyzerReleases.Shipped.md` under 2.0.0. They cover `[StringNormalize]` applied where it has no
+  effect (`VO1025`), a `[ValueObjectDefaults]` argument or `[Scalar]`/`[ValueObject]` option that repeats the
+  project or assembly default (`VO1026`, `VO1027`), the automatic `[Scalar<T>]` form declaring nullability twice or
+  contradicting its declared property (`VO1028`-`VO1030`), and a nullable scalar mapped to a non-nullable Entity
+  Framework Core property, which is a required column (`VO1031`, the only warning).
+
 ### Changed
 
 - **Package validation now records the dropped frameworks.** The baseline is the last stable release (1.2.3) and
   `CompatibilitySuppressions.xml` suppresses only `PKV006` for `net8.0` and `net9.0`, so any future public API
   regression is still a `dotnet pack` failure.
 - Built and tested against Purview.BuildSdk 2.0.0, Purview.SourceGeneratorFramework 2.0.0 and
-  Purview.ZodSharp 3.0.0-prerelease.5 on the .NET 11 GA SDK (11.0.100), TUnit 1.81.16,
+  Purview.ZodSharp 3.0.0 on the .NET 11 GA SDK (11.0.100), TUnit 1.81.16,
   Microsoft.SourceLink.GitHub 11.0.100, and EF Core 10.0.15 and 11.0.0.
 - The `net11.0` leg compiles with Runtime Async (`runtime-async=on`) and C# 15 as the default language version.
   The updated memory-safety rules are deliberately left off: they are preview, this repository has no unsafe

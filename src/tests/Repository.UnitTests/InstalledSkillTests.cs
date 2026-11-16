@@ -3,53 +3,96 @@ using System.Text.Json;
 namespace Purview.ValueObjects.Repository;
 
 /// <summary>
-/// Guards the skills installed from other repositories. They are installed by the skills CLI into the
-/// universal <c>.agents/skills/</c> folder only, and that folder and the CLI's <c>skills-lock.json</c>
-/// are committed, so the two must agree and no per-agent copy or instruction file may appear beside
-/// them.
+/// Guards how the skills installed from other repositories sit in the working tree.
 /// </summary>
 /// <remarks>
-/// <c>SkillTests</c> validates this repository's own skills in <c>skills/</c>; these are someone else's,
-/// so their content is not checked here, only that the installed set is the recorded set.
+/// <para>
+/// The install belongs to the skills CLI, not to git. <c>.agents/skills/</c> is gitignored, because committing it
+/// would publish someone else's skills as this repository's own and put a second writer on a path the CLI owns.
+/// Only <c>skills-lock.json</c> (source, skill path and content hash of every entry) is committed, so a fresh
+/// clone restores the recorded set with <c>just skills-install</c>.
+/// </para>
+/// <para>
+/// The install is therefore checked only when one is present: a fresh clone has none, and its absence is the
+/// state these tests allow. <c>SkillTests</c> validates this repository's own skills in <c>skills/</c>; these are
+/// someone else's, so their content is not checked here, only their placement.
+/// </para>
 /// </remarks>
 public sealed class InstalledSkillTests
 {
 	static readonly Lazy<string> RepositoryRoot = new(FindRepositoryRoot);
 
 	[Test]
-	public async Task Lockfile_GivenEveryEntry_HasItsSkillInstalledUnderAgents(CancellationToken cancellationToken)
+	public async Task GitIgnore_GivenTheRepository_KeepsTheInstallAndPerAgentFoldersOut(
+		CancellationToken cancellationToken
+	)
 	{
 		// Arrange
-		var recorded = await ReadLockfileSkillsAsync(cancellationToken);
+		var rules = await File.ReadAllLinesAsync(Path.Combine(RepositoryRoot.Value, ".gitignore"), cancellationToken);
 
 		// Act
-		var missing = recorded
-			.Where(static name => !File.Exists(Path.Combine(AgentsSkillsFolder(), name, "SKILL.md")))
-			.ToArray();
+		var required = new[] { ".agents/skills/", "/.claude/" };
+		var missing = required.Where(rule => !rules.Contains(rule, StringComparer.Ordinal)).ToArray();
 
 		// Assert
-		await Assert.That(recorded).IsNotEmpty().Because("skills-lock.json records no installed skills");
 		await Assert
 			.That(missing)
 			.IsEmpty()
 			.Because(
-				"skills-lock.json records skills that are not installed in .agents/skills/. Restore them with "
-					+ $"`npx -y skills@1 experimental_install`: {string.Join(", ", missing)}"
+				"the skills CLI owns .agents/skills/ and the per-agent folders, so both stay out of git: "
+					+ string.Join(", ", missing)
 			);
 	}
 
 	[Test]
-	public async Task AgentsSkills_GivenEveryInstalledSkill_IsRecordedInTheLockfile(CancellationToken cancellationToken)
+	public async Task Lockfile_GivenEveryEntry_RecordsWhatAFreshCloneRestores(CancellationToken cancellationToken)
 	{
 		// Arrange
-		var recorded = await ReadLockfileSkillsAsync(cancellationToken);
+		var recorded = await ReadLockfileAsync(cancellationToken);
 
 		// Act
-		var unrecorded = Directory
-			.GetDirectories(AgentsSkillsFolder())
-			.Select(static path => Path.GetFileName(path))
-			.Where(name => !recorded.Contains(name, StringComparer.Ordinal))
+		var incomplete = recorded
+			.Where(static skill =>
+				skill.Source.Length == 0 || skill.SkillPath.Length == 0 || skill.ComputedHash.Length == 0
+			)
+			.Select(static skill => skill.Name)
 			.ToArray();
+
+		// Assert
+		await Assert
+			.That(recorded)
+			.IsNotEmpty()
+			.Because("skills-lock.json is the only tracked half of the install, so it must record at least one skill");
+		await Assert
+			.That(incomplete)
+			.IsEmpty()
+			.Because(
+				$"an entry without a source, skill path and hash cannot be restored: {string.Join(", ", incomplete)}"
+			);
+	}
+
+	[Test]
+	public async Task AgentsSkills_GivenAnInstall_MatchesTheLockfile(CancellationToken cancellationToken)
+	{
+		// Arrange
+		var recorded = await ReadLockfileAsync(cancellationToken);
+
+		if (!Directory.Exists(AgentsSkillsFolder()))
+		{
+			// A fresh clone has no install. That is the arrangement, not a gap: the lockfile is tracked and
+			// `just skills-install` writes the rest.
+			await Assert
+				.That(File.Exists(LockfilePath()))
+				.IsTrue()
+				.Because("without skills-lock.json a clone cannot restore the skills the repository depends on");
+			return;
+		}
+
+		var installed = InstalledSkillNames();
+
+		// Act
+		var unrecorded = installed.Where(name => !recorded.Any(skill => skill.Name == name)).ToArray();
+		var missing = recorded.Select(static skill => skill.Name).Where(name => !installed.Contains(name)).ToArray();
 
 		// Assert
 		await Assert
@@ -58,6 +101,13 @@ public sealed class InstalledSkillTests
 			.Because(
 				"every folder in .agents/skills/ must be written by the skills CLI, which records it in "
 					+ $"skills-lock.json: {string.Join(", ", unrecorded)}"
+			);
+		await Assert
+			.That(missing)
+			.IsEmpty()
+			.Because(
+				"skills-lock.json records skills the install does not hold. Restore them with `just skills-install`: "
+					+ string.Join(", ", missing)
 			);
 	}
 
@@ -132,9 +182,16 @@ public sealed class InstalledSkillTests
 
 	static string AgentsSkillsFolder() => Path.Combine(RepositoryRoot.Value, ".agents", "skills");
 
-	static async Task<string[]> ReadLockfileSkillsAsync(CancellationToken cancellationToken)
+	static string LockfilePath() => Path.Combine(RepositoryRoot.Value, "skills-lock.json");
+
+	static string[] InstalledSkillNames() =>
+		!Directory.Exists(AgentsSkillsFolder())
+			? []
+			: [.. Directory.GetDirectories(AgentsSkillsFolder()).Select(static path => Path.GetFileName(path))];
+
+	static async Task<LockedSkill[]> ReadLockfileAsync(CancellationToken cancellationToken)
 	{
-		await using var stream = File.OpenRead(Path.Combine(RepositoryRoot.Value, "skills-lock.json"));
+		await using var stream = File.OpenRead(LockfilePath());
 		using var lockfile = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
 
 		return
@@ -142,8 +199,13 @@ public sealed class InstalledSkillTests
 			.. lockfile
 				.RootElement.GetProperty("skills")
 				.EnumerateObject()
-				.Select(static property => property.Name)
-				.Order(StringComparer.Ordinal),
+				.Select(static property => new LockedSkill(
+					property.Name,
+					property.Value.GetProperty("source").GetString() ?? string.Empty,
+					property.Value.GetProperty("skillPath").GetString() ?? string.Empty,
+					property.Value.GetProperty("computedHash").GetString() ?? string.Empty
+				))
+				.OrderBy(static skill => skill.Name, StringComparer.Ordinal),
 		];
 	}
 
@@ -167,4 +229,6 @@ public sealed class InstalledSkillTests
 			$"No repository root above '{AppContext.BaseDirectory}' carries AGENTS.md, skills-lock.json and src/src."
 		);
 	}
+
+	sealed record LockedSkill(string Name, string Source, string SkillPath, string ComputedHash);
 }

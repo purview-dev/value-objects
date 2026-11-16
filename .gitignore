@@ -601,6 +601,10 @@ coverage/
 
 .tools/
 
-# Agent skills are installed into the universal .agents/skills/ folder only, and that folder and
-# skills-lock.json are committed. Per-agent folders (and Claude Code's local settings) stay out.
+# Agent skills: this repository's own skills live in skills/ and are committed. The skills installed from
+# other repositories are a local install the CLI owns, so .agents/skills/ stays out of git - committing it
+# would publish someone else's skills as this repository's and put a second writer on a path the CLI owns.
+# skills-lock.json is committed, so a fresh clone restores the recorded set with `just skills-install`.
+# Per-agent folders (and Claude Code's local settings) stay out for the same reason, one level down.
+.agents/skills/
 /.claude/
