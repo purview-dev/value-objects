@@ -8,4 +8,6 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+VO1032 | ValueObjects | Error | A closed or abstract type cannot be a value object; mark a concrete derived type instead.
+VO1033 | ValueObjects | Error | A union declaration cannot be a value object; use the union as a member type instead.
 

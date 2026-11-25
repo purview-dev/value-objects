@@ -1536,4 +1536,460 @@ public sealed class ValueObjectSourceGeneratorTests : ValueObjectSourceGenerator
 			.IsEqualTo(ValueObjectsGeneratorTestOptions.ValueObjectExpectedFileCount);
 		await Assert.That(result.Generated().HasRecord("EmailAddress", "Testing")).IsFalse();
 	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_CollectionMember_ComparesByContents(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record Probe
+				{
+					public string Head { get; }
+
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+				}
+
+				public static class CollectionHarness
+				{
+					public static bool AreEqual() =>
+						Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 })
+							.Equals(Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 }));
+
+					public static bool HashesAreEqual()
+					{
+						var first = Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 });
+						var second = Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 });
+						return first.GetHashCode() == second.GetHashCode();
+					}
+
+					public static bool OperatorsAreEqual() =>
+						Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 })
+						== Probe.Create("Document", new System.Collections.Generic.List<int> { 1, 2, 3 });
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var generated = result.Generated().GetRecord("Probe", "Testing").Node.ToString();
+
+		await Assert.That(generated).Contains("ValueObjectEquality.SequenceEquals<int>");
+		await Assert.That(generated).Contains("ValueObjectEquality.SequenceHash<int>");
+		await Assert
+			.That(
+				generated.Contains(
+					"EqualityComparer<global::System.Collections.Generic.IReadOnlyList<int>>",
+					StringComparison.Ordinal
+				)
+			)
+			.IsFalse();
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly.GetType("Testing.CollectionHarness")!;
+
+		await Assert.That((bool)harness.GetMethod("AreEqual")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("HashesAreEqual")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("OperatorsAreEqual")!.Invoke(null, null)!).IsTrue();
+	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_RecordShapes_DeclareEqualsWithTheRightVirtualModifier(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record SealedRecordProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public partial record OpenRecordProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct RecordStructProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial class ClassProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var query = result.Generated();
+
+		var sealedEquals = query
+			.GetRecord("SealedRecordProbe", "Testing")
+			.GetMethod("Equals", TypeRefs.Named("SealedRecordProbe", "Testing"));
+		var openEquals = query
+			.GetRecord("OpenRecordProbe", "Testing")
+			.GetMethod("Equals", TypeRefs.Named("OpenRecordProbe", "Testing"));
+		var structEquals = query
+			.GetRecord("RecordStructProbe", "Testing")
+			.GetMethod("Equals", TypeRefs.Named("RecordStructProbe", "Testing"));
+		var classEquals = query
+			.GetClass("ClassProbe", "Testing")
+			.GetMethod("Equals", TypeRefs.Named("ClassProbe", "Testing"));
+
+		await Assert.That(openEquals.Node.Modifiers.ToString()).Contains("virtual");
+		await Assert
+			.That(sealedEquals.Node.Modifiers.ToString().Contains("virtual", StringComparison.Ordinal))
+			.IsFalse();
+		await Assert
+			.That(structEquals.Node.Modifiers.ToString().Contains("virtual", StringComparison.Ordinal))
+			.IsFalse();
+		await Assert
+			.That(classEquals.Node.Modifiers.ToString().Contains("virtual", StringComparison.Ordinal))
+			.IsFalse();
+	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_CollectionShapes_UseTheRightStructuralHelper(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record SetProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.HashSet<int> Items { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record DictionaryProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.Dictionary<string, int> Items { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record NestedProbe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<int>> Items { get; }
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var query = result.Generated();
+
+		var set = query.GetRecord("SetProbe", "Testing").Node.ToString();
+		var dictionary = query.GetRecord("DictionaryProbe", "Testing").Node.ToString();
+		var nested = query.GetRecord("NestedProbe", "Testing").Node.ToString();
+
+		await Assert.That(set).Contains("ValueObjectEquality.SetEquals<int>");
+		await Assert.That(set).Contains("ValueObjectEquality.SetHash<int>");
+		await Assert.That(dictionary).Contains("ValueObjectEquality.DictionaryEquals(");
+		await Assert.That(dictionary).Contains("ValueObjectEquality.DictionaryHash(");
+		await Assert.That(nested).Contains("ValueObjectSequenceComparer<int>");
+		await Assert.That(nested).Contains("SequenceEquals<global::System.Collections.Generic.IReadOnlyList<int>>");
+	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_HostDeclaredEquals_IsNotDuplicated(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record Probe
+				{
+					public string Head { get; }
+					public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+
+					public bool Equals(Probe? other) => other is not null && Head == other.Head;
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var generated = result.Generated().GetRecord("Probe", "Testing").Node.ToString();
+
+		await Assert.That(generated.Contains("ValueObjectEquality.SequenceEquals", StringComparison.Ordinal)).IsFalse();
+		await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_SingleValueTypeMember_UsesTypedConstructorArgument(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record SingleIntProbe
+				{
+					public int Count { get; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public readonly partial record struct SingleNullableProbe
+				{
+					public int? Count { get; }
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var record = result.Generated().GetRecord("SingleIntProbe", "Testing").Node.ToString();
+		var recordStruct = result.Generated().GetRecord("SingleNullableProbe", "Testing").Node.ToString();
+
+		// A bare 'default' would be ambiguous between the record's copy constructor and the generated
+		// single-member constructor (CS0121).
+		await Assert.That(record).Contains("this(default(int))");
+		await Assert.That(recordStruct).Contains("this(default(int?))");
+		await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+	}
+
+	[Test]
+	public async Task ComplexValueObjectGeneration_DerivedRecord_ComparesBaseMembers(
+		CancellationToken cancellationToken
+	)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public partial record StatefulBase
+				{
+					public string Head { get; init; }
+				}
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record StatefulCase : StatefulBase
+				{
+					public int Count { get; }
+				}
+
+				public static class DerivedHarness
+				{
+					public static bool BaseStateIsCompared()
+					{
+						var first = StatefulCase.Create("A", 1);
+						var second = StatefulCase.Create("A", 1);
+						var different = StatefulCase.Create("B", 1);
+						return first.Equals(second) && !first.Equals(different);
+					}
+
+					public static bool BaseStateHashesAgree()
+					{
+						var first = StatefulCase.Create("A", 1);
+						var second = StatefulCase.Create("A", 1);
+						return first.GetHashCode() == second.GetHashCode();
+					}
+
+					public static bool BaseStateRoundTripsThroughJson()
+					{
+						var value = StatefulCase.Create("A", 1);
+						var json = System.Text.Json.JsonSerializer.Serialize(value);
+						var roundTripped = System.Text.Json.JsonSerializer.Deserialize<StatefulCase>(json);
+						return roundTripped is not null && roundTripped.Equals(value);
+					}
+				}
+			}
+			""";
+
+		using var result = await GenerateAsync(
+			source,
+			ValueObjectsGeneratorTestOptions.Default.Compile(),
+			cancellationToken
+		);
+
+		var generated = result.Generated().GetRecord("StatefulCase", "Testing").Node.ToString();
+		await Assert.That(generated).Contains("base.Equals((global::Testing.StatefulBase)other)");
+		await Assert.That(generated).Contains("hash.Add(base.GetHashCode())");
+		await Assert.That(generated).Contains("value.Head");
+		await Assert.That(generated).Contains("value.Count");
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly.GetType("Testing.DerivedHarness")!;
+
+		await Assert.That((bool)harness.GetMethod("BaseStateIsCompared")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("BaseStateHashesAgree")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("BaseStateRoundTripsThroughJson")!.Invoke(null, null)!).IsTrue();
+	}
+
+#if NET11_0_OR_GREATER
+	// C# 15 union/closed declarations need the .NET 11 runtime attributes (UnionAttribute,
+	// IsClosedTypeAttribute), so these tests only run on the net11.0 leg.
+	[Test]
+	public async Task CSharp15_ClosedHierarchyCase_GeneratesValueObject(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public closed partial record PaymentBase;
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record CardPayment(string Reference) : PaymentBase;
+
+				public static class ClosedHarness
+				{
+					public static bool AreEqual() =>
+						CardPayment.Create("ABC").Equals(CardPayment.Create("ABC"));
+
+					public static bool HashesAreEqual()
+					{
+						var first = CardPayment.Create("ABC");
+						var second = CardPayment.Create("ABC");
+						return first.GetHashCode() == second.GetHashCode();
+					}
+				}
+			}
+			""";
+
+		var options = ValueObjectsGeneratorTestOptions.Default with
+		{
+			LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview,
+		};
+
+		using var result = await GenerateAsync(source, options.Compile(), cancellationToken);
+
+		var generated = result.Generated().GetRecord("CardPayment", "Testing").Node.ToString();
+		await Assert.That(generated).Contains("base.Equals((global::Testing.PaymentBase)other)");
+		await Assert.That(generated).Contains("hash.Add(base.GetHashCode())");
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly.GetType("Testing.ClosedHarness")!;
+
+		await Assert.That((bool)harness.GetMethod("AreEqual")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("HashesAreEqual")!.Invoke(null, null)!).IsTrue();
+	}
+
+	[Test]
+	public async Task CSharp15_UnionMember_ComparesAsAValue(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				public union IntOrString(int, string);
+
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public sealed partial record UnionMemberProbe
+				{
+					public string Head { get; }
+					public IntOrString Value { get; }
+				}
+
+				public static class UnionHarness
+				{
+					public static bool AreEqual() =>
+						UnionMemberProbe.Create("Document", 42).Equals(UnionMemberProbe.Create("Document", 42));
+
+					public static bool DifferentCaseIsNotEqual() =>
+						!UnionMemberProbe.Create("Document", 42).Equals(UnionMemberProbe.Create("Document", "42"));
+				}
+			}
+			""";
+
+		var options = ValueObjectsGeneratorTestOptions.Default with
+		{
+			LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview,
+		};
+
+		using var result = await GenerateAsync(source, options.Compile(), cancellationToken);
+
+		var assembly = await Assert.That(result.CompilationResult.Assembly).IsNotNull();
+		var harness = assembly.GetType("Testing.UnionHarness")!;
+
+		await Assert.That((bool)harness.GetMethod("AreEqual")!.Invoke(null, null)!).IsTrue();
+		await Assert.That((bool)harness.GetMethod("DifferentCaseIsNotEqual")!.Invoke(null, null)!).IsTrue();
+	}
+
+	[Test]
+	public async Task CSharp15_ClosedType_ReportsDiagnostic(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public closed partial record ClosedProbe
+				{
+					public string Head { get; }
+				}
+			}
+			""";
+
+		var options = ValueObjectsGeneratorTestOptions.Default with
+		{
+			LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview,
+		};
+
+		using var result = await GenerateAsync(source, options.Compile(), cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectMustBeInstantiable);
+		await Assert.That(result.Generated().HasRecord("ClosedProbe", "Testing")).IsFalse();
+	}
+
+	[Test]
+	public async Task CSharp15_UnionType_ReportsDiagnostic(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public partial union UnionProbe(int, string);
+			}
+			""";
+
+		var options = ValueObjectsGeneratorTestOptions.Default with
+		{
+			LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview,
+		};
+
+		using var result = await GenerateAsync(source, options.Compile(), cancellationToken);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.UnionValueObjectsAreNotSupported);
+		await Assert.That(result.Generated().HasRecord("UnionProbe", "Testing")).IsFalse();
+	}
+#endif
 }

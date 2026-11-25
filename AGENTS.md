@@ -18,7 +18,7 @@ a diagnostic analyzer, a code fix, tests, samples, and documentation for scalar 
 | Path | Purpose |
 | --- | --- |
 | `src/ValueObjects.slnx` | Canonical solution for restore, build, test, and pack |
-| `src/src/ValueObjects` | Runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, `ScalarJsonConverterFactory`) |
+| `src/src/ValueObjects` | Runtime contracts (`[Scalar]`, `[ValueObject]`, `IValueObject`, `ScalarJsonConverterFactory`, `ValueObjectEquality`) |
 | `src/src/SourceGenerator` | Roslyn incremental generator and analyzer metadata |
 | `src/src/SourceGenerator.Refactorings` | Code fixes (add `partial` modifier) |
 | `src/tests` | Unit and source-generator tests, plus the multi-framework Entity Framework Core compatibility project |

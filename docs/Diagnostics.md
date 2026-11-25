@@ -25,6 +25,8 @@ These govern the declaration shape a value object must have for the generator to
 | `VO1028` | Error | `[Scalar<T>(Nullable = true)]` is combined with a declared `Value` property, so nullability has two sources. | Remove the declared `Value`; convert to the manual `[Scalar]` form; or remove `Nullable = true`. The code fix offers all three. |
 | `VO1029` | Error | Explicit `Nullable = false` contradicts a declared nullable `Value` property. | Remove the declared `Value`, or use the manual `[Scalar]` form and own the property. |
 | `VO1030` | Error | The automatic form's declared `Value` has a type that does not match the scalar's underlying type. | Remove the declaration, or use the manual `[Scalar]` form with a matching type. |
+| `VO1032` | Error | A `closed` or `abstract` type is marked `[Scalar]`/`[ValueObject]`. A closed type is implicitly abstract, so the generated `Create`/`Hydrate` cannot instantiate it. | Mark a concrete derived type as the value object instead. |
+| `VO1033` | Error | A C# 15 `union` declaration is marked `[Scalar]`/`[ValueObject]`. A union already provides its own `value`/`HasValue`/`TryGetValue` and equality members and cannot carry a partial value-object declaration. | Use the union as a member type; mark a record or class as the value object instead. |
 
 ## ZodSharp validation rules
 

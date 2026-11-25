@@ -103,7 +103,7 @@ static partial class ComplexValueObjectEmitter
 				IsStatic = true,
 				Parameters =
 				[
-					.. model.Properties.Select(static property => new ParameterDeclarationOptions(
+					.. model.AllProperties.Select(static property => new ParameterDeclarationOptions(
 						ValueObjectSymbolInspector.ToCamelCase(property.Name),
 						property.Type,
 						ParameterModifier.Ref
@@ -119,7 +119,7 @@ static partial class ComplexValueObjectEmitter
 			return;
 
 		var normalizeArgs = model
-			.Properties.Select(property => $"ref {ValueObjectSymbolInspector.ToCamelCase(property.Name)}")
+			.AllProperties.Select(property => $"ref {ValueObjectSymbolInspector.ToCamelCase(property.Name)}")
 			.ToArray();
 
 		writer.Method(
@@ -128,7 +128,7 @@ static partial class ComplexValueObjectEmitter
 				IsStatic = true,
 				Parameters =
 				[
-					.. model.Properties.Select(static property => new ParameterDeclarationOptions(
+					.. model.AllProperties.Select(static property => new ParameterDeclarationOptions(
 						ValueObjectSymbolInspector.ToCamelCase(property.Name),
 						property.Type
 					)),
@@ -136,7 +136,7 @@ static partial class ComplexValueObjectEmitter
 			},
 			body =>
 			{
-				foreach (var property in model.Properties)
+				foreach (var property in model.AllProperties)
 				{
 					var parameterName = ValueObjectSymbolInspector.ToCamelCase(property.Name);
 					if (
@@ -157,7 +157,7 @@ static partial class ComplexValueObjectEmitter
 					new ObjectCreationOptions(
 						ValueObjectType(model),
 						[
-							.. model.Properties.Select(static property => new MethodCallArgumentOptions(
+							.. model.AllProperties.Select(static property => new MethodCallArgumentOptions(
 								ValueObjectSymbolInspector.ToCamelCase(property.Name)
 							)),
 						]
@@ -177,7 +177,7 @@ static partial class ComplexValueObjectEmitter
 					body.MethodCall(
 						"instance.OnValidate",
 						[
-							.. model.Properties.Select(static property =>
+							.. model.AllProperties.Select(static property =>
 								ValueObjectSymbolInspector.ToCamelCase(property.Name)
 							),
 						]
@@ -212,7 +212,7 @@ static partial class ComplexValueObjectEmitter
 				],
 				Parameters =
 				[
-					.. model.Properties.Select(static property => new ParameterDeclarationOptions(
+					.. model.AllProperties.Select(static property => new ParameterDeclarationOptions(
 						ValueObjectSymbolInspector.ToCamelCase(property.Name),
 						property.Type
 					)),
@@ -228,7 +228,7 @@ static partial class ComplexValueObjectEmitter
 
 		var hydrateArgs = string.Join(
 			", ",
-			model.Properties.Select(static property => ValueObjectSymbolInspector.ToCamelCase(property.Name))
+			model.AllProperties.Select(static property => ValueObjectSymbolInspector.ToCamelCase(property.Name))
 		);
 
 		writer.Method(
@@ -237,7 +237,7 @@ static partial class ComplexValueObjectEmitter
 				IsStatic = true,
 				Parameters =
 				[
-					.. model.Properties.Select(static property => new ParameterDeclarationOptions(
+					.. model.AllProperties.Select(static property => new ParameterDeclarationOptions(
 						ValueObjectSymbolInspector.ToCamelCase(property.Name),
 						property.Type
 					)),
@@ -263,7 +263,7 @@ static partial class ComplexValueObjectEmitter
 
 	static void EmitConstructor(CodeWriter writer, ComplexValueObjectModel model)
 	{
-		if (model.CtorExists || model.Properties.IsEmpty)
+		if (model.CtorExists || model.AllProperties.IsEmpty)
 			return;
 
 		writer.Constructor(
@@ -271,7 +271,7 @@ static partial class ComplexValueObjectEmitter
 			{
 				Parameters =
 				[
-					.. model.Properties.Select(static property => new ParameterDeclarationOptions(
+					.. model.AllProperties.Select(static property => new ParameterDeclarationOptions(
 						ValueObjectSymbolInspector.ToCamelCase(property.Name),
 						property.Type
 					)),
@@ -279,7 +279,7 @@ static partial class ComplexValueObjectEmitter
 			},
 			body =>
 			{
-				foreach (var property in model.Properties)
+				foreach (var property in model.AllProperties)
 					body.Assignment(property.Name, ValueObjectSymbolInspector.ToCamelCase(property.Name));
 			}
 		);

@@ -34,6 +34,8 @@ public sealed class ValueObjectDiagnosticAnalyzer : DiagnosticAnalyzer
 			DiagnosticLibrary.ScalarNullabilityContradictsProperty,
 			DiagnosticLibrary.ScalarPropertyTypeMismatch,
 			DiagnosticLibrary.NullableScalarPropertyShouldBeNullable,
+			DiagnosticLibrary.ValueObjectMustBeInstantiable,
+			DiagnosticLibrary.UnionValueObjectsAreNotSupported,
 		];
 
 	public override void Initialize(AnalysisContext context)

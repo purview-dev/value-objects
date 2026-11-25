@@ -858,6 +858,51 @@ public sealed class ValueObjectDiagnosticAnalyzerTests : AnalyzerTestBase<ValueO
 			.IsEqualTo(Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
 	}
 
+#if NET11_0_OR_GREATER
+	[Test]
+	public async Task CSharp15_ClosedType_ReportsValueObjectMustBeInstantiable(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public closed partial record ClosedProbe
+				{
+					public string Head { get; }
+				}
+			}
+			""";
+
+		var result = await AnalyzeAsync(
+			source,
+			new AnalyzerTestOptions { LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview },
+			cancellationToken
+		);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.ValueObjectMustBeInstantiable);
+	}
+
+	[Test]
+	public async Task CSharp15_UnionType_ReportsUnionValueObjectsAreNotSupported(CancellationToken cancellationToken)
+	{
+		const string source = """
+			namespace Testing
+			{
+				[Purview.ValueObjects.Serialization.ValueObject]
+				public partial union UnionProbe(int, string);
+			}
+			""";
+
+		var result = await AnalyzeAsync(
+			source,
+			new AnalyzerTestOptions { LanguageVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview },
+			cancellationToken
+		);
+
+		await Assert.That(result).HasDiagnostic(DiagnosticLibrary.UnionValueObjectsAreNotSupported);
+	}
+#endif
+
 	protected override AnalyzerTestOptions OnBeforeRun(
 		IEnumerable<string> sources,
 		AnalyzerTestOptions options,

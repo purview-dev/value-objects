@@ -140,6 +140,18 @@ Keep members `readonly`/`init`-only — a mutable member is `VO1016` and makes e
 `struct`, declare `OnValidate` as `readonly` when it does not mutate; the generator mirrors the
 modifier.
 
+A collection member takes part in identity by its contents: arrays and other sequences compare in order,
+`ISet<T>`/`IReadOnlySet<T>` and `IDictionary<TKey, TValue>`/`IReadOnlyDictionary<TKey, TValue>` compare
+without regard to order, and a collection of collections or a collection-valued dictionary entry recurses.
+`null` equals `null` but not an empty collection, and `CompareTo` orders by count then contents instead of
+throwing. Records and non-records behave the same; a derived record includes its base members through
+`base.Equals`/`base.GetHashCode()`, and the inherited public record members are part of `Create`/`Hydrate`,
+the hooks, the constructor and the JSON shape (base first).
+
+A concrete case of a C# 15 `closed` hierarchy can be `[ValueObject]`, but the closed type itself is
+implicitly abstract (`VO1032`). A `union` can be a member, but a union declaration cannot be a value object
+(`VO1033`).
+
 ## Contextual value objects
 
 When validity depends on the owning instance's current state — a state machine, a cross-field rule

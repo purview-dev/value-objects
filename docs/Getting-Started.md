@@ -267,6 +267,20 @@ public readonly partial record struct Money
 }
 ```
 
+A collection member participates in equality and hashing by its **contents**. An array or `IEnumerable<T>`
+member compares element by element in order; an `ISet<T>`/`IReadOnlySet<T>` compares without regard to
+order, and so does an `IDictionary<TKey, TValue>`/`IReadOnlyDictionary<TKey, TValue>` (including a
+collection value). `null` equals `null` but not an empty collection, and a collection of collections
+compares recursively. Elements use `EqualityComparer<T>.Default`, so a nested value object keeps its own
+generated equality. `CompareTo` orders a collection member by its count and then its contents rather than
+throwing.
+
+A derived record's inherited public members are part of its identity **and** its generated `Create`,
+`Hydrate`, hooks, constructor and JSON shape (base members first), so a derived record round-trips with its
+base state. A concrete case of a C# 15 `closed` hierarchy can be a `[ValueObject]`; a closed or abstract type
+itself cannot (`VO1032`), because it cannot be instantiated. A C# 15 `union` can be a member and keeps its own
+generated equality, but a union declaration cannot itself be a value object (`VO1033`).
+
 ## 4. Contextual value objects
 
 When validity depends on the owning instance, implement `IContextualValueObject<TSelf, TValue, TOwner>`:

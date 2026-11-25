@@ -283,4 +283,24 @@ public static class DiagnosticLibrary
 		isEnabledByDefault: true,
 		customTags: [WellKnownDiagnosticTags.CompilationEnd]
 	);
+
+	/// <summary>VO1032: A closed or abstract type cannot be a value object </summary>
+	public static readonly DiagnosticDescriptor ValueObjectMustBeInstantiable = new(
+		id: "VO1032",
+		title: "Value object must be instantiable",
+		messageFormat: "Value object '{0}' cannot be used with [{1}] because it is {2}; mark a concrete type as the value object instead",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	/// <summary>VO1033: A union cannot be a value object </summary>
+	public static readonly DiagnosticDescriptor UnionValueObjectsAreNotSupported = new(
+		id: "VO1033",
+		title: "Unions cannot be value objects",
+		messageFormat: "Value object '{0}' is a union and cannot be used with [{1}]; a union already provides its own value, equality and TryGetValue members, so use the union as a member type instead",
+		category: ValueObjectCategory,
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
 }

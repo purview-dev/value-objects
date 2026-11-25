@@ -49,6 +49,31 @@ public sealed class ValueObjectSourceGeneratorIncrementalTests : ValueObjectSour
 		}
 		""";
 
+	const string ComplexCollectionSource = """
+		using Purview.ValueObjects.Serialization;
+
+		namespace Testing
+		{
+			[ValueObject]
+			public sealed partial record DocumentProbe
+			{
+				public string Head { get; }
+
+				public System.Collections.Generic.IReadOnlyList<int> Items { get; }
+			}
+		}
+		""";
+
+	[Test]
+	public async Task Generate_ComplexTargetWithCollectionMember_RerunStaysCached(CancellationToken cancellationToken)
+	{
+		var result = await GenerateIncrementalAsync([ComplexCollectionSource], cancellationToken: cancellationToken);
+
+		var reasons = StepReasons(result.Runs[1], "GetComplexValueObjectTargets");
+		await Assert.That(reasons.Length).IsEqualTo(1);
+		await Assert.That(reasons.All(static reason => reason is StepReason.Cached or StepReason.Unchanged)).IsTrue();
+	}
+
 	[Test]
 	public async Task Generate_FirstRun_AllScalarTargetsNew(CancellationToken cancellationToken)
 	{

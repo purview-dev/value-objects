@@ -121,6 +121,43 @@ The value object always implements `IComparable<TSelf>` and `IComparable` (and a
 `CompareTo(TValue)`) because the value-object contract requires it. Numeric and arithmetic interfaces,
 `IConvertible`, and collection interfaces are intentionally not mirrored.
 
+## Equality and hashing
+
+A complex value object's identity includes its collection members by **contents**. The generated `Equals`,
+`==`, `!=` and `GetHashCode` route an array or `IEnumerable<T>` member through `ValueObjectEquality` rather
+than `EqualityComparer<T>.Default`, whose collection implementation is reference identity:
+
+| Member shape | Equality | Hash |
+| --- | --- | --- |
+| array or other `IEnumerable<T>` | ordered sequence, element by element | order-sensitive |
+| `ISet<T>` / `IReadOnlySet<T>` | set contents, order-insensitive | order-insensitive |
+| `IDictionary<TKey, TValue>` / `IReadOnlyDictionary<TKey, TValue>` | same keys mapped to equal values, order-insensitive | order-insensitive |
+
+Elements compare through `EqualityComparer<T>.Default`, so a nested value object keeps its own generated
+equality, a collection of collections recurses, and a dictionary whose value is a collection compares that
+value structurally. `null` equals `null` but not an empty collection; a nullable collection member never
+throws. A custom `ISet<T>`/`IDictionary<TKey, TValue>` comparer is not observed, because using it for
+equality while hashing with `EqualityComparer<T>.Default` would let equal values produce different hashes;
+a dictionary key that is itself a collection is likewise not recursed.
+
+This applies to records and non-records alike: the generator declares `Equals(TSelf)` on a record (the
+compiler-synthesized record member compares fields by reference), marking it `virtual` on a non-sealed
+record class. A derived record's base members are included through `base.Equals` and `base.GetHashCode()`,
+and its inherited public record members are included (base first) in the generated `Create`, `Hydrate`,
+hooks, constructor and JSON converter — so the serialized shape and the factories agree with identity.
+`CompareTo` gives a collection member a defined total order — `null` first, then `Count`, then the elements
+(ordered sequences) or an order-insensitive content hash (sets and dictionaries) — so it no longer throws
+`ArgumentException` ("At least one object must implement IComparable").
+
+### C# 15 constructs
+
+A concrete case of a `closed` hierarchy can be a `[ValueObject]` (for example a positional record deriving
+from a `closed` base); equality delegates to the base as above. A `closed` type is implicitly abstract, so
+marking the closed type itself is `VO1032`; mark a concrete derived type instead. A `union` can be a value
+object member and takes part in equality through its own generated equality, but a union declaration cannot
+itself be a `[ValueObject]` (`VO1033`) — it already provides its own value, equality and `TryGetValue`
+members and cannot carry a partial value-object declaration.
+
 ## Contextual value objects
 
 `IContextualValueObject<TSelf, TValue, TOwner>` lets a value object validate against the owning instance:
