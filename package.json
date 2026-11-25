@@ -1,6 +1,6 @@
 {
 	"name": "value-objects",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"license": "MIT",
 	"author": {
 		"name": "Kieron Lanning",
@@ -13,5 +13,9 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/purview-dev/value-objects.git"
+	},
+	"devDependencies": {
+		"oxfmt": "^0.79.0",
+		"oxlint": "^1.94.0"
 	}
 }

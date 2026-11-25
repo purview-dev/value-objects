@@ -49,6 +49,10 @@
 *.jsx       text
 *.ts        text
 *.tsx       text
+*.mjs       text
+*.mts       text
+*.cjs       text
+*.cts       text
 *.html      text diff=html
 *.css       text
 *.scss      text
@@ -68,7 +72,15 @@
 Dockerfile  text eol=lf
 *.dockerfile text eol=lf
 justfile    text eol=lf
+Justfile    text eol=lf
+*.just      text eol=lf
 Makefile    text eol=lf
+
+# Lockfiles -- text (bun.lock is JSONC) but generated, so collapse them in diffs/PRs.
+bun.lock           text eol=lf -diff linguist-generated
+package-lock.json  text eol=lf -diff linguist-generated
+pnpm-lock.yaml     text eol=lf -diff linguist-generated
+yarn.lock          text eol=lf -diff linguist-generated
 
 # Patches carry their own endings -- never touch them.
 *.patch     -text

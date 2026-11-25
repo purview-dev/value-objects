@@ -20,7 +20,7 @@ static partial class ComplexValueObjectEmitter
 			return;
 
 		var helper = TypeLibrary.ValueObjectJsonGlobalName;
-		var properties = model.Properties.ToArray();
+		var properties = model.AllProperties.ToArray();
 		var hydrateArgs = string.Join(", ", properties.Select(static (_, index) => MemberLocal(index)));
 		var valueObjectType = ValueObjectType(model);
 		var unableToDeserialize = $"\"Unable to deserialize {model.TypeModel.Name}.\"";

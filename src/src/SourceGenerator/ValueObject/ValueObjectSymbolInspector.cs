@@ -64,6 +64,40 @@ static class ValueObjectSymbolInspector
 			);
 		}
 
+		// C# 15 union declarations already provide value/HasValue/TryGetValue and equality members, and
+		// cannot carry a partial value-object declaration (CS0261). C# 15 closed types are implicitly
+		// abstract, so the generated Create/Hydrate cannot instantiate them (CS0144); a plain abstract type
+		// has the same problem. Report one clear diagnostic instead of a compiler error in generated code.
+		// IsUnion/IsClosed are Roslyn 5.9 evaluation APIs; the generator targets that pinned version and the
+		// build fails if they disappear.
+#pragma warning disable RSEXPERIMENTAL006 // C# 15 union/closed symbols are experimental in Roslyn 5.9.
+		if (typeSymbol.IsUnion)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.UnionValueObjectsAreNotSupported,
+					isBlocking: true,
+					location,
+					typeSymbol.Name,
+					attributeName
+				)
+			);
+		}
+		else if (typeSymbol.IsClosed || typeSymbol.IsAbstract)
+		{
+			diagnostics.Add(
+				ReportableDiagnostic.Create(
+					DiagnosticLibrary.ValueObjectMustBeInstantiable,
+					isBlocking: true,
+					location,
+					typeSymbol.Name,
+					attributeName,
+					typeSymbol.IsClosed ? "closed (a closed type is implicitly abstract)" : "abstract"
+				)
+			);
+		}
+#pragma warning restore RSEXPERIMENTAL006
+
 		return diagnostics;
 	}
 
@@ -148,6 +182,28 @@ static class ValueObjectSymbolInspector
 			.OfType<IMethodSymbol>()
 			.Any(method =>
 				!method.IsStatic
+				&& method.Parameters.Length == parameterTypes.Count
+				&& ParametersMatch(method.Parameters, parameterTypes)
+			);
+	}
+
+	/// <summary>
+	/// True when the author declared the instance method in source. Compiler-synthesized record members are
+	/// implicitly declared, so a <c>record</c>'s synthesized <c>Equals(TSelf)</c> does not count as an author
+	/// declaration: the generator must replace it to give a collection member contents equality.
+	/// </summary>
+	public static bool HasDeclaredInstanceMethod(
+		INamedTypeSymbol typeSymbol,
+		string name,
+		IReadOnlyList<ITypeSymbol> parameterTypes
+	)
+	{
+		return typeSymbol
+			.GetMembers(name)
+			.OfType<IMethodSymbol>()
+			.Any(method =>
+				!method.IsStatic
+				&& !method.IsImplicitlyDeclared
 				&& method.Parameters.Length == parameterTypes.Count
 				&& ParametersMatch(method.Parameters, parameterTypes)
 			);
@@ -395,6 +451,86 @@ static class ValueObjectSymbolInspector
 			&& named.AllInterfaces.Any(static iface =>
 				iface.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
 			);
+	}
+
+	/// <summary>
+	/// True when the collection is a set: it implements <c>ISet&lt;T&gt;</c> or <c>IReadOnlySet&lt;T&gt;</c>, so its
+	/// elements have no meaningful order and compare as a set.
+	/// </summary>
+	public static bool IsSetCollection(ITypeSymbol collectionType) =>
+		ImplementsGenericInterfaceByName(collectionType, "ISet")
+		|| ImplementsGenericInterfaceByName(collectionType, "IReadOnlySet");
+
+	/// <summary>
+	/// The key and value types of a dictionary member, when it implements <c>IDictionary&lt;K,V&gt;</c> or
+	/// <c>IReadOnlyDictionary&lt;K,V&gt;</c>.
+	/// </summary>
+	public static bool TryGetDictionaryTypeArguments(
+		ITypeSymbol collectionType,
+		out ITypeSymbol keyType,
+		out ITypeSymbol valueType
+	)
+	{
+		foreach (var candidate in EnumerateSelfAndInterfaces(collectionType))
+		{
+			if (
+				candidate is INamedTypeSymbol { Arity: 2 } named
+				&& named.ContainingNamespace.ToDisplayString() == "System.Collections.Generic"
+				&& named.OriginalDefinition.Name is "IDictionary" or "IReadOnlyDictionary"
+			)
+			{
+				keyType = named.TypeArguments[0];
+				valueType = named.TypeArguments[1];
+				return true;
+			}
+		}
+
+		keyType = null!;
+		valueType = null!;
+		return false;
+	}
+
+	/// <summary>
+	/// The element type of an array or of a type implementing <c>IEnumerable&lt;T&gt;</c>, or
+	/// <see langword="null"/> when the type is not a collection.
+	/// </summary>
+	public static ITypeSymbol? GetCollectionElementType(ITypeSymbol collectionType)
+	{
+		if (collectionType is IArrayTypeSymbol array)
+			return array.ElementType;
+
+		foreach (var candidate in EnumerateSelfAndInterfaces(collectionType))
+		{
+			if (
+				candidate is INamedTypeSymbol { Arity: 1 } named
+				&& named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
+			)
+				return named.TypeArguments[0];
+		}
+
+		return null;
+	}
+
+	static bool ImplementsGenericInterfaceByName(ITypeSymbol type, string interfaceName)
+	{
+		foreach (var candidate in EnumerateSelfAndInterfaces(type))
+		{
+			if (
+				candidate is INamedTypeSymbol { Arity: 1 } named
+				&& named.ContainingNamespace.ToDisplayString() == "System.Collections.Generic"
+				&& named.OriginalDefinition.Name == interfaceName
+			)
+				return true;
+		}
+
+		return false;
+	}
+
+	static IEnumerable<ITypeSymbol> EnumerateSelfAndInterfaces(ITypeSymbol type)
+	{
+		yield return type;
+		foreach (var @interface in type.AllInterfaces)
+			yield return @interface;
 	}
 
 	public static bool HasContextualCreateOverload(INamedTypeSymbol typeSymbol, ITypeSymbol primitiveType)
@@ -866,16 +1002,13 @@ static class ValueObjectSymbolInspector
 		if (typeSymbol.IsReferenceType)
 			return $"({ToTypeName(typeSymbol)})null!";
 
-		if (
-			typeSymbol is INamedTypeSymbol namedTypeSymbol
-			&& namedTypeSymbol.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
-		)
-		{
-			return "null";
-		}
+		// A bare 'default' is target-typed, and a record with one value-type member has two single-parameter
+		// constructors (the copy constructor and the generated member constructor), so 'this(default)' is
+		// ambiguous (CS0121). Spell the type so exactly one constructor is a candidate.
+		if (TypeLibrary.System.Guid.Equals(typeSymbol))
+			return $"{TypeLibrary.System.Guid}.Empty";
 
-		// For value types, we can use the default literal, but for Guid, we want to use Guid.Empty
-		return TypeLibrary.System.Guid.Equals(typeSymbol) ? $"{TypeLibrary.System.Guid}.Empty" : "default";
+		return $"default({ToTypeName(typeSymbol)})";
 	}
 
 	public static IFieldSymbol[] GetEnumFields(ITypeSymbol enumTypeSymbol) =>

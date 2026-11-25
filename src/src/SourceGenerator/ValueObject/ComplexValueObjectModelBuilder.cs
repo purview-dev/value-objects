@@ -58,42 +58,75 @@ static class ComplexValueObjectModelBuilder
 			.Where(property => ValueObjectSymbolInspector.IsValueObjectMember(typeSymbol, property))
 			.OrderBy(property => property.Locations.FirstOrDefault()?.SourceSpan.Start ?? int.MaxValue)
 			.ToArray();
+		var inheritedProperties = CollectInheritedRecordProperties(typeSymbol, properties);
+		var allProperties = ImmutableArray.CreateBuilder<IPropertySymbol>(
+			inheritedProperties.Length + properties.Length
+		);
+		allProperties.AddRange(inheritedProperties);
+		allProperties.AddRange(properties);
+		var factoryProperties = allProperties.ToImmutable();
 
 		CollectStringNormalizePlacementDiagnostics(typeSymbol, properties, diagnosticsList, cancellationToken);
 
 		var ctorExists = typeSymbol
 			.Constructors.Where(static ctor => !ctor.IsStatic)
-			.Any(ctor => ValueObjectSymbolInspector.ConstructorMatches(ctor, properties));
+			.Any(ctor => ValueObjectSymbolInspector.ConstructorMatches(ctor, [.. factoryProperties]));
 
 		var createExists = ValueObjectSymbolInspector.HasStaticFactory(
 			typeSymbol,
 			"Create",
-			[.. properties.Select(property => property.Type)]
+			[.. factoryProperties.Select(property => property.Type)]
+		);
+		// Only an author-declared Create suppresses normalization. The analyzer runs over the
+		// post-generation compilation, where the generated Create is present but is not an author declaration.
+		var declaredCreateExists = ValueObjectSymbolInspector.HasDeclaredStaticFactory(
+			typeSymbol,
+			"Create",
+			[.. factoryProperties.Select(property => property.Type)]
 		);
 
 		var propertyModels = BuildPropertyModels(
 			typeSymbol,
 			properties,
-			ValueObjectSymbolInspector.HasDeclaredStaticFactory(
-				typeSymbol,
-				"Create",
-				[.. properties.Select(property => property.Type)]
-			),
+			declaredCreateExists,
 			assemblyDefaults,
 			location,
 			diagnosticsList
 		);
+		// The base record's own generation already reports diagnostics for its members, so the inherited
+		// models reuse the resolution but discard the duplicate diagnostics.
+		var inheritedPropertyModels = BuildPropertyModels(
+			typeSymbol,
+			inheritedProperties,
+			declaredCreateExists,
+			assemblyDefaults,
+			location,
+			[]
+		);
+		var allPropertyModels = ImmutableArray.CreateBuilder<ComplexPropertyModel>(
+			inheritedPropertyModels.Length + propertyModels.Length
+		);
+		allPropertyModels.AddRange(inheritedPropertyModels);
+		allPropertyModels.AddRange(propertyModels);
 
 		var hydrateExists = ValueObjectSymbolInspector.HasStaticFactory(
 			typeSymbol,
 			"Hydrate",
-			[.. properties.Select(property => property.Type)]
+			[.. factoryProperties.Select(property => property.Type)]
 		);
 		var compareToSelfExists = ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "CompareTo", [typeSymbol]);
 		var compareToObjectExists = ValueObjectSymbolInspector.HasCompareToObject(typeSymbol);
 		var isReferenceType = typeSymbol.TypeKind == TypeKind.Class;
-		var equalsSelfExists =
-			typeSymbol.IsRecord || ValueObjectSymbolInspector.HasInstanceMethod(typeSymbol, "Equals", [typeSymbol]);
+		// A derived record's base members are part of its identity. Create/Hydrate/JSON include the
+		// inherited public members, and equality also delegates to the base record so base state that is
+		// not exposed as a property still takes part.
+		var recordBaseTypeName =
+			isReferenceType && typeSymbol.BaseType is { IsRecord: true } recordBase
+				? ValueObjectSymbolInspector.ToTypeName(recordBase)
+				: null;
+		// A record's compiler-synthesized Equals(TSelf) is implicitly declared, so it must not count as an
+		// author declaration: the emitter replaces it to give a collection member contents equality.
+		var equalsSelfExists = ValueObjectSymbolInspector.HasDeclaredInstanceMethod(typeSymbol, "Equals", [typeSymbol]);
 		// IEquatable<TSelf> is added for every shape that does not already implement it (records synthesize
 		// it). When the author declared Equals(TSelf), the interface is only added if their parameter is
 		// nullability-compatible; a non-nullable reference parameter would report CS8767.
@@ -116,17 +149,17 @@ static class ComplexValueObjectModelBuilder
 		var declareOnNormalize = ValueObjectSymbolInspector.ShouldEmitComplexHookDeclaration(
 			typeSymbol,
 			"OnNormalize",
-			properties.Length,
+			factoryProperties.Length,
 			includeRef: true
 		);
 		var declareOnValidate = ValueObjectSymbolInspector.ShouldEmitComplexHookDeclaration(
 			typeSymbol,
 			"OnValidate",
-			properties.Length
+			factoryProperties.Length
 		);
 		var validateHookIsReadOnly =
 			typeSymbol.TypeKind == TypeKind.Struct
-			&& ValueObjectSymbolInspector.IsComplexHookReadOnly(typeSymbol, "OnValidate", properties.Length);
+			&& ValueObjectSymbolInspector.IsComplexHookReadOnly(typeSymbol, "OnValidate", factoryProperties.Length);
 
 		var parameterlessCtorExists = typeSymbol
 			.Constructors.Where(static ctor => !ctor.IsStatic)
@@ -137,7 +170,7 @@ static class ComplexValueObjectModelBuilder
 
 		var efConstructorArguments = ValueObjectSymbolInspector.TryGetEFConstructorArguments(
 			typeSymbol,
-			properties,
+			[.. factoryProperties],
 			out var efCtorArgs
 		)
 			? efCtorArgs
@@ -153,7 +186,7 @@ static class ComplexValueObjectModelBuilder
 			onValidateImplemented: ValueObjectSymbolInspector.HasHookImplementation(
 				typeSymbol,
 				"OnValidate",
-				properties.Length
+				factoryProperties.Length
 			),
 			diagnosticsList
 		);
@@ -194,13 +227,14 @@ static class ComplexValueObjectModelBuilder
 			);
 		}
 
-		var emptyArguments = ImmutableArray.CreateBuilder<string>(properties.Length);
-		foreach (var property in properties)
+		var emptyArguments = ImmutableArray.CreateBuilder<string>(factoryProperties.Length);
+		foreach (var property in factoryProperties)
 			emptyArguments.Add(ValueObjectSymbolInspector.GetEmptyValueExpression(property.Type));
 
 		ComplexValueObjectModel model = new(
 			typeModel.Value,
 			propertyModels,
+			allPropertyModels.ToImmutable(),
 			valueObjectOptions,
 			ctorExists,
 			hintName,
@@ -209,6 +243,8 @@ static class ComplexValueObjectModelBuilder
 			typeSymbol.TypeKind == TypeKind.Struct,
 			typeSymbol.IsRecord,
 			typeSymbol.IsReadOnly,
+			typeSymbol.IsSealed,
+			recordBaseTypeName,
 			typeSymbol.DeclaredAccessibility.ToTypeDeclarationAccessibility(),
 			implementsSelfEquatable,
 			mirrorIEquatableSelf,
@@ -414,6 +450,12 @@ static class ComplexValueObjectModelBuilder
 				assemblyDefaults,
 				diagnostics
 			);
+			var (
+				collectionKind,
+				collectionElementTypeName,
+				collectionElementComparerExpression,
+				collectionValueComparerExpression
+			) = ClassifyCollectionMember(property.Type);
 			propertyModels.Add(
 				new ComplexPropertyModel(
 					property.Name,
@@ -422,7 +464,11 @@ static class ComplexValueObjectModelBuilder
 					normalizeTrim,
 					normalizeCasing,
 					normalizeExplicit,
-					ResolveMemberJsonConverter(property.Type, typeSymbol.ContainingAssembly, assemblyDefaults)
+					ResolveMemberJsonConverter(property.Type, typeSymbol.ContainingAssembly, assemblyDefaults),
+					collectionKind,
+					collectionElementTypeName,
+					collectionElementComparerExpression,
+					collectionValueComparerExpression
 				)
 			);
 		}
@@ -467,6 +513,118 @@ static class ComplexValueObjectModelBuilder
 		}
 
 		return propertyModels.ToImmutable();
+	}
+
+	/// <summary>
+	/// The public record members declared by the base record chain, oldest base first, so the generated
+	/// factories, hooks, constructor and JSON converter include the state a derived record's identity already
+	/// includes through <c>base.Equals</c>. A base member hidden by the same name in a more derived type is
+	/// skipped so a generated constructor cannot declare the same parameter twice.
+	/// </summary>
+	static IPropertySymbol[] CollectInheritedRecordProperties(
+		INamedTypeSymbol typeSymbol,
+		IPropertySymbol[] ownProperties
+	)
+	{
+		if (!typeSymbol.IsRecord || typeSymbol.TypeKind != TypeKind.Class)
+			return [];
+
+		HashSet<string> names = new(ownProperties.Select(static property => property.Name), StringComparer.Ordinal);
+		List<INamedTypeSymbol> baseTypes = [];
+		for (var baseType = typeSymbol.BaseType; baseType is { IsRecord: true }; baseType = baseType.BaseType)
+			baseTypes.Add(baseType);
+		baseTypes.Reverse();
+
+		List<IPropertySymbol> inherited = [];
+		foreach (var baseType in baseTypes)
+		{
+			foreach (var property in baseType.GetMembers().OfType<IPropertySymbol>())
+			{
+				if (
+					property.IsStatic
+					|| property.IsIndexer
+					|| property.GetMethod is null
+					|| property.DeclaredAccessibility != Accessibility.Public
+					|| !names.Add(property.Name)
+				)
+					continue;
+
+				inherited.Add(property);
+			}
+		}
+
+		return [.. inherited];
+	}
+
+	/// <summary>
+	/// Classifies a member's collection so the emitter never re-derives it: a dictionary or set is unordered and
+	/// compares without regard to order, and every other collection is an ordered sequence. A collection whose
+	/// element is itself a collection also carries the structural comparer the generated helper needs, so a nested
+	/// collection compares by contents rather than by reference.
+	/// </summary>
+	static (
+		ComplexMemberCollectionKind Kind,
+		string? ElementTypeName,
+		string? ElementComparerExpression,
+		string? ValueComparerExpression
+	) ClassifyCollectionMember(ITypeSymbol memberType)
+	{
+		if (!ValueObjectSymbolInspector.IsCollectionMember(memberType))
+			return (ComplexMemberCollectionKind.None, null, null, null);
+
+		if (ValueObjectSymbolInspector.TryGetDictionaryTypeArguments(memberType, out _, out var valueType))
+		{
+			return (ComplexMemberCollectionKind.Dictionary, null, null, BuildElementComparerExpression(valueType));
+		}
+
+		var isSet = ValueObjectSymbolInspector.IsSetCollection(memberType);
+		// A set is also an IEnumerable<T>, so the element type is resolved the same way for both shapes.
+		var elementType = ValueObjectSymbolInspector.GetCollectionElementType(memberType);
+		if (elementType is null)
+			return (ComplexMemberCollectionKind.None, null, null, null);
+
+		return (
+			isSet ? ComplexMemberCollectionKind.Set : ComplexMemberCollectionKind.Sequence,
+			ValueObjectSymbolInspector.ToTypeName(elementType),
+			BuildElementComparerExpression(elementType),
+			null
+		);
+	}
+
+	/// <summary>
+	/// The expression that constructs the structural comparer for a collection element that is itself a
+	/// collection, or <see langword="null"/> when the element is a scalar. The comparer is recursive: a
+	/// collection of collections of collections keeps comparing by contents at every level.
+	/// </summary>
+	static string? BuildElementComparerExpression(ITypeSymbol elementType)
+	{
+		if (!ValueObjectSymbolInspector.IsCollectionMember(elementType))
+			return null;
+
+		var comparerNamespace = "global::" + TypeLibrary.ValueObjectsNamespace;
+
+		if (ValueObjectSymbolInspector.TryGetDictionaryTypeArguments(elementType, out var keyType, out var valueType))
+		{
+			var valueComparer = BuildElementComparerExpression(valueType);
+			var valueComparerArgument = valueComparer is null ? string.Empty : valueComparer;
+			return $"new {comparerNamespace}.ValueObjectDictionaryComparer<{ValueObjectSymbolInspector.ToTypeName(keyType)}, {ValueObjectSymbolInspector.ToTypeName(valueType)}>({valueComparerArgument})";
+		}
+
+		var nestedElementType = ValueObjectSymbolInspector.GetCollectionElementType(elementType);
+		if (nestedElementType is null)
+			return null;
+
+		var isSet = ValueObjectSymbolInspector.IsSetCollection(elementType);
+		var nestedComparer = BuildElementComparerExpression(nestedElementType);
+		var comparerType = isSet ? "ValueObjectSetComparer" : "ValueObjectSequenceComparer";
+		// A sequence's comparer takes both an equality and an order comparer for its element; a set is
+		// unordered, so its comparer only needs equality.
+		var comparerArguments =
+			nestedComparer is null ? string.Empty
+			: isSet ? nestedComparer
+			: $"{nestedComparer}, {nestedComparer}";
+
+		return $"new {comparerNamespace}.{comparerType}<{ValueObjectSymbolInspector.ToTypeName(nestedElementType)}>({comparerArguments})";
 	}
 
 	/// <summary>

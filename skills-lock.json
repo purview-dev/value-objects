@@ -17,13 +17,13 @@
       "source": "purview-dev/build-sdk",
       "sourceType": "github",
       "skillPath": "skills/purview-buildsdk-adoption/SKILL.md",
-      "computedHash": "ed38157d532c45582bc3f768ca6605c4cbc1339fbbb6a45e34a8badee06af06f"
+      "computedHash": "5380ee60e34197a8af5ba8ec32e13ef84e541d014fe143ca0d815fff30a1b758"
     },
     "purview-buildsdk-configuration": {
       "source": "purview-dev/build-sdk",
       "sourceType": "github",
       "skillPath": "skills/purview-buildsdk-configuration/SKILL.md",
-      "computedHash": "7f33e4fee919a7e67033763f76f8e99e585ef128c937c6df58ebdae823949934"
+      "computedHash": "6eb2359d0c6acba80c5ea548c28e0e4df52ea5157435ba4372fde7e42981a577"
     },
     "purview-buildsdk-docs-sync": {
       "source": "purview-dev/build-sdk",
@@ -47,7 +47,7 @@
       "source": "purview-dev/build-sdk",
       "sourceType": "github",
       "skillPath": "skills/purview-buildsdk-project-detection/SKILL.md",
-      "computedHash": "8b39fdeba80cad1cfd19d394209affc95d2dbc3e6a2e0358d14dc54ba6892ed7"
+      "computedHash": "219f323ebd77536fa3424957798b88b89ae119cecef6d801d3101ab7981d6828"
     },
     "purview-buildsdk-project-layout": {
       "source": "purview-dev/build-sdk",
@@ -59,7 +59,7 @@
       "source": "purview-dev/build-sdk",
       "sourceType": "github",
       "skillPath": "skills/purview-buildsdk-repository-review/SKILL.md",
-      "computedHash": "08a5b7a34511959b72702ae8107c15ece77a27a7ef58c0b6b08e25a206f76c25"
+      "computedHash": "e09488299f61af4292be2a64c90622a826fd9a7df2640a73ddcc953216c07836"
     },
     "purview-buildsdk-settings-docs-sync": {
       "source": "purview-dev/build-sdk",
@@ -71,7 +71,7 @@
       "source": "purview-dev/build-sdk",
       "sourceType": "github",
       "skillPath": "skills/purview-buildsdk-skill-installation/SKILL.md",
-      "computedHash": "5a8cffd36dc696ec86276ddd089e9f859d4571b7606b46c0b82a5c52d5935e16"
+      "computedHash": "e00f5a1b4c1ab728338c9ccbfaf59dd0c2d228be4a30149d16699b2dce86fe8e"
     },
     "purview-buildsdk-skill-tests": {
       "source": "purview-dev/build-sdk",

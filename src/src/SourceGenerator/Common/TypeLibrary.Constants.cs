@@ -46,6 +46,12 @@ public static partial class TypeLibrary
 	/// </summary>
 	public const string ValueObjectJsonGlobalName = "global::" + SerializationNamespace + ".ValueObjectJson";
 
+	/// <summary>
+	/// The runtime's collection equality, hashing and ordering helpers, which generated complex equality and
+	/// comparison members call for a collection member instead of <c>EqualityComparer&lt;T&gt;.Default</c>.
+	/// </summary>
+	public const string ValueObjectEqualityGlobalName = "global::" + ValueObjectsNamespace + ".ValueObjectEquality";
+
 	// ZodSharp's runtime and generator-emitted types. The ZodSharp attribute and schema types are produced
 	// by the ZodSharp source generator, so these names are matched and emitted as qualified text rather than
 	// resolved as symbols (the value object generator must keep working when ZodSharp is not referenced).

@@ -9,6 +9,42 @@ Released versions correspond to `v<version>` GitHub releases. `package.json` is 
 newest heading below is the version in development. Earlier releases are listed under
 [releases](https://github.com/purview-dev/value-objects/releases).
 
+## 2.0.1
+
+### Fixed
+
+- **A complex value object compares a collection member by its contents, not by its reference.** The generated
+  `Equals`, `==`, `!=`, `GetHashCode` and `CompareTo` now route an array or `IEnumerable<T>` member through
+  `ValueObjectEquality` instead of `EqualityComparer<T>.Default` and `Comparer<T>.Default`. Two instances built
+  from equal contents are now equal and hash equally, so `HashSet<T>`, `Dictionary<TKey, TValue>`, `Assert` and
+  record-style comparison behave as a value object should. Ordered sequences compare order-sensitively; an
+  `ISet<T>`/`IReadOnlySet<T>` compares without regard to order, as does an
+  `IDictionary<TKey, TValue>`/`IReadOnlyDictionary<TKey, TValue>`. A `null` collection equals `null` but not an
+  empty one, a collection of collections recurses, and a dictionary whose value is a collection compares that value
+  structurally.
+- **A `record` complex value object now gets the generated `Equals(TSelf)`.** The C# compiler's synthesized record
+  `Equals` compared collection members by reference and could not be fixed from outside; the generated member
+  suppresses it (and is `virtual` for a non-sealed record class). A record and a non-record now agree.
+- **A derived record's base members are part of its identity and its serialized shape.** The generated equality
+  calls `base.Equals` and the hash includes `base.GetHashCode()`, instead of silently dropping the base record's
+  state. The generated `Create`, `Hydrate`, hooks, constructor and JSON converter now include the inherited public
+  record members (base first), so a derived record round-trips through JSON and reconstructs its base state.
+- **`CompareTo` no longer throws `ArgumentException` for a collection member.** Collections have a defined total
+  order: `null` first, then `Count`, then the elements (ordered sequences) or an order-insensitive content hash
+  (sets and dictionaries).
+- **A complex value object with a single value-type member no longer fails to compile.** The generated
+  parameterless constructor emitted a bare `default` argument, which was ambiguous between the record's copy
+  constructor and the member constructor (`CS0121`); it now spells the type.
+
+This is a behaviour change: instances that compared unequal now compare equal, and their hash codes change.
+
+### Added
+
+- **C# 15 constructs are supported where they make sense.** A concrete case of a `closed` hierarchy can be a
+  `[ValueObject]` (its equality delegates to the base), and a `union` can be a value-object member and keeps its
+  own generated equality. Marking a `closed`/abstract type (`VO1032`) or a union declaration (`VO1033`) as a value
+  object is now a clear error rather than a compiler error in generated code.
+
 ## 2.0.0
 
 A major release for the .NET 11 GA. It drops the two out-of-support target frameworks and modernises the build;

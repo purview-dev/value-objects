@@ -1,0 +1,25 @@
+# Project-level Bun configuration.
+# Mirrors the user-level .bunfig.toml installed by the profile; keys set here win.
+
+# Disable anonymous crash reporting and analytics.
+telemetry = false
+
+[run]
+# Prefer Bun over Node.js when launching scripts and shebang binaries.
+bun = true
+
+# Cross-platform shell execution.
+shell = "bun"
+
+# Don't echo each script command before executing it.
+silent = true
+
+# Terminate descendant processes when the parent exits.
+noOrphans = true
+
+[install]
+# Prefer cached package metadata to network staleness checks.
+prefer = "offline"
+
+# Still reach the registry when a package isn't cached.
+offline = false

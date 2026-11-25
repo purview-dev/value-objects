@@ -72,6 +72,10 @@ Inside a generated converter:
 - anything else - an enum, or a custom underlying type - needs metadata, so add `[JsonSerializable(typeof(T))]` to
   the context. The `NotSupportedException` thrown otherwise names the type.
 
+Generated collection equality is reflection-free too: `Equals`, `GetHashCode` and `CompareTo` call the generic
+`ValueObjectEquality` helpers, which use only `EqualityComparer<T>.Default`, interfaces and enumerators, so an array
+or collection member stays trimming- and Native AOT-safe.
+
 ## ZodSharp packages
 
 A Native AOT minimal API with `[Scalar]` + `[ZodSchema]` value objects in `Strict` mode, built against ZodSharp

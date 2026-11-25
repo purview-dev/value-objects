@@ -35,6 +35,8 @@ failure to the missing member.
 | `VO1028` | Error | `[Scalar<T>(Nullable = true)]` is combined with a declared `Value`, so nullability has two sources. | Remove the declared property; convert to the manual `[Scalar]` form; or remove `Nullable = true`. The code fix offers all three. |
 | `VO1029` | Error | Explicit `Nullable = false` contradicts a declared nullable `Value`. | Remove the declared `Value`, or use the manual `[Scalar]` form. |
 | `VO1030` | Error | The automatic form's declared `Value` type does not match the underlying type. | Remove the declaration, or use the manual `[Scalar]` form with a matching type. |
+| `VO1032` | Error | A `closed` or `abstract` type is marked `[Scalar]`/`[ValueObject]`. A closed type is implicitly abstract, so the generated `Create`/`Hydrate` cannot instantiate it. | Mark a concrete derived type as the value object instead. |
+| `VO1033` | Error | A C# 15 `union` declaration is marked `[Scalar]`/`[ValueObject]`. A union already provides its own value/equality members and cannot be a partial value object. | Use the union as a member type and mark a record or class as the value object instead. |
 
 ## String normalization rules
 
